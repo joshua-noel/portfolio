@@ -99,8 +99,16 @@ testers.runNixOSTest {
         assert "From the VM" in page
         assert "Hello from a test." in page
 
-    with subtest("and surfaces on the main site"):
-        assert "From the VM" in curl("http://127.0.0.1:4321/")
+    with subtest("the main site stays contact-only after publishing"):
+        page = curl("http://127.0.0.1:4321/")
+        assert "Let's talk." in page
+        assert 'href="mailto:elijah@noelejoshua.com"' in page
+        assert 'href="https://wa.me/18687260860"' in page
+        assert 'href="https://www.linkedin.com/in/noelejoshua/"' in page
+        assert "Readings" not in page
+        assert "My writings." not in page
+        assert "From the VM" not in page
+        assert "What I work on" not in page
 
     with subtest("unauthenticated writes are refused"):
         machine.succeed(
