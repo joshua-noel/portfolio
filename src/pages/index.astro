@@ -1,193 +1,20 @@
 ---
 import Base from "../layouts/Base.astro";
 import { getConfig } from "../lib/config.ts";
-import { formatDate, isoDate } from "../lib/format.ts";
-import { listPublished, summaryOf } from "../lib/posts.ts";
 
 const { blogUrl, siteUrl } = getConfig();
-const posts = listPublished(3);
-const cueTarget = posts.length > 0 ? "#writing" : "#contact";
 ---
 
 <Base title="Joshua Noel · Developer" canonical={siteUrl}>
   <main id="top">
-    <!-- Panel 1: intro (hero + what I work on) -->
-    <div class="panel panel-intro">
-      <!-- Hero (About folded in) -->
-      <section class="hero">
-        <p class="hero-eyebrow reveal">Trinidad, West Indies 🇹🇹</p>
-        <h1 class="hero-name reveal">Joshua Noel</h1>
-        <p class="hero-tagline reveal">
-          I build software that solves <span class="hl">real problems</span>
-        </p>
-        <div class="hero-body reveal">
-          <p>
-            I'm an automations engineer based in Trinidad. I mostly build things that help
-            make me and my team's lives easier. I front load the effort by boiling
-            problems down first, then solving not just for efficiency, but so that I don't
-            have to touch it again.
-          </p>
-          <p>
-            I love internal tools, automations and keeping up with technology/startup
-            news. When I'm not on the clock, I enjoy watching Formula 1 and exploring all
-            the things my country has to offer.
-          </p>
-        </div>
-      </section>
-
-      <!-- What I work on -->
-      <section class="focus" id="focus">
-        <div class="section-inner">
-          <h2 class="reveal">What I work on</h2>
-          <div class="cards">
-            <article class="card reveal">
-              <div class="card-icon" aria-hidden="true">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  ><polyline points="16 18 22 12 16 6"></polyline><polyline
-                    points="8 6 2 12 8 18"></polyline></svg
-                >
-              </div>
-              <h3>Software Development</h3>
-              <p>
-                Clean, beautifully written and maintainable code. Mostly Python, for
-                tools, bots, and web projects.
-              </p>
-            </article>
-            <article class="card reveal">
-              <div class="card-icon" aria-hidden="true">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  ><path d="M12 2v4"></path><path d="M12 18v4"></path><path
-                    d="M4.93 4.93l2.83 2.83"></path><path d="M16.24 16.24l2.83 2.83"
-                  ></path><path d="M2 12h4"></path><path d="M18 12h4"></path><path
-                    d="M4.93 19.07l2.83-2.83"></path><path d="M16.24 7.76l2.83-2.83"
-                  ></path></svg
-                >
-              </div>
-              <h3>Automation &amp; Integrations</h3>
-              <p>
-                Automating the boring stuff so that I can spend time actually building.
-              </p>
-            </article>
-            <article class="card reveal">
-              <div class="card-icon" aria-hidden="true">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  ><path
-                    d="M17.5 19a4.5 4.5 0 1 0-1.13-8.86 5.5 5.5 0 1 0-10.6 2.05A4 4 0 0 0 6.5 19h11z"
-                  ></path></svg
-                >
-              </div>
-              <h3>Cloud &amp; DevOps</h3>
-              <p>
-                Kubernetes, containers, and infrastructure. I'm really big on build once,
-                run anywhere
-              </p>
-            </article>
-            <article class="card reveal">
-              <div class="card-icon" aria-hidden="true">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  ><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"
-                  ></path><path d="M2 12l10 5 10-5"></path></svg
-                >
-              </div>
-              <h3>Lean Problem Solving</h3>
-              <p>I solve the actual cause, not symptoms</p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <a class="scroll-cue" href={cueTarget} aria-label="Scroll to the next section">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg
-        >
-      </a>
-    </div><!-- /panel 1 -->
-
-    <!-- Panel 2: writing (hidden until there is something to show) -->
-    {
-      posts.length > 0 && (
-        <section class="writing panel panel-writing" id="writing">
-          <div class="section-inner">
-            <h2 class="reveal">Writing</h2>
-            <p class="reveal">
-              Notes on the things I build, and the problems that made me build them.
-            </p>
-            <div class="cards cards-writing">
-              {posts.map((post) => (
-                <a class="card card-post reveal" href={`${blogUrl}/${post.slug}`}>
-                  <span class="card-date">
-                    <time datetime={isoDate(post.published_at)}>
-                      {formatDate(post.published_at)}
-                    </time>
-                  </span>
-                  <h3>{post.title}</h3>
-                  <p>{summaryOf(post)}</p>
-                </a>
-              ))}
-            </div>
-            <a class="writing-all reveal" href={blogUrl}>
-              All writing &rarr;
-            </a>
-          </div>
-
-          <a
-            class="scroll-cue"
-            href="#contact"
-            aria-label="Scroll to the contact section"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </a>
-        </section>
-      )
-    }
-
-    <!-- Panel 3: contact only -->
     <section class="contact panel panel-contact" id="contact">
       <div class="section-inner">
-        <h2 class="reveal">Let's talk.</h2>
-        <p class="reveal">
+        <h1>Let's talk.</h1>
+        <p>
           A project, an idea, or a problem you want to bounce off someone. Send me a
           message.
         </p>
-        <div class="contact-cards reveal">
+        <div class="contact-cards">
           <a class="contact-card" href="mailto:elijah@noelejoshua.com">
             <span class="contact-card-logo email" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="currentColor"
@@ -238,6 +65,7 @@ const cueTarget = posts.length > 0 ? "#writing" : "#contact";
             </span>
           </a>
         </div>
+        <a class="readings-link" href={blogUrl}>Readings</a>
       </div>
     </section>
   </main>

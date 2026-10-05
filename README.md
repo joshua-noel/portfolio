@@ -4,6 +4,8 @@ Personal site and blog. One Astro server on Node 24 with SQLite, serving two
 hostnames: the site at `noelejoshua.com` and the blog at
 `blog.noelejoshua.com`.
 
+The homepage shows contact links and a minimal Readings link to the blog.
+
 ## How it fits together
 
 Posts live in SQLite, not in git, so publishing is instant and needs no

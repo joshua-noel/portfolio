@@ -3,9 +3,8 @@ import { defineConfig } from "astro/config";
 import node from "@astrojs/node";
 
 export default defineConfig({
-  // Every route reads SQLite -- including the homepage, which lists recent
-  // posts -- so nothing is prerendered and the build never touches a
-  // database.
+  // Blog routes read SQLite, and canonical URLs use runtime configuration.
+  // Nothing is prerendered, so the build never touches a database.
   output: "server",
   // The adapter's default is 1 GiB, buffered before any route sees it. The
   // largest legitimate body is an 8 MiB upload (src/lib/uploads.ts).
