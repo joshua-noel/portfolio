@@ -313,19 +313,6 @@ a.card:focus-visible {
   white-space: nowrap;
 }
 
-.readings-link {
-  display: inline-block;
-  margin-top: 1.5rem;
-  color: var(--text-muted);
-  text-decoration: underline;
-  text-decoration-color: var(--border-strong);
-  text-underline-offset: 0.2em;
-}
-
-.readings-link:hover {
-  color: var(--text);
-}
-
 /* ---------- Entrance animations ---------- */
 
 /* Hidden only once the inline script in Base.astro has tagged <html>

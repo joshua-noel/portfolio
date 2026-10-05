@@ -2,7 +2,7 @@
 import Base from "../layouts/Base.astro";
 import { getConfig } from "../lib/config.ts";
 
-const { blogUrl, siteUrl } = getConfig();
+const { siteUrl } = getConfig();
 ---
 
 <Base title="Joshua Noel · Developer" canonical={siteUrl}>
@@ -65,7 +65,6 @@ const { blogUrl, siteUrl } = getConfig();
             </span>
           </a>
         </div>
-        <a class="readings-link" href={blogUrl}>Readings</a>
       </div>
     </section>
   </main>

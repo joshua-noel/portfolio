@@ -103,8 +103,10 @@ testers.runNixOSTest {
         page = curl("http://127.0.0.1:4321/")
         assert "Let's talk." in page
         assert 'href="mailto:elijah@noelejoshua.com"' in page
-        assert 'href="https://blog.test"' in page
-        assert "Readings" in page
+        assert 'href="https://wa.me/18687260860"' in page
+        assert 'href="https://www.linkedin.com/in/noelejoshua/"' in page
+        assert "Readings" not in page
+        assert "My writings." not in page
         assert "From the VM" not in page
         assert "What I work on" not in page
 
