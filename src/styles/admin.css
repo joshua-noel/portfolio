@@ -52,7 +52,7 @@ button:hover,
 .button-primary {
   border-color: var(--border-strong);
   background: var(--accent);
-  color: #2b2340;
+  color: var(--bg);
   font-weight: 600;
 }
 

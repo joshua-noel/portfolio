@@ -16,8 +16,9 @@ const xml = (text: string): string => text.replace(/[&<>"']/g, (c) => XML_ENTITI
 // Hand-rolled rather than @astrojs/sitemap: the URL set lives in SQLite and
 // is only known at request time, which a build-time integration cannot see.
 export const GET: APIRoute = () => {
-  const { blogUrl } = getConfig();
+  const { blogUrl, siteUrl } = getConfig();
   const entries = [
+    `<url><loc>${xml(siteUrl)}/</loc></url>`,
     `<url><loc>${xml(blogUrl)}/</loc></url>`,
     ...listPublished().map(
       (post) =>

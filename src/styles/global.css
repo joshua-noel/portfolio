@@ -1,77 +1,50 @@
 /* ============================================================
    Joshua Noel — personal site
-   Soft pastel palette on a cutting-mat blue backdrop.
+   One dark theme, one column, square corners. The only colour is
+   in the icons and one highlighted phrase. Plain HTML and CSS.
    Edit the design tokens below and everything follows.
    ============================================================ */
 
 :root {
-  color-scheme: light dark;
-  --bg: #e6eef9; /* light cutting-mat blue */
-  /* Kept faint: these lines run under body text, so every bit of alpha
-     costs contrast. */
-  --grid-fine: rgba(64, 104, 158, 0.045); /* 1-unit lines */
-  --grid-major: rgba(64, 104, 158, 0.08); /* every 5 units */
-  --grid-diag: rgba(64, 104, 158, 0.03); /* 45deg guides */
-  --bg-elevated: #ffffff; /* card surface */
-  --bg-surface: #ffffff; /* opaque reading surface (posts, code, tables) */
-  --border: rgba(120, 110, 150, 0.18);
-  --border-strong: rgba(255, 158, 125, 0.6);
-  --text: #3a3350; /* deep plum, readable */
-  --text-muted: #5e5878;
-  --text-faint: #665f80;
+  color-scheme: dark;
+  --bg: #0c0d10;
+  --bg-elevated: #14151a;
+  --bg-surface: #14151a;
+  --border: rgba(236, 235, 232, 0.13);
+  --border-strong: rgba(236, 235, 232, 0.34);
+  --text: #ecebe8;
+  --text-muted: #adacb5;
+  --text-faint: #8a8994;
 
-  /* Coral is too pale to carry text or focus rings on the light mat;
-     these are the same hue, darkened until they pass AA. */
-  --link: #b4441f;
-  --link-hover: #a8371a;
-  --focus: #c2410c;
-  --hl-text: #a8371a;
+  --link: #e08a6c;
+  --link-hover: #efa58c;
+  --focus: #e08a6c;
+  --hl-text: #e08a6c;
 
-  --danger: #b3261e;
-  --control-border: #8a84a0; /* 3:1 boundary for inputs and buttons */
-  --success-text: #0f6b5a;
-  --success-bg: #e0f7f4;
-  --warn-text: #8a5a00;
-  --warn-bg: #fdf1d8;
+  --danger: #ffb4ab;
+  --control-border: #7c7b87; /* 3:1 boundary for inputs and buttons */
+  --success-text: #77dddd;
+  --success-bg: rgba(119, 221, 221, 0.12);
+  --warn-text: #ffd27a;
+  --warn-bg: rgba(255, 210, 122, 0.12);
 
-  --accent: #ff9e7d; /* light coral */
+  --accent: #c9623f;
 
-  --radius: 18px;
+  /* The colour on the page: one deep hue per icon. */
+  --c-coral: #c9623f;
+  --c-teal: #2f8f83;
+  --c-violet: #7667c9;
+  --c-amber: #b8862b;
+  --c-blue: #4673c4;
+  /* Icons are their hue pulled toward this, so they clear 3:1 on their tile. */
+  --ink: #ffffff;
+
+  --radius: 0;
   --font:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    sans-serif;
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-serif:
     "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1a2b; /* deep cutting-mat navy */
-    --grid-fine: rgba(150, 185, 230, 0.07);
-    --grid-major: rgba(150, 185, 230, 0.14);
-    --grid-diag: rgba(150, 185, 230, 0.05);
-    --bg-elevated: #1c2737; /* opaque, so the grid stays behind cards */
-    --bg-surface: #16223a;
-    --border: rgba(230, 224, 245, 0.14);
-    --border-strong: rgba(255, 171, 144, 0.5);
-    --text: #efeaf6;
-    --text-muted: #c3bcd6;
-    --text-faint: #948da8;
-
-    --link: #ffab90;
-    --link-hover: #ffc2ad;
-    --focus: var(--accent);
-    --hl-text: #ffc2ad;
-
-    --danger: #ffb4ab;
-    --control-border: #7a7494;
-    --success-text: #77dddd;
-    --success-bg: rgba(119, 221, 221, 0.12);
-    --warn-text: #ffd27a;
-    --warn-bg: rgba(255, 210, 122, 0.12);
-
-    --accent: #ffab90; /* light coral (lifted for dark) */
-  }
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 }
 
 * {
@@ -82,6 +55,9 @@
 
 html {
   scroll-behavior: smooth;
+  /* Text and spacing grow with the window: 16px on a phone, about 17px on a
+     laptop, 20px on a 1440p monitor. Everything else is sized in rem. */
+  font-size: clamp(100%, 0.6rem + 0.55vw, 125%);
 }
 
 :focus-visible {
@@ -98,33 +74,20 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Cutting-mat texture on a FIXED layer: rasterizes once into its own
-   compositor layer and is never repainted while scrolling. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  transform: translateZ(0);
-  background-color: var(--bg);
-  background-image:
-    repeating-linear-gradient(45deg, var(--grid-diag) 0 1px, transparent 1px 96px),
-    repeating-linear-gradient(-45deg, var(--grid-diag) 0 1px, transparent 1px 96px),
-    linear-gradient(to right, var(--grid-major) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid-major) 1px, transparent 1px),
-    linear-gradient(to right, var(--grid-fine) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid-fine) 1px, transparent 1px);
-  background-size:
-    auto,
-    auto,
-    120px 120px,
-    120px 120px,
-    24px 24px,
-    24px 24px;
+/* Public pages fill the window, so the footer sits at the bottom of a short page. */
+body.public {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-/* ---------- Sections & layout ---------- */
+body.public > * {
+  width: 100%;
+}
+
+body.public > main {
+  flex: 1 0 auto;
+}
 
 main {
   max-width: 1040px;
@@ -132,171 +95,416 @@ main {
   padding: 0 clamp(1.25rem, 5vw, 3rem);
 }
 
-section {
-  padding: clamp(2.25rem, 6vh, 3.5rem) 0;
+/* ---------- One column, shared by every public page ---------- */
+
+:root {
+  --column: 68rem;
+  --gutter: clamp(1.25rem, 5vw, 2.5rem);
 }
 
-/* ---------- Full-viewport contact panel --------------------- */
+.site-footer,
+main.site,
+main.blog-main {
+  max-width: var(--column);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
 
-.panel {
-  min-height: 100vh;
+.site-header,
+.site-footer {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 3rem 0 1.5rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
 }
 
-.panel-contact {
+/* Stays in view while you scroll, so every section is one click away. The bar
+   runs the full width of the window; its contents line up with the column. */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  min-height: var(--header);
+  align-items: center;
+  padding-block: 0;
+  padding-inline: max(var(--gutter), calc((100% - var(--column)) / 2 + var(--gutter)));
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.site-header nav,
+.site-footer nav {
+  display: flex;
   gap: 1.5rem;
 }
 
-.section-inner {
-  max-width: 720px;
+.site-header a,
+.site-footer a {
+  color: var(--text-muted);
+  text-decoration: none;
+  /* Comfortable to tap without changing how the row looks. */
+  padding-block: 0.4rem;
 }
 
-h2 {
-  font-size: clamp(1.7rem, 4vw, 2.4rem);
+.site-header a:hover,
+.site-footer a:hover,
+.site-header a[aria-current="page"] {
+  color: var(--text);
+}
+
+.site-name {
   font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.site-header .site-name {
+  color: var(--text);
+}
+
+.site-footer {
+  padding-block: 1.5rem 3rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.9rem;
+  color: var(--text-faint);
+}
+
+/* Three panels: the opening, the work, then writing and contact together.
+   Each fills the window below the header, with its content centred. */
+:root {
+  --header: 4.25rem;
+}
+
+.site > section {
+  min-height: calc(100svh - var(--header));
+  padding-block: clamp(1.25rem, 5vh, 4rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* Anchor links and snapping stop below the sticky header. */
+  scroll-margin-top: var(--header);
+}
+
+.site > section + section {
+  border-top: 1px solid var(--border);
+}
+
+#contact {
+  scroll-margin-top: calc(var(--header) + 2rem);
+}
+
+/* One panel per scroll. src/scripts/panels.js adds `snap` to <html> when every
+   panel fits in the window, and moves between panels on a wheel turn or a key
+   press. This rule makes touch and the scrollbar settle on a panel too. Without
+   the script, or on a small window, the page scrolls normally. */
+html.snap {
+  scroll-snap-type: y mandatory;
+  scroll-padding-top: var(--header);
+}
+
+html.snap .site > section {
+  scroll-snap-align: start;
+  /* scroll-padding-top above already keeps a panel clear of the header. */
+  scroll-margin-top: 0;
+}
+
+html.snap .site-footer {
+  scroll-snap-align: end;
+}
+
+/* The last panel: writing, then contact below it. */
+.site > section.split {
+  gap: clamp(2.5rem, 7vh, 4.5rem);
+}
+
+.site > section.split h2 {
+  margin-bottom: 1rem;
+}
+
+.site h2 {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin-bottom: clamp(0.9rem, 3vh, 2rem);
+}
+
+.site h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Hero ---------- */
+
+.site .hero {
+  border-top: 0;
+}
+
+.hero h1 {
+  font-size: clamp(2.25rem, 7vw, 4.5rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
   margin-bottom: 1.25rem;
 }
 
-section p {
-  color: var(--text-muted);
-  max-width: 58ch;
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
 }
 
-section p + p {
+.cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  border: 1px solid var(--control-border);
+  border-radius: 0;
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.2s ease;
+}
+
+.cta:hover {
+  border-color: var(--text);
+}
+
+/* The page's one filled control: the way to reach me. */
+.cta-primary {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+/* ---------- Work ---------- */
+
+.work-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 1rem;
+}
+
+.work-item {
+  /* Icon beside the text, not above it: it keeps each box short, so the whole
+     panel fits in a laptop window. */
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 1rem;
+  padding: clamp(0.9rem, 2.2vh, 1.25rem);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+/* The main project: first, full width, with a line in its own colour. */
+.work-item.featured {
+  grid-column: 1 / -1;
+  border-left: 3px solid var(--hue);
+}
+
+.work-item.featured h3 {
+  font-size: 1.25rem;
+}
+
+.work-item.featured p:not(.work-stack) {
+  max-width: 68ch;
+}
+
+.tile {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--hue) 22%, transparent);
+  color: color-mix(in srgb, var(--hue) 55%, var(--ink));
+}
+
+.tile svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.work-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.15rem 1rem;
+}
+
+.work-head a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 0.2em;
+}
+
+.work-head a:hover {
+  text-decoration-color: currentColor;
+}
+
+.work-status {
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.work-item p {
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.work-item p.work-stack {
+  margin-top: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-faint);
+}
+
+/* ---------- Rows of posts (homepage and blog index) ---------- */
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0.15rem 1.5rem;
+  padding-block: 1rem;
+  border-bottom: 1px solid var(--border);
+  color: inherit;
+  text-decoration: none;
+}
+
+.row-title {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.row:hover .row-title {
+  color: var(--hl-text);
+}
+
+.row-date {
+  font-size: 0.85rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.row-sum {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.more {
   margin-top: 1rem;
 }
 
-.card {
-  padding: 1.4rem 1.3rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-elevated);
-  transition:
-    transform 0.3s ease,
-    border-color 0.3s ease,
-    box-shadow 0.3s ease;
+.more a {
+  color: var(--link);
+  font-weight: 600;
+  text-decoration: none;
 }
 
-/* Only cards that are links lift: movement promises a click. */
-a.card:hover,
-a.card:focus-visible {
-  transform: translateY(-4px);
-  border-color: var(--border-strong);
-  box-shadow: 0 10px 26px rgba(30, 50, 90, 0.1);
+.more a:hover {
+  text-decoration: underline;
 }
 
-.card p {
-  font-size: 0.92rem;
+.empty {
   color: var(--text-muted);
-  overflow-wrap: anywhere;
+  padding-block: 1rem;
 }
 
 /* ---------- Contact ---------- */
 
-.panel-contact h1 {
-  font-size: clamp(1.7rem, 4vw, 2.4rem);
+.contact-title {
+  font-size: clamp(1.7rem, 5vw, 2.3rem);
   font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  margin-bottom: 1.25rem;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin-bottom: 0.5rem;
 }
 
-.panel-contact .section-inner {
-  max-width: 820px;
-  margin-inline: auto;
-  text-align: center;
+.contact p {
+  color: var(--text-muted);
+  max-width: 52ch;
 }
 
-.panel-contact .section-inner > p {
-  margin-inline: auto;
+.contact p.contact-title {
+  color: var(--text);
 }
 
-/* Rectangular contact cards, each with its brand logo */
 .contact-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
-  margin-top: 2rem;
-  text-align: left;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: 0.75rem;
+  margin-top: 1.5rem;
 }
 
-@media (max-width: 680px) {
+@media (max-width: 560px) {
   .contact-cards {
     grid-template-columns: minmax(0, 1fr);
-    max-width: 420px;
-    margin-inline: auto;
   }
 }
 
 .contact-card {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
-  padding: 1.05rem 1.15rem;
+  gap: 0.85rem;
+  padding: 0.8rem 1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-elevated);
   text-decoration: none;
-  transition:
-    transform 0.25s ease,
-    border-color 0.25s ease,
-    box-shadow 0.25s ease;
+  transition: border-color 0.2s ease;
 }
 
-.contact-card:hover,
-.contact-card:focus-visible {
-  transform: translateY(-3px);
+.contact-card:hover {
   border-color: var(--border-strong);
-  box-shadow: 0 10px 26px rgba(30, 50, 90, 0.1);
-}
-
-.contact-card:focus-visible {
-  outline-offset: 3px;
 }
 
 .contact-card-logo {
   flex: none;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 24px;
+  height: 24px;
 }
 
 .contact-card-logo svg {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   display: block;
 }
+
 /* Brand colours, adjusted until each icon clears 3:1 on its card. */
 .contact-card-logo.email {
   color: var(--link);
 }
 .contact-card-logo.whatsapp {
-  color: #128c7e;
+  color: #25d366;
 }
 .contact-card-logo.linkedin {
-  color: #0a66c2;
+  color: #70b5f9;
 }
-
-@media (prefers-color-scheme: dark) {
-  .contact-card-logo.whatsapp {
-    color: #25d366;
-  }
-  .contact-card-logo.linkedin {
-    color: #70b5f9;
-  }
+.contact-card-logo.github,
+.contact-card-logo.resume {
+  color: var(--text);
 }
 
 .contact-card-text {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  line-height: 1.35;
 }
 
 .contact-card-label {

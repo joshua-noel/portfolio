@@ -4,7 +4,7 @@ Personal site and blog. One Astro server on Node 24 with SQLite, serving two
 hostnames: the site at `noelejoshua.com` and the blog at
 `blog.noelejoshua.com`.
 
-The homepage shows only the contact section. The blog and admin remain on the blog hostname.
+The homepage says who I am, shows my work and my latest writing, and ends with how to reach me. The work list is the `work` array at the top of `src/pages/index.astro`. The blog and admin stay on the blog hostname; both hostnames share one header and footer (`src/components/`).
 
 ## How it fits together
 

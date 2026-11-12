@@ -1,0 +1,27 @@
+---
+// One header for both hostnames, so the site and the blog read as one place.
+// Links are absolute because the same markup is served from either host.
+import { getConfig } from "../lib/config.ts";
+
+interface Props {
+  current?: "home" | "writing";
+}
+
+const { current } = Astro.props;
+const { siteUrl, blogUrl } = getConfig();
+---
+
+<header class="site-header">
+  <a
+    class="site-name"
+    href={`${siteUrl}/`}
+    aria-current={current === "home" ? "page" : undefined}>Joshua Noel</a
+  >
+  <nav aria-label="Site">
+    <a href={`${siteUrl}/#work`}>Work</a>
+    <a href={`${blogUrl}/`} aria-current={current === "writing" ? "page" : undefined}
+      >Writing</a
+    >
+    <a href={`${siteUrl}/#contact`}>Contact</a>
+  </nav>
+</header>
