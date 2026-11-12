@@ -1,19 +1,142 @@
 ---
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
 import Base from "../layouts/Base.astro";
 import { getConfig } from "../lib/config.ts";
+import { formatDate, isoDate } from "../lib/format.ts";
+import { listPublished } from "../lib/posts.ts";
 
-const { siteUrl } = getConfig();
+const { blogUrl, siteUrl } = getConfig();
+const posts = listPublished(3);
+
+// The work, most recent first. `href` only where there is something public
+// to open; private work says so instead of linking nowhere. `icon` is the
+// inside of a 24x24 stroked SVG; `hue` names one of the --c-* colours.
+const work: {
+  name: string;
+  what: string;
+  stack: string;
+  status: string;
+  hue: string;
+  icon: string;
+  href?: string;
+  /** Shown first, across the full width. */
+  featured?: boolean;
+}[] = [
+  {
+    name: "Access broker for coding agents",
+    what: "Coding agents never hold credentials. They ask; the broker checks policy, gets a passkey approval for anything risky, acts with its own keys, and logs every step.",
+    stack: "Go · SQLite · WebAuthn · MCP",
+    status: "Private",
+    hue: "violet",
+    icon: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9"/><path d="M17 6l3 3"/><path d="M14 9l2 2"/>',
+    featured: true,
+  },
+  {
+    name: "Stealth startup",
+    what: "A marketplace for small shops.",
+    stack: "TypeScript · Next.js · PostgreSQL",
+    status: "Private pilot",
+    hue: "coral",
+    icon: '<path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12.5V20h14v-7.5"/><path d="M10 20v-4h4v4"/>',
+  },
+  {
+    name: "Sandbox for agent runs",
+    what: "Each agent run gets its own locked-down virtual machine and a token that dies with the run.",
+    stack: "Hyper-V · Linux",
+    status: "Private",
+    hue: "teal",
+    icon: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5"/><path d="M12 12v9"/>',
+  },
+  {
+    name: "skills",
+    what: "Thirteen planning and workflow skills for coding agents.",
+    stack: "Open source · MIT",
+    status: "GitHub",
+    hue: "amber",
+    icon: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 12.5l9 5 9-5"/><path d="M3 17l9 5 9-5"/>',
+    href: "https://github.com/joshua-noel/skills",
+  },
+  {
+    name: "This site",
+    what: "Site and blog in one small server, with posts in SQLite.",
+    stack: "Astro · SQLite · Node.js",
+    status: "GitHub",
+    hue: "blue",
+    icon: '<path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/><path d="M13.5 5l-3 14"/>',
+    href: "https://github.com/joshua-noel/portfolio",
+  },
+];
 ---
 
-<Base title="Joshua Noel · Developer" canonical={siteUrl}>
-  <main id="top">
-    <section class="contact panel panel-contact" id="contact">
-      <div class="section-inner">
-        <h1>Let's talk.</h1>
-        <p>
-          A project, an idea, or a problem you want to bounce off someone. Send me a
-          message.
-        </p>
+<Base title="Joshua Noel · Software Engineer" canonical={`${siteUrl}/`}>
+  <SiteHeader current="home" />
+  <main class="site" id="top">
+    <section class="hero">
+      <h1>I build software</h1>
+      <div class="hero-actions">
+        <a class="cta cta-primary" href="#contact">Get in touch</a>
+        <a class="cta" href="#work">See my work</a>
+      </div>
+    </section>
+
+    <section id="work">
+      <h2>Work</h2>
+      <ul class="work-list">
+        {
+          work.map((item) => (
+            <li
+              class:list={["work-item", { featured: item.featured }]}
+              style={`--hue: var(--c-${item.hue})`}
+            >
+              <span class="tile" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <Fragment set:html={item.icon} />
+                </svg>
+              </span>
+              <div>
+                <div class="work-head">
+                  <h3>{item.href ? <a href={item.href}>{item.name}</a> : item.name}</h3>
+                  <span class="work-status">{item.status}</span>
+                </div>
+                <p>{item.what}</p>
+                <p class="work-stack">{item.stack}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section class="split" id="writing">
+      <div>
+        <h2>Writing</h2>
+        {
+          posts.length === 0 ? (
+            <p class="empty">Nothing published yet.</p>
+          ) : (
+            <>
+              {posts.map((post) => (
+                <a class="row" href={`${blogUrl}/${post.slug}`}>
+                  <span class="row-title">{post.title}</span>
+                  <time class="row-date" datetime={isoDate(post.published_at)}>
+                    {formatDate(post.published_at)}
+                  </time>
+                </a>
+              ))}
+              <p class="more">
+                <a href={`${blogUrl}/`}>
+                  All writing <span aria-hidden="true">→</span>
+                </a>
+              </p>
+            </>
+          )
+        }
+      </div>
+
+      <div class="contact" id="contact">
+        <p class="contact-title">Let's talk.</p>
+        <p>A role, a project, or a problem you want to think through.</p>
         <div class="contact-cards">
           <a class="contact-card" href="mailto:elijah@noelejoshua.com">
             <span class="contact-card-logo email" aria-hidden="true">
@@ -64,8 +187,30 @@ const { siteUrl } = getConfig();
               <span class="contact-card-value">in/noelejoshua</span>
             </span>
           </a>
+          <a
+            class="contact-card"
+            href="https://github.com/joshua-noel"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span class="contact-card-logo github" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor"
+                ><path
+                  d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 5.74 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.08 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"
+                ></path></svg
+              >
+            </span>
+            <span class="contact-card-text">
+              <span class="contact-card-label">GitHub</span>
+              <span class="contact-card-value">joshua-noel</span>
+            </span>
+          </a>
         </div>
       </div>
     </section>
   </main>
+  <SiteFooter />
+  <script>
+    import "../scripts/panels.js";
+  </script>
 </Base>

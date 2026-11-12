@@ -1,10 +1,12 @@
 ---
+import SiteFooter from "../../components/SiteFooter.astro";
+import SiteHeader from "../../components/SiteHeader.astro";
 import Base from "../../layouts/Base.astro";
 import { getConfig } from "../../lib/config.ts";
 import { formatDate, isoDate } from "../../lib/format.ts";
 import { listPublished, summaryOf } from "../../lib/posts.ts";
 
-const { blogUrl, siteUrl } = getConfig();
+const { blogUrl } = getConfig();
 const posts = listPublished();
 ---
 
@@ -13,7 +15,7 @@ const posts = listPublished();
   description="Notes on the things I build, and the problems that made me build them."
   canonical={blogUrl}
 >
-  <header class="blog-header"><a href={siteUrl}>Joshua Noel</a></header>
+  <SiteHeader current="writing" />
 
   <main class="blog-main">
     <h1>Writing</h1>
@@ -22,20 +24,17 @@ const posts = listPublished();
       posts.length === 0 ? (
         <p class="post-empty">Nothing published yet.</p>
       ) : (
-        <div class="post-list">
-          {posts.map((post) => (
-            <a class="card reveal" href={`/${post.slug}`}>
-              <span class="card-date">
-                <time datetime={isoDate(post.published_at)}>
-                  {formatDate(post.published_at)}
-                </time>
-              </span>
-              <h2>{post.title}</h2>
-              <p>{summaryOf(post)}</p>
-            </a>
-          ))}
-        </div>
+        posts.map((post) => (
+          <a class="row" href={`/${post.slug}`}>
+            <span class="row-title">{post.title}</span>
+            <time class="row-date" datetime={isoDate(post.published_at)}>
+              {formatDate(post.published_at)}
+            </time>
+            <span class="row-sum">{summaryOf(post)}</span>
+          </a>
+        ))
       )
     }
   </main>
+  <SiteFooter />
 </Base>

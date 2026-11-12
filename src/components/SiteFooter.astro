@@ -1,0 +1,14 @@
+---
+import { getConfig } from "../lib/config.ts";
+
+const { blogUrl } = getConfig();
+---
+
+<footer class="site-footer">
+  <span>Joshua Noel · Trinidad and Tobago</span>
+  <nav aria-label="Elsewhere">
+    <a href="https://github.com/joshua-noel">GitHub</a>
+    <a href="https://www.linkedin.com/in/noelejoshua/">LinkedIn</a>
+    <a href={`${blogUrl}/rss.xml`}>RSS</a>
+  </nav>
+</footer>

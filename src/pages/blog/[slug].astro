@@ -1,10 +1,12 @@
 ---
+import SiteFooter from "../../components/SiteFooter.astro";
+import SiteHeader from "../../components/SiteHeader.astro";
 import Base from "../../layouts/Base.astro";
 import { getConfig } from "../../lib/config.ts";
 import { formatDate, isoDate } from "../../lib/format.ts";
 import { getPublishedBySlug, summaryOf } from "../../lib/posts.ts";
 
-const { blogUrl, siteUrl } = getConfig();
+const { blogUrl } = getConfig();
 const { slug } = Astro.params;
 const post = slug ? getPublishedBySlug(slug) : undefined;
 
@@ -23,7 +25,7 @@ const cover = post?.cover_image ? `${blogUrl}/uploads/${post.cover_image}` : und
   image={cover}
   type={post ? "article" : "website"}
 >
-  <header class="blog-header"><a href={siteUrl}>Joshua Noel</a></header>
+  <SiteHeader />
 
   <main class="blog-main">
     {
@@ -46,11 +48,11 @@ const cover = post?.cover_image ? `${blogUrl}/uploads/${post.cover_image}` : und
             <div class="prose" set:html={post.body_html} />
           </article>
 
-          <nav class="post-footer" aria-label="Blog">
+          <footer class="post-footer">
             <a href="/">
               <span aria-hidden="true">←</span> All writing
             </a>
-          </nav>
+          </footer>
         </>
       ) : (
         <>
@@ -62,4 +64,5 @@ const cover = post?.cover_image ? `${blogUrl}/uploads/${post.cover_image}` : und
       )
     }
   </main>
+  <SiteFooter />
 </Base>

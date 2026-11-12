@@ -1,6 +1,9 @@
 ---
 import "../styles/global.css";
 import "../styles/blog.css";
+import { getConfig } from "../lib/config.ts";
+
+const { blogUrl } = getConfig();
 
 interface Props {
   title: string;
@@ -12,7 +15,7 @@ interface Props {
 
 const {
   title,
-  description = "Joshua Noel, a developer in Trinidad, West Indies. I build practical software: tools, automations, and the infrastructure that keeps them running.",
+  description = "Joshua Noel, a software engineer in Trinidad and Tobago. I build software.",
   canonical,
   image,
   type = "website",
@@ -32,7 +35,14 @@ const {
     <meta name="description" content={description} />
     <title>{title}</title>
     {canonical && <link rel="canonical" href={canonical} />}
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="Joshua Noel · Writing"
+      href={`${blogUrl}/rss.xml`}
+    />
 
+    <meta property="og:site_name" content="Joshua Noel" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content={type} />
@@ -40,7 +50,7 @@ const {
     {image && <meta property="og:image" content={image} />}
     <meta name="twitter:card" content={image ? "summary_large_image" : "summary"} />
   </head>
-  <body>
+  <body class="public">
     <slot />
     <script>
       import "../scripts/reveal.js";

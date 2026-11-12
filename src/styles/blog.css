@@ -13,66 +13,32 @@
 
 /* --- Blog chrome -------------------------------------------- */
 
-/* The main site has no nav bar; that restraint is the design. The blog
-   gets a name and a way home, and nothing else. */
-.blog-header {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 2.5rem 2.5rem 0;
-}
+/* The header and footer are the site's own (global.css), so the blog reads
+   as part of the same place. */
 
-.blog-header a {
-  color: var(--text-muted);
-  text-decoration: none;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.blog-header a:hover {
-  color: var(--text);
-}
-
-/* Reading pages sit on an opaque sheet so the background grid never runs
-   through prose, tables or code. */
+/* Reading pages share the site's single column (global.css). */
 .blog-main {
-  max-width: 760px;
-  margin: 1.5rem auto 4rem;
-  padding: 3rem 2.5rem 4rem;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  padding-top: clamp(2.5rem, 8vh, 4rem);
   /* Long URLs, slugs and inline code wrap rather than widen the page. */
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 760px) {
-  .blog-header {
-    padding: 2rem 1.25rem 0;
-  }
-  .blog-main {
-    margin: 1rem 0 0;
-    padding: 2rem 1.25rem 4rem;
-    border-width: 1px 0 0;
-    border-radius: 0;
-  }
-}
-
-/* One link style for everything inside the blog that isn't a card: prose,
-   the not-found page and the way back to the index. */
-.blog-main a:not(.card) {
+/* One link style for everything inside the blog that isn't a post row:
+   prose, the not-found page and the way back to the index. */
+.blog-main a:not(.row) {
   color: var(--link);
   text-decoration: underline;
   text-decoration-color: currentColor;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.15em;
 }
-.blog-main a:not(.card):hover {
+.blog-main a:not(.row):hover {
   color: var(--link-hover);
 }
-.blog-main a:not(.card):focus-visible {
+.blog-main a:not(.row):focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: 0;
 }
 
 .blog-main > h1 {
@@ -81,26 +47,8 @@
   margin-bottom: 2rem;
 }
 
-.post-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.post-list .card {
-  display: block;
-  text-decoration: none;
-  color: inherit;
-  /* Cards and the sheet are both white in light mode; the border carries
-     the edge. */
-  border-color: color-mix(in srgb, var(--text) 16%, transparent);
-}
-
-.post-list .card h2 {
-  font-size: 1.15rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  margin-bottom: 0.45rem;
+.blog-main > h1 + .row {
+  border-top: 1px solid var(--border);
 }
 
 .post-empty {
@@ -133,6 +81,12 @@
 
 /* Long-form gets the serif already defined in global.css: it reads better
    and separates writing from site chrome without another font request. */
+.prose,
+.post-header {
+  /* The column is wide enough for the homepage grid; reading text is kept narrower. */
+  max-width: 68ch;
+}
+
 .prose {
   font-family: var(--font-serif);
   font-size: 1.1rem;
@@ -198,7 +152,7 @@
   font-size: 0.9em;
   background: color-mix(in srgb, var(--text) 6%, transparent);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 0.1em 0.35em;
   overflow-wrap: anywhere;
 }
@@ -250,20 +204,12 @@
 }
 
 /* Shiki runs with defaultColor:false, so each token carries both palettes
-   as custom properties and the existing prefers-color-scheme block picks
-   one. One stylesheet, no theme toggle, no flash. Only the token colours are
-   taken from the theme; the block keeps the page surface from .prose pre so
-   it doesn't read as a separate grey slab in dark mode. */
+   as custom properties. The site has one dark theme, so the dark palette is
+   used. Only the token colours are taken from it; the block keeps the page
+   surface from .prose pre. */
 .prose .shiki,
 .prose .shiki span {
-  color: var(--shiki-light);
-}
-
-@media (prefers-color-scheme: dark) {
-  .prose .shiki,
-  .prose .shiki span {
-    color: var(--shiki-dark);
-  }
+  color: var(--shiki-dark);
 }
 
 /* --- Post footer -------------------------------------------- */
