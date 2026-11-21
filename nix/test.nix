@@ -105,7 +105,7 @@ testers.runNixOSTest {
         assert "From the VM" in page
         assert '/from-the-vm"' in page
         assert "Let's talk." in page
-        assert 'href="mailto:elijah@noelejoshua.com"' in page
+        assert 'href="mailto:noelejoshua@gmail.com"' in page
         assert 'href="https://wa.me/18687260860"' in page
         assert 'href="https://www.linkedin.com/in/noelejoshua/"' in page
         assert 'href="https://github.com/joshua-noel"' in page
