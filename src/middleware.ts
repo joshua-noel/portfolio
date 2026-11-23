@@ -20,9 +20,10 @@ const ADMIN_CSP = [
 ].join("; ");
 
 /**
- * One process serves both hostnames. Routes live under src/pages/blog/, and
- * the blog host maps its root onto that subtree, so `blog.example.com/a-post`
- * renders `/blog/a-post` without the prefix ever appearing in a URL.
+ * One process serves every hostname. Routes live under src/pages/blog/ and
+ * src/pages/learn/, and each host maps its root onto its subtree, so
+ * `blog.example.com/a-post` renders `/blog/a-post` without the prefix ever
+ * appearing in a URL.
  *
  * The admin lives on the blog host alone. Serving it from both would mean two
  * session cookies on two origins and a login that appears to do nothing.
@@ -38,6 +39,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     search,
     blogHost: config.blogHost,
     blogUrl: config.blogUrl,
+    learnHost: config.learnHost,
+    learnUrl: config.learnUrl,
   });
 
   // Canonicalisation runs first: an unauthenticated /admin on the apex must

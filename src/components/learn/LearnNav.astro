@@ -1,0 +1,67 @@
+---
+import type { Catalog } from "../../lib/learn/catalog.ts";
+import { lectureUrl } from "../../lib/learn/catalog.ts";
+import Lock from "./Lock.astro";
+
+interface Props {
+  catalog: Catalog;
+  /** Slugs of the course and lecture being read. */
+  current?: { course: string; lecture?: string };
+  /** `?depth=…` to carry from lecture to lecture, or empty. */
+  query: string;
+}
+
+const { catalog, current, query } = Astro.props;
+---
+
+<nav class="sidenav" id="sidenav" aria-label="Courses" data-sidenav>
+  {
+    catalog.shelves.map((shelf) => (
+      <section class="part">
+        <h2 class="part-title">{shelf.title}</h2>
+        {shelf.courses.map((course) => (
+          <div class="nav-course">
+            <p class="part-title">
+              <a
+                class="name"
+                href={`/${course.front.slug}`}
+                aria-current={
+                  current?.course === course.front.slug && !current.lecture
+                    ? "page"
+                    : undefined
+                }
+              >
+                {course.locked && <Lock />}
+                {course.front.title}
+              </a>
+            </p>
+            {current?.course === course.front.slug && (
+              <ol>
+                {course.lectures.map((lecture) => (
+                  <li>
+                    <a
+                      href={`${lectureUrl(lecture)}${lecture.locked ? "" : query}`}
+                      data-lecture-link={lecture.locked ? undefined : ""}
+                      class:list={[lecture.locked && "is-locked"]}
+                      aria-current={lecture.slug === current.lecture ? "page" : undefined}
+                    >
+                      {lecture.locked ? (
+                        <Lock />
+                      ) : (
+                        <span
+                          class="mark"
+                          data-mark={`${lecture.course}/${lecture.slug}`}
+                        />
+                      )}
+                      <span>{lecture.front.title}</span>
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        ))}
+      </section>
+    ))
+  }
+</nav>

@@ -1,0 +1,87 @@
+---
+import Lock from "../../../components/learn/Lock.astro";
+import Learn from "../../../layouts/Learn.astro";
+import { getConfig } from "../../../lib/config.ts";
+import { findCourse, lectureUrl } from "../../../lib/learn/catalog.ts";
+import { getCatalog } from "../../../lib/learn/content.ts";
+import { minutesAt } from "../../../lib/learn/lecture.ts";
+
+const { learnUrl } = getConfig();
+const catalog = await getCatalog();
+const course = findCourse(catalog, Astro.params.course);
+if (!course) Astro.response.status = 404;
+---
+
+{
+  course ? (
+    <Learn
+      title={`${course.front.title} · Learn · Joshua Noel`}
+      description={course.front.promise}
+      canonical={`${learnUrl}/${course.front.slug}`}
+      current={{ course: course.front.slug }}
+    >
+      <main class="lecture" id="main">
+        <header>
+          <p class="eyebrow">
+            <a href="/">Learn</a> ·{" "}
+            {catalog.shelves.find((s) => s.id === course.front.shelf)?.title}
+          </p>
+          <h1>
+            {course.locked && <Lock />}
+            {course.front.title}
+          </h1>
+          <p class="promise">{course.front.promise}</p>
+          {course.locked && (
+            <div class="locked-note">
+              <h2>
+                <Lock /> This course is not public
+              </h2>
+              <p>
+                Its lectures are listed so you can see what is here. Their text is not
+                served.
+              </p>
+            </div>
+          )}
+        </header>
+        <div class="course-intro" set:html={course.introHtml} />
+        <ol class="lecture-list" style="margin-top: 2rem">
+          {course.lectures.map((lecture) => (
+            <li>
+              <a
+                href={lectureUrl(lecture)}
+                class:list={[lecture.locked && "is-locked"]}
+                data-lecture-link={lecture.locked ? undefined : ""}
+              >
+                <span class="n">{lecture.front.order}</span>
+                <span class="t">
+                  {lecture.front.title}
+                  {lecture.front.placeholder && <span class="tag">Placeholder</span>}
+                </span>
+                <span class="r">
+                  {lecture.locked ? (
+                    <Lock />
+                  ) : (
+                    <span>{minutesAt(lecture.front.minutes, "waterline")} min</span>
+                  )}
+                  {!lecture.locked && (
+                    <span class="mark" data-mark={`${lecture.course}/${lecture.slug}`} />
+                  )}
+                </span>
+                <span class="p">{lecture.front.promise}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </main>
+    </Learn>
+  ) : (
+    <Learn title="Not found · Learn" layout="plain" noindex>
+      <main class="page" id="main">
+        <h1>No such course</h1>
+        <p class="lede">
+          There is nothing at this address. <a href="/">See every course.</a>
+        </p>
+      </main>
+    </Learn>
+  )
+}

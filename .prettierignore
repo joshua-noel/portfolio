@@ -2,3 +2,5 @@ dist
 node_modules
 pnpm-lock.yaml
 .data
+# Lecture Markdown has its own block syntax (diagram lines, <details>), which Prettier would rewrite.
+content/learn/**/*.md

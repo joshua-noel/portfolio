@@ -1,0 +1,36 @@
+---
+// Shown when a lecture has video: true and its files are there. They sit
+// beside the lecture in the content folder and are served by
+// src/pages/learn/media/, with range requests so the player can seek.
+import type { Lecture } from "../../lib/learn/lecture.ts";
+
+interface Props {
+  lecture: Lecture;
+}
+
+const { lecture } = Astro.props;
+const base = `/media/${lecture.course}`;
+const poster = lecture.media.poster;
+---
+
+<figure class="video">
+  <video controls preload="metadata" playsinline poster={poster && `${base}/${poster}`}>
+    <source src={`${base}/${lecture.file}.mp4`} type="video/mp4" />
+    <track
+      kind="captions"
+      src={`${base}/${lecture.file}.vtt`}
+      srclang="en"
+      label="English"
+      default
+    />
+    <p>
+      Your browser cannot play this video. <a href={`${base}/${lecture.file}.mp4`}
+        >Download it</a
+      >.
+    </p>
+  </video>
+  <figcaption>
+    Video: {lecture.front.title}. Captions are on; the button in the player turns them
+    off.
+  </figcaption>
+</figure>

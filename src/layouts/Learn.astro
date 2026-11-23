@@ -1,0 +1,97 @@
+---
+import "katex/dist/katex.min.css";
+import "../styles/learn.css";
+import LearnNav from "../components/learn/LearnNav.astro";
+import LearnTopbar from "../components/learn/LearnTopbar.astro";
+import { getConfig } from "../lib/config.ts";
+import { getCatalog } from "../lib/learn/content.ts";
+import type { Depth } from "../lib/learn/depth.ts";
+
+interface Props {
+  title: string;
+  description?: string;
+  canonical?: string;
+  /** The course and lecture being read, to mark them in the sidebar. */
+  current?: { course: string; lecture?: string };
+  /** The depth the server rendered; pages that are not lectures leave it out. */
+  depth?: Depth;
+  /** Whether the URL asked for a depth; if so, links to other lectures carry it. */
+  linkDepth?: Depth;
+  /** `reading` has the lecture sidebar; `plain` is a single column. */
+  layout?: "reading" | "plain";
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description = "University-style lectures on computer science, system design, language models and agents, by Joshua Noel.",
+  canonical,
+  current,
+  depth,
+  linkDepth,
+  layout = "reading",
+  noindex = false,
+} = Astro.props;
+
+const { siteUrl } = getConfig();
+const catalog = await getCatalog();
+const query = linkDepth ? `?depth=${linkDepth}` : "";
+---
+
+<!doctype html>
+<html lang="en" data-depth={depth} data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <!-- Before first paint, so there is no flash: the theme, and the depth the
+         reader last chose when the URL does not name one. -->
+    <script is:inline>
+      (function () {
+        var root = document.documentElement;
+        root.classList.add("js");
+        try {
+          var theme = localStorage.getItem("learn-theme");
+          if (theme === "light" || theme === "dark") root.dataset.theme = theme;
+          if (root.dataset.depth) {
+            var asked = /[?&]depth=(tip|waterline|deep|abyss)(?:&|$)/.exec(
+              location.search,
+            );
+            var depth = asked ? asked[1] : localStorage.getItem("learn-depth");
+            if (/^(tip|waterline|deep|abyss)$/.test(depth)) root.dataset.depth = depth;
+          }
+        } catch (error) {}
+      })();
+    </script>
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {canonical && <link rel="canonical" href={canonical} />}
+    {noindex && <meta name="robots" content="noindex" />}
+    <meta property="og:site_name" content="Joshua Noel · Learn" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content={current?.lecture ? "article" : "website"} />
+    {canonical && <meta property="og:url" content={canonical} />}
+    <meta name="twitter:card" content="summary" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to the content</a>
+    <LearnTopbar catalog={catalog} showNav={layout === "reading"} />
+    <div class:list={["shell", layout === "plain" && "plain"]}>
+      {
+        layout === "reading" && (
+          <LearnNav catalog={catalog} current={current} query={query} />
+        )
+      }
+      <slot />
+    </div>
+    <div class="scrim" data-scrim hidden></div>
+    <footer class="footer">
+      <a href={`${siteUrl}/`}>Joshua Noel</a> · Lectures are free to read. Found a mistake?
+      <a href={`${siteUrl}/#contact`}>Tell me.</a>
+    </footer>
+    <script>
+      import "../scripts/learn.js";
+    </script>
+  </body>
+</html>

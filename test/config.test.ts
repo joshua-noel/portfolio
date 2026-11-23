@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { loadConfig, readEnv } from "../src/lib/config.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "portfolio-config-"));
@@ -10,6 +10,7 @@ const dir = mkdtempSync(join(tmpdir(), "portfolio-config-"));
 const base = {
   PORTFOLIO_SITE_URL: "https://example.com",
   PORTFOLIO_BLOG_URL: "https://blog.example.com",
+  PORTFOLIO_LEARN_URL: "https://learn.example.com",
   PORTFOLIO_ADMIN_PASSWORD_HASH: "scrypt$1$1$1$c2FsdA==$aGFzaA==",
 };
 
@@ -34,6 +35,7 @@ test("missing required variables are all named at once", () => {
     (error: Error) =>
       error.message.includes("PORTFOLIO_SITE_URL (or PORTFOLIO_SITE_URL_FILE)") &&
       error.message.includes("PORTFOLIO_BLOG_URL") &&
+      error.message.includes("PORTFOLIO_LEARN_URL") &&
       error.message.includes("PORTFOLIO_ADMIN_PASSWORD_HASH"),
   );
 });
@@ -49,11 +51,14 @@ test("strips trailing slashes and extracts hosts", () => {
     ...base,
     PORTFOLIO_SITE_URL: "https://example.com/",
     PORTFOLIO_BLOG_URL: "https://blog.example.com//",
+    PORTFOLIO_LEARN_URL: "https://learn.example.com/",
   });
   assert.equal(config.siteUrl, "https://example.com");
   assert.equal(config.blogUrl, "https://blog.example.com");
+  assert.equal(config.learnUrl, "https://learn.example.com");
   assert.equal(config.siteHost, "example.com");
   assert.equal(config.blogHost, "blog.example.com");
+  assert.equal(config.learnHost, "learn.example.com");
 });
 
 test("defaults host, port and admin username", () => {
@@ -61,4 +66,10 @@ test("defaults host, port and admin username", () => {
   assert.equal(config.host, "127.0.0.1");
   assert.equal(config.port, 4321);
   assert.equal(config.adminUsername, "admin");
+});
+
+test("the lecture folder defaults to the sample lectures and can be named", () => {
+  assert.equal(loadConfig(base).learnContentDir, resolve("content/learn"));
+  const named = loadConfig({ ...base, PORTFOLIO_LEARN_CONTENT_DIR: "/srv/learn-content" });
+  assert.equal(named.learnContentDir, resolve("/srv/learn-content"));
 });

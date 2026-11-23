@@ -8,9 +8,9 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "node ./bin/check-learn.mjs && astro build",
     "start": "node ./bin/serve.mjs",
-    "check": "astro check",
+    "check": "node ./bin/check-learn.mjs && astro check",
     "test": "node --test 'test/*.test.ts'"
   },
   "bin": {
@@ -22,14 +22,17 @@
     "@shikijs/rehype": "^4.4.3",
     "astro": "^7.2.4",
     "github-slugger": "^2.0.0",
+    "katex": "^0.18.4",
     "rehype-raw": "^7.0.0",
     "rehype-stringify": "^10.0.1",
     "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "shiki": "^4.4.3",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.1.0"
+    "unist-util-visit": "^5.1.0",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

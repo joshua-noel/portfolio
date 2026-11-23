@@ -9,7 +9,7 @@ let
 in
 {
   options.services.portfolio = {
-    enable = lib.mkEnableOption "the personal site and blog";
+    enable = lib.mkEnableOption "the personal site, blog and lectures";
 
     package = lib.mkPackageOption pkgs "portfolio" { };
 
@@ -61,6 +61,27 @@ in
       description = ''
         Origin of the blog. Requests arriving with this Host are served from
         the blog route tree, and every post's canonical URL lives here.
+      '';
+    };
+
+    learnUrl = lib.mkOption {
+      type = lib.types.str;
+      example = "https://learn.noelejoshua.com";
+      description = ''
+        Origin of the lectures. Requests arriving with this Host are served
+        from the learn route tree, and every lecture's canonical URL lives
+        here.
+      '';
+    };
+
+    learnContentDir = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      example = "/var/lib/portfolio/learn";
+      description = ''
+        Folder of courses, laid out as `learn-content/CONTRACT.md` says, read
+        at run time and reloaded when a file in it changes. When null the
+        service serves the sample lectures that ship in the package.
       '';
     };
 
@@ -122,8 +143,13 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = cfg.siteUrl != cfg.blogUrl;
-        message = "services.portfolio: siteUrl and blogUrl must differ, or the blog host cannot be distinguished from the main site.";
+        assertion =
+          lib.length (lib.unique [
+            cfg.siteUrl
+            cfg.blogUrl
+            cfg.learnUrl
+          ]) == 3;
+        message = "services.portfolio: siteUrl, blogUrl and learnUrl must all differ, or the hosts cannot be told apart.";
       }
     ];
 
@@ -143,7 +169,7 @@ in
     };
 
     systemd.services.portfolio = {
-      description = "Personal site and blog";
+      description = "Personal site, blog and lectures";
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" ];
 
@@ -153,6 +179,12 @@ in
         PORTFOLIO_STATE_DIR = cfg.stateDir;
         PORTFOLIO_SITE_URL = cfg.siteUrl;
         PORTFOLIO_BLOG_URL = cfg.blogUrl;
+        PORTFOLIO_LEARN_URL = cfg.learnUrl;
+        # Empty means "the sample lectures in the package": bin/serve.mjs reads
+        # a blank value as unset.
+        PORTFOLIO_LEARN_CONTENT_DIR = lib.optionalString (cfg.learnContentDir != null) (
+          toString cfg.learnContentDir
+        );
         PORTFOLIO_ADMIN_USERNAME = cfg.adminUsername;
         PORTFOLIO_TRUSTED_PROXIES = lib.concatStringsSep "," cfg.trustedProxies;
         # %d is the credentials directory systemd populates from

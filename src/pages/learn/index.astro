@@ -1,0 +1,93 @@
+---
+import Lock from "../../components/learn/Lock.astro";
+import Learn from "../../layouts/Learn.astro";
+import { getConfig } from "../../lib/config.ts";
+import { lectureUrl } from "../../lib/learn/catalog.ts";
+import { getCatalog } from "../../lib/learn/content.ts";
+import { DEPTHS, DEPTH_HINTS, DEPTH_LABELS } from "../../lib/learn/depth.ts";
+import { minutesAt } from "../../lib/learn/lecture.ts";
+
+const { learnUrl } = getConfig();
+const catalog = await getCatalog();
+---
+
+<Learn title="Learn · Joshua Noel" canonical={`${learnUrl}/`} layout="plain">
+  <main class="page" id="main">
+    <h1>Learn</h1>
+    <p class="lede">
+      Lectures on computer science, system design, language models and agents. Each one
+      comes at four depths, so you can read it in two minutes or go as far down as the
+      papers do.
+    </p>
+
+    <ul class="depth-legend" aria-label="The four depths">
+      {
+        DEPTHS.map((depth) => (
+          <li>
+            <strong>{DEPTH_LABELS[depth]}</strong>
+            {DEPTH_HINTS[depth]}
+          </li>
+        ))
+      }
+    </ul>
+
+    {
+      catalog.shelves.map((shelf) => (
+        <section class="shelf" id={`shelf-${shelf.id}`} aria-labelledby={`h-${shelf.id}`}>
+          <h2 id={`h-${shelf.id}`}>{shelf.title}</h2>
+          {shelf.courses.map((course) => (
+            <article
+              class="course-card"
+              style={`--cover: ${course.front.cover.color}; --cover-accent: ${course.front.cover.accent}`}
+            >
+              <span class="spine" aria-hidden="true" />
+              <div>
+                <h3>
+                  <a href={`/${course.front.slug}`}>
+                    {course.locked && <Lock />} {course.front.title}
+                  </a>
+                </h3>
+                <p class="promise-line">{course.front.promise}</p>
+                <ol class="lecture-list">
+                  {course.lectures.map((lecture) => (
+                    <li>
+                      <a
+                        href={lectureUrl(lecture)}
+                        class:list={[lecture.locked && "is-locked"]}
+                        data-lecture-link={lecture.locked ? undefined : ""}
+                      >
+                        <span class="n">{lecture.front.order}</span>
+                        <span class="t">
+                          {lecture.front.title}
+                          {lecture.front.placeholder && (
+                            <span class="tag">Placeholder</span>
+                          )}
+                        </span>
+                        <span class="r">
+                          {lecture.locked ? (
+                            <Lock />
+                          ) : (
+                            <span>
+                              {minutesAt(lecture.front.minutes, "waterline")} min
+                            </span>
+                          )}
+                          {!lecture.locked && (
+                            <span
+                              class="mark"
+                              data-mark={`${lecture.course}/${lecture.slug}`}
+                            />
+                          )}
+                        </span>
+                        <span class="p">{lecture.front.promise}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </article>
+          ))}
+        </section>
+      ))
+    }
+  </main>
+</Learn>

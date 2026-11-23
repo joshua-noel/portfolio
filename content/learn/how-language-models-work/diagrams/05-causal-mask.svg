@@ -1,0 +1,56 @@
+<svg viewBox="0 0 400 300" role="img" aria-labelledby="dg-mask-title" data-interactive="mask-cost">
+  <title id="dg-mask-title">The grid of attention scores for a sequence of n tokens, with the causal mask</title>
+  <desc>The grid of attention scores for a sequence of n tokens, with the causal mask.</desc>
+  <text x="20" y="22" style="fill:var(--muted);font-size:12px;font-weight:500">Row = the token asking. Column = the token it looks at.</text>
+  <g data-grid>
+    <rect x="20" y="40" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="60" y="40" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="100" y="40" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="140" y="40" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="180" y="40" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="220" y="40" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="20" y="80" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="60" y="80" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="100" y="80" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="140" y="80" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="180" y="80" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="220" y="80" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="20" y="120" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="60" y="120" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="100" y="120" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="140" y="120" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="180" y="120" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="220" y="120" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="20" y="160" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="60" y="160" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="100" y="160" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="140" y="160" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="180" y="160" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="220" y="160" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="20" y="200" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="60" y="200" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="100" y="200" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="140" y="200" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="180" y="200" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="220" y="200" width="38" height="38" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <rect x="20" y="240" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="60" y="240" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="100" y="240" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="140" y="240" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="180" y="240" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+    <rect x="220" y="240" width="38" height="38" rx="3" fill-opacity="0.55" style="fill:var(--accent);stroke:var(--accent)"/>
+  </g>
+  <g transform="translate(278 70)">
+    <rect fill-opacity="0.55" x="0" y="0" width="14" height="14" rx="3" style="fill:var(--accent);stroke:var(--accent)"/>
+    <text x="22" y="12" style="fill:var(--fg);font-size:12px;font-weight:500">may look</text>
+    <rect x="0" y="26" width="14" height="14" rx="3" style="fill:var(--surface);stroke:var(--border)"/>
+    <text x="22" y="38" style="fill:var(--fg);font-size:12px;font-weight:500">masked</text>
+  </g>
+  <g transform="translate(278 140)">
+    <text x="0" y="0" style="fill:var(--muted);font-size:12px;font-weight:500">scores computed</text>
+    <text x="0" y="22" data-total style="fill:var(--fg);font-size:16px;font-weight:650;font-family:ui-monospace,Consolas,monospace">n² = 36</text>
+    <text x="0" y="52" style="fill:var(--muted);font-size:12px;font-weight:500">scores used</text>
+    <text x="0" y="74" data-used style="fill:var(--fg);font-size:16px;font-weight:650;font-family:ui-monospace,Consolas,monospace">21</text>
+  </g>
+  <text x="20" y="290" style="fill:var(--muted);font-size:12px;font-weight:500">Double n and the grid grows four times.</text>
+</svg>

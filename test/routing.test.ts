@@ -9,6 +9,8 @@ const route = (host: string, pathname: string, search = "") =>
     search,
     blogHost: "blog.example.com",
     blogUrl: "https://blog.example.com",
+    learnHost: "learn.example.com",
+    learnUrl: "https://learn.example.com",
   });
 
 test("apex serves its own pages", () => {
@@ -44,6 +46,49 @@ test("the /blog prefix is never a reachable URL", () => {
     kind: "redirect",
     location: "https://blog.example.com/a-post",
   });
+});
+
+test("learn host maps its root onto the /learn subtree", () => {
+  assert.deepEqual(route("learn.example.com", "/"), { kind: "rewrite", path: "/learn" });
+  assert.deepEqual(route("learn.example.com", "/attention"), {
+    kind: "rewrite",
+    path: "/learn/attention",
+  });
+  assert.deepEqual(route("learn.example.com", "/search", "?q=mask"), {
+    kind: "rewrite",
+    path: "/learn/search?q=mask",
+  });
+});
+
+test("the /learn prefix is never a reachable URL, on any host", () => {
+  for (const host of ["example.com", "blog.example.com", "learn.example.com"]) {
+    assert.deepEqual(route(host, "/learn/attention", "?depth=deep"), {
+      kind: "redirect",
+      location: "https://learn.example.com/attention?depth=deep",
+    });
+    assert.deepEqual(route(host, "/learn"), {
+      kind: "redirect",
+      location: "https://learn.example.com/",
+    });
+  }
+});
+
+test("each mapped host hands the other's prefix and the admin to its owner", () => {
+  assert.deepEqual(route("learn.example.com", "/blog/a-post"), {
+    kind: "redirect",
+    location: "https://blog.example.com/a-post",
+  });
+  assert.deepEqual(route("blog.example.com", "/admin/login"), { kind: "pass" });
+  assert.deepEqual(route("learn.example.com", "/admin/login", "?next=%2Fadmin"), {
+    kind: "redirect",
+    location: "https://blog.example.com/admin/login?next=%2Fadmin",
+  });
+});
+
+test("reserved segments on the learn host are served, not treated as lectures", () => {
+  for (const path of ["/healthz", "/robots.txt", "/_astro/x.js", "/uploads/a.webp"]) {
+    assert.deepEqual(route("learn.example.com", path), { kind: "pass" }, path);
+  }
 });
 
 test("reserved segments are served, not treated as slugs", () => {

@@ -21,6 +21,7 @@ testers.runNixOSTest {
       # up as the login being refused.
       siteUrl = "https://site.test";
       blogUrl = "https://blog.test";
+      learnUrl = "https://learn.test";
       inherit adminPasswordHashFile;
     };
   };
@@ -28,7 +29,7 @@ testers.runNixOSTest {
   # Covers what `nix build` cannot: that the unit starts under the hardening
   # flags, that the state directory is writable by the service user, that
   # LoadCredential lands where the app looks for it, and that the two
-  # hostnames route to different things.
+  # three hostnames route to different things.
   testScript = ''
     machine.wait_for_unit("portfolio.service")
     machine.wait_for_open_port(4321)
@@ -36,10 +37,11 @@ testers.runNixOSTest {
     def curl(args, host="site.test"):
         return machine.succeed(f"curl -sS -H 'Host: {host}' {args}")
 
-    with subtest("serves both hosts"):
+    with subtest("serves all three hosts"):
         machine.succeed("curl -fsS -H 'Host: site.test' http://127.0.0.1:4321/healthz")
         assert "Joshua Noel" in curl("http://127.0.0.1:4321/")
         assert "Nothing published yet" in curl("http://127.0.0.1:4321/", host="blog.test")
+        assert "Attention and the transformer" in curl("http://127.0.0.1:4321/", host="learn.test")
 
     with subtest("starts without logging errors"):
         machine.fail("journalctl -u portfolio.service --grep 'ERR_SYSTEM_ERROR|Error:'")
@@ -109,6 +111,30 @@ testers.runNixOSTest {
         assert 'href="https://wa.me/18687260860"' in page
         assert 'href="https://www.linkedin.com/in/noelejoshua/"' in page
         assert 'href="https://github.com/joshua-noel"' in page
+
+    with subtest("a lecture is readable at its own address, at every depth"):
+        lecture = "http://127.0.0.1:4321/how-language-models-work/attention-and-the-transformer"
+        assert "The idea in one paragraph" in curl(lecture, host="learn.test")
+        deep = curl(lecture + "?depth=deep", host="learn.test")
+        assert '<html lang="en" data-depth="deep"' in deep, deep[:400]
+        assert "Check yourself" in curl(lecture + "?depth=tip", host="learn.test")
+        assert "Placeholder course" in curl("http://127.0.0.1:4321/placeholder-systems", host="learn.test")
+        machine.succeed(
+            "curl -sS -o /dev/null -w '%{http_code}' -H 'Host: learn.test' "
+            "http://127.0.0.1:4321/how-language-models-work/nothing | grep -q 404"
+        )
+
+    with subtest("the /learn prefix and the admin redirect to their canonical hosts"):
+        out = machine.succeed(
+            "curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' -H 'Host: site.test' "
+            "http://127.0.0.1:4321/learn/how-language-models-work/attention-and-the-transformer"
+        )
+        assert out == "301 https://learn.test/how-language-models-work/attention-and-the-transformer", out
+        out = machine.succeed(
+            "curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' -H 'Host: learn.test' "
+            "http://127.0.0.1:4321/admin/login"
+        )
+        assert out == "301 https://blog.test/admin/login", out
 
     with subtest("unauthenticated writes are refused"):
         machine.succeed(

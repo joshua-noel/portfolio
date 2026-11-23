@@ -1,0 +1,6 @@
+<svg viewBox="0 0 400 120">
+  <title>An empty box</title>
+  <desc>A single empty rounded box, standing in for a real diagram.</desc>
+  <rect x="120" y="30" width="160" height="60" rx="8" fill="var(--surface)" stroke="var(--border)" stroke-width="1.5" />
+  <text x="200" y="66" text-anchor="middle" font-size="14" fill="var(--muted)">nothing here</text>
+</svg>

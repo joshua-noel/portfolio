@@ -31,6 +31,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       ../astro.config.mjs
       ../tsconfig.json
       ../src
+      ../content
       ../bin
       ../test
     ];
@@ -74,7 +75,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     # rolldown and esbuild binaries for every platform, none of which a
     # running server ever executes.
     mkdir -p $out/lib/portfolio
-    cp -r dist bin package.json $out/lib/portfolio/
+    cp -r dist bin content package.json $out/lib/portfolio/
 
     makeWrapper ${nodejs}/bin/node $out/bin/portfolio \
       --add-flags $out/lib/portfolio/bin/serve.mjs

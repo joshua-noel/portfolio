@@ -9,6 +9,7 @@
 //      missing secret is a startup failure in the journal instead of a 500
 //      on the first request.
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 // Same rule as src/lib/config.ts, duplicated because this file runs before
 // (and outside) the bundle it launches.
@@ -22,6 +23,7 @@ function cfg(name) {
 const missing = [
   "PORTFOLIO_SITE_URL",
   "PORTFOLIO_BLOG_URL",
+  "PORTFOLIO_LEARN_URL",
   "PORTFOLIO_ADMIN_PASSWORD_HASH",
 ].filter((name) => cfg(name) === undefined);
 
@@ -30,6 +32,13 @@ if (missing.length > 0) {
     `missing required configuration: ${missing.map((n) => `${n} (or ${n}_FILE)`).join(", ")}\n`,
   );
   process.exit(78); // EX_CONFIG
+}
+
+// The sample lectures that ship in the package, unless a folder is named.
+if (cfg("PORTFOLIO_LEARN_CONTENT_DIR") === undefined) {
+  process.env.PORTFOLIO_LEARN_CONTENT_DIR = fileURLToPath(
+    new URL("../content/learn", import.meta.url),
+  );
 }
 
 process.env.HOST = cfg("PORTFOLIO_HOST") ?? "127.0.0.1";

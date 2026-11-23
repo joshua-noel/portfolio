@@ -1,15 +1,19 @@
 /**
  * Host-based routing, kept as a pure function so it can be tested without
  * booting Astro. src/middleware.ts is the thin adapter over it.
+ *
+ * Two hosts, blog and learn, each own a route subtree (`/blog`, `/learn`)
+ * that their root is mapped onto. The apex serves everything else.
  */
 
-/** First path segments the blog host serves itself instead of treating as a slug. */
+/** First path segments a mapped host serves itself instead of treating as a slug. */
 export const RESERVED_SEGMENTS: ReadonlySet<string> = new Set([
   "admin",
   "api",
   "uploads",
   "healthz",
   "blog",
+  "learn",
   "rss.xml",
   "sitemap.xml",
   "robots.txt",
@@ -31,7 +35,16 @@ export interface RouteInput {
   search: string;
   blogHost: string;
   blogUrl: string;
+  learnHost: string;
+  learnUrl: string;
 }
+
+/** `/blog/x` -> `/x`: the path with its subtree prefix removed. */
+const unprefixed = (pathname: string, prefix: string): string =>
+  pathname.slice(prefix.length) || "/";
+
+const isUnder = (pathname: string, prefix: string): boolean =>
+  pathname === prefix || pathname.startsWith(`${prefix}/`);
 
 export function resolveRoute({
   host,
@@ -39,29 +52,40 @@ export function resolveRoute({
   search,
   blogHost,
   blogUrl,
+  learnHost,
+  learnUrl,
 }: RouteInput): RouteAction {
-  const isBlogPath = pathname === "/blog" || pathname.startsWith("/blog/");
-
-  // The /blog prefix is an implementation detail of the route tree. It is
-  // never a reachable URL on either host, so a post has exactly one address.
-  if (isBlogPath) {
+  // The /blog and /learn prefixes are implementation details of the route
+  // tree. They are never reachable URLs on any host, so a page has exactly
+  // one address.
+  if (isUnder(pathname, "/blog")) {
     return {
       kind: "redirect",
-      location: `${blogUrl}${pathname.slice(5) || "/"}${search}`,
+      location: `${blogUrl}${unprefixed(pathname, "/blog")}${search}`,
+    };
+  }
+  if (isUnder(pathname, "/learn")) {
+    return {
+      kind: "redirect",
+      location: `${learnUrl}${unprefixed(pathname, "/learn")}${search}`,
     };
   }
 
-  if (host !== blogHost) {
-    if (pathname === "/admin" || pathname.startsWith("/admin/")) {
-      return { kind: "redirect", location: `${blogUrl}${pathname}${search}` };
-    }
-    return { kind: "pass" };
+  // The admin lives on the blog host alone.
+  if (host !== blogHost && isUnder(pathname, "/admin")) {
+    return { kind: "redirect", location: `${blogUrl}${pathname}${search}` };
   }
+
+  const subtree = host === blogHost ? "/blog" : host === learnHost ? "/learn" : undefined;
+  if (subtree === undefined) return { kind: "pass" };
 
   const [, firstSegment = ""] = pathname.split("/");
   if (RESERVED_SEGMENTS.has(firstSegment)) return { kind: "pass" };
 
-  return { kind: "rewrite", path: `/blog${pathname === "/" ? "" : pathname}${search}` };
+  return {
+    kind: "rewrite",
+    path: `${subtree}${pathname === "/" ? "" : pathname}${search}`,
+  };
 }
 
 const unmapped = (address: string): string => address.replace(/^::ffff:(?=\d+\.)/, "");

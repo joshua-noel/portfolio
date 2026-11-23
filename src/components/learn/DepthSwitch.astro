@@ -1,0 +1,33 @@
+---
+// Four links, so the choice works without JavaScript: each one is the same
+// lecture at another `?depth=`. src/scripts/learn.js turns a click into an
+// in-page swap. Which one is current is decided by <html data-depth>, in CSS,
+// so the switch and the lecture can never disagree.
+import { DEPTHS, DEPTH_HINTS, DEPTH_LABELS } from "../../lib/learn/depth.ts";
+---
+
+<div class="depth">
+  <p class="depth-label" id="depth-label">Depth</p>
+  <nav class="depth-switch" aria-labelledby="depth-label" data-depth-switch>
+    {
+      DEPTHS.map((depth) => (
+        <a href={`?depth=${depth}`} data-depth={depth}>
+          <span class="bars" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+            <i />
+          </span>
+          {DEPTH_LABELS[depth]}
+        </a>
+      ))
+    }
+  </nav>
+  {
+    DEPTHS.map((depth) => (
+      <p class="depth-hint" data-d={depth} aria-live="polite">
+        {DEPTH_HINTS[depth]}
+      </p>
+    ))
+  }
+</div>
