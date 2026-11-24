@@ -77,6 +77,7 @@ export function panel(svg, draw) {
   svg.after(note);
   const resets = [];
   const outputs = [];
+  let buttons;
 
   const field = (text, input, output) => {
     const wrap = document.createElement("label");
@@ -127,7 +128,12 @@ export function panel(svg, draw) {
         onClick();
         change();
       });
-      box.append(button);
+      if (!buttons) {
+        buttons = document.createElement("div");
+        buttons.className = "dg-buttons";
+        box.append(buttons);
+      }
+      buttons.append(button);
       return button;
     },
     /** What the picture says, in words, for a screen reader and for the page. */

@@ -70,7 +70,12 @@ export default function init(figure) {
       if (w >= 18) shapes.push(label(x + w / 2, top(b.stage) + 1 + (h - 2) / 2 + cellFont * 0.5, b.micro, { size: cellFont, anchor: "middle" }));
     }
     shapes.push(label(X, 30, "time →", { size: 14, fill: "var(--muted)" }));
-    shapes.push(label(360, bottom + 22, `blue: forward (${FORWARD} unit)   green: backward (${BACKWARD} units)   ${shade.checked ? "shaded" : "empty"}: bubble`, { size: 14, anchor: "middle", fill: "var(--muted)" }));
+    // The static caption names the hues "blue" and "green"; the theme draws these two colours differently, so the legend shows the swatches.
+    for (const [x, fill, text] of [[150, "var(--c1)", `forward (${FORWARD} unit)`], [330, "var(--c3)", `backward (${BACKWARD} units)`]]) {
+      shapes.push(svgEl("rect", { x, y: bottom + 9, width: 16, height: 16, rx: 3, fill, "fill-opacity": 0.45, stroke: fill, "stroke-width": 1.5 }));
+      shapes.push(label(x + 22, bottom + 22, text, { size: 14, fill: "var(--muted)" }));
+    }
+    shapes.push(label(540, bottom + 22, `${shade.checked ? "shaded" : "empty"}: bubble`, { size: 14, fill: "var(--muted)" }));
     const percent = Math.round(r.fraction * 100);
     const d = gcd(r.idle, r.total);
     const share = r.idle ? `${r.idle / d}/${r.total / d} = ${percent}%` : "0%";

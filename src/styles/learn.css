@@ -1132,8 +1132,11 @@ html[data-depth="deep"] [data-layer="abyss"] {
   grid-row: 1;
   grid-column: 2;
 }
-.dg-controls button {
-  justify-self: start;
+.dg-buttons {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 .dg-controls output {
   min-width: 3ch;
