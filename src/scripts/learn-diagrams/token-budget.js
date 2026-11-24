@@ -88,10 +88,13 @@ export default function init(figure) {
       if (t !== s.results[i]) cuts.push(`tool result ${i + 1} −${thousands(s.results[i] - t)} to a ${PLACEHOLDER}-token placeholder`);
     });
     ui.say(
-      `Window ${thousands(s.window)} minus a ${thousands(s.reserve)} reply reserve leaves ${thousands(r.budget)} tokens of input. ` +
-        `The parts total ${thousands(r.raw)}, ${r.raw > r.budget ? `${thousands(r.raw - r.budget)} over` : "which fits"}. ` +
-        `After the policy: ${thousands(r.total)} tokens, ${r.left >= 0 ? `${thousands(r.left)} to spare` : `still ${thousands(-r.left)} over, because the fixed parts and passages alone do not fit`}. ` +
-        (cuts.length ? `Evicted: ${cuts.join("; ")}.` : "Nothing is evicted."),
+      `The parts total ${thousands(r.raw)} tokens against an input budget of ${thousands(r.budget)}${r.raw > r.budget ? `, ${thousands(r.raw - r.budget)} over` : ", so they fit"}. ` +
+        `After the policy: ${thousands(r.total)} tokens, ${r.left >= 0 ? `${thousands(r.left)} to spare` : `still ${thousands(-r.left)} over`}.`,
+      [
+        `The window of ${thousands(s.window)} minus a ${thousands(s.reserve)}-token reply reserve leaves ${thousands(r.budget)} tokens of input.`,
+        cuts.length ? `Evicted: ${cuts.join("; ")}.` : "Nothing is evicted.",
+        r.left < 0 ? "The fixed parts and the passages alone do not fit, so evicting history and tool results is not enough." : "",
+      ],
     );
   }
   ui.start();

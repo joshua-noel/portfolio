@@ -44,11 +44,20 @@ export function svgEl(tag, attrs = {}, text) {
   return node;
 }
 
-/** A label on the diagram, in the course's text colour unless told otherwise. */
+/** A label on the diagram, in the course's text color unless told otherwise. */
 export function label(x, y, text, { size = 13, anchor = "start", fill = "currentColor", weight } = {}) {
   const attrs = { x, y, "font-size": size, "text-anchor": anchor, fill };
   if (weight) attrs["font-weight"] = weight;
   return svgEl("text", attrs, text);
+}
+
+/** An arrowhead in the color of its line: draw the line with marker-end="url(#id)". */
+export function arrowhead(id, color) {
+  const marker = svgEl("marker", {
+    id, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 5, markerHeight: 5, orient: "auto-start-reverse",
+  });
+  marker.append(svgEl("path", { d: "M0,0 L10,5 L0,10 z", fill: color }));
+  return marker;
 }
 
 /** Replaces the drawing, keeping the file's own <title>, <desc> and <defs>. */
@@ -63,8 +72,10 @@ export function redraw(svg, shapes) {
 export const thousands = (n) => Math.round(n).toLocaleString("en-US");
 
 /**
- * Builds the controls before the SVG and a live sentence after it.
- * `draw` is called after every change and once at the start.
+ * Builds the controls before the SVG, and after it the result in a sentence or
+ * two (a live region) and, behind "How this is computed", whatever else the
+ * reader may want to check: the model's rule, the lecture's own figures, what the
+ * model leaves out. `draw` is called after every change and once at the start.
  * Controls: slider, toggle, choice (a select); a Reset button is added last.
  */
 export function panel(svg, draw) {
@@ -73,8 +84,16 @@ export function panel(svg, draw) {
   const note = document.createElement("p");
   note.className = "dg-readout";
   note.setAttribute("aria-live", "polite");
+  const more = document.createElement("details");
+  more.className = "dg-more";
+  more.hidden = true;
+  const summary = document.createElement("summary");
+  summary.textContent = "How this is computed";
+  const detail = document.createElement("div");
+  more.append(summary, detail);
   svg.before(box);
   svg.after(note);
+  note.after(more);
   const resets = [];
   const outputs = [];
   let buttons;
@@ -136,9 +155,18 @@ export function panel(svg, draw) {
       buttons.append(button);
       return button;
     },
-    /** What the picture says, in words, for a screen reader and for the page. */
-    say(text) {
+    /**
+     * The result, in one or two short sentences (read out when it changes), and
+     * optionally what is behind it: a string or a list of paragraphs, shown only
+     * when the reader opens "How this is computed".
+     */
+    say(text, explanation = []) {
       note.textContent = text;
+      const paragraphs = [explanation].flat().filter(Boolean);
+      detail.replaceChildren(
+        ...paragraphs.map((paragraph) => Object.assign(document.createElement("p"), { textContent: paragraph })),
+      );
+      more.hidden = paragraphs.length === 0;
     },
     /** Adds the Reset button (last) and draws the first state. */
     start(onReset = () => {}) {

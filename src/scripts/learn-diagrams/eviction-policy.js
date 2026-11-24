@@ -142,21 +142,30 @@ export default function init(figure) {
     if (now.summary) parts.push(`a ${p.summary}-token summary`);
     parts.push(`${now.kept.length} messages × ${p.message}`);
     const name = { memgpt: "MemGPT flush (the lecture's)", fifo: "Comparison, not worked in the lecture: plain FIFO queue", never: "Comparison, not worked in the lecture: never evict" }[policy];
-    let text = `${name}, after message ${n}: the window holds ${thousands(now.tokens)} of ${thousands(p.window)} tokens (${parts.join(" + ")})`;
-    if (now.tokens > p.window) text += `, ${thousands(now.tokens - p.window)} over the window`;
-    else if (policy === "memgpt" && now.tokens > now.warnAt) text += `, above the ${thousands(now.warnAt)} warn level`;
-    text += ". ";
+    const excess = now.tokens - p.window;
+    let first = `After message ${n}, the window holds ${thousands(now.tokens)} of ${thousands(p.window)} tokens`;
+    if (excess > 0) first += `, ${thousands(excess)} over`;
+    else if (policy === "memgpt" && now.tokens > now.warnAt) first += `, above the ${thousands(now.warnAt)} warn level`;
+    let second;
     if (policy === "memgpt") {
-      text += now.flushes.length
-        ? `${now.flushes.length === 1 ? "One flush" : `${now.flushes.length} flushes`} so far, at message ${joined(now.flushes)}, each evicting ${p.evict} messages (${thousands(p.evict * p.message)} tokens); `
-        : "No flush yet; ";
-      text += `${now.kept.length} messages in the window, ${now.recall.length} in the recall store (not in the window, the model must search for them), 0 lost`;
+      second = `${now.flushes.length === 0 ? "No flush yet" : now.flushes.length === 1 ? "One flush so far" : `${now.flushes.length} flushes so far`}; ${now.recall.length} messages are in the recall store and none is lost.`;
     } else if (policy === "fifo") {
-      text += `${now.lost.length ? `Oldest messages dropped from message ${now.flushes[0]} on, no summary kept; ` : "Nothing dropped yet; "}${now.kept.length} messages in the window, ${now.lost.length} lost`;
+      second = now.lost.length ? `${now.lost.length} messages have been dropped for good.` : "Nothing has been dropped yet.";
     } else {
-      text += `${now.kept.length} messages in the window, 0 evicted, 0 lost`;
+      second = "Nothing is evicted, so the window only grows.";
     }
-    ui.say(`${text}${n < p.total ? `, ${p.total - n} not sent yet` : ""}.`);
+    const more = [`${name}. The window holds ${parts.join(" + ")}.`];
+    if (policy === "memgpt") {
+      more.push(
+        now.flushes.length
+          ? `Flushes at message ${joined(now.flushes)}, each evicting ${p.evict} messages (${thousands(p.evict * p.message)} tokens). Evicted messages stay in the recall store, which the model has to search; they are not in the window.`
+          : "No flush yet. A flush happens when the window would go over its limit.",
+      );
+    } else if (policy === "fifo") {
+      more.push(now.lost.length ? `The oldest messages are dropped from message ${now.flushes[0]} on, and no summary is kept.` : "Once the window is full, the oldest message is dropped for each new one; no summary is kept.");
+    }
+    if (n < p.total) more.push(`${p.total - n} of the ${p.total} messages are not sent yet.`);
+    ui.say(`${first}. ${second}`, more);
   }
   ui.start();
 }

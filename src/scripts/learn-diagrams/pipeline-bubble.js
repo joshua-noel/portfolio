@@ -70,7 +70,7 @@ export default function init(figure) {
       if (w >= 18) shapes.push(label(x + w / 2, top(b.stage) + 1 + (h - 2) / 2 + cellFont * 0.5, b.micro, { size: cellFont, anchor: "middle" }));
     }
     shapes.push(label(X, 30, "time →", { size: 14, fill: "var(--muted)" }));
-    // The static caption names the hues "blue" and "green"; the theme draws these two colours differently, so the legend shows the swatches.
+    // The static caption names the hues "blue" and "green"; the theme draws these two colors differently, so the legend shows the swatches.
     for (const [x, fill, text] of [[150, "var(--c1)", `forward (${FORWARD} unit)`], [330, "var(--c3)", `backward (${BACKWARD} units)`]]) {
       shapes.push(svgEl("rect", { x, y: bottom + 9, width: 16, height: 16, rx: 3, fill, "fill-opacity": 0.45, stroke: fill, "stroke-width": 1.5 }));
       shapes.push(label(x + 22, bottom + 22, text, { size: 14, fill: "var(--muted)" }));
@@ -84,12 +84,16 @@ export default function init(figure) {
     redraw(svg, shapes);
 
     ui.say(
-      `${p} pipeline ${p === 1 ? "stage" : "stages"} and ${m} ${m === 1 ? "micro-batch" : "micro-batches"}, with the lecture's costs of ${FORWARD} unit forward and ${BACKWARD} units backward per micro-batch. ` +
-        `The step takes ${r.total} units, each stage works ${r.work} of them and sits idle for ${r.idle}. ` +
-        (r.idle
-          ? `That is ${percent}% of each stage, (p−1)/(m+p−1) = ${p - 1}/${m + p - 1}.`
-          : "With one stage nothing waits, so the idle share is 0%.") +
-        ` The idle time compared with the useful time is (p−1)/m = ${(( p - 1) / m).toFixed(2)}. This is the lecture's flush-at-the-end schedule with equal stages; real stages are not equal, so the true idle share is larger.`,
+      r.idle
+        ? `With ${p} pipeline ${p === 1 ? "stage" : "stages"} and ${m} ${m === 1 ? "micro-batch" : "micro-batches"}, each stage sits idle for ${share} of the step.`
+        : `With 1 pipeline stage nothing waits, so the idle share is 0%.`,
+      [
+        `The lecture's costs are ${FORWARD} unit forward and ${BACKWARD} units backward per micro-batch. With ${p} ${p === 1 ? "stage" : "stages"} and ${m} ${m === 1 ? "micro-batch" : "micro-batches"} the step takes ${r.total} units, and each stage works ${r.work} of them.`,
+        r.idle
+          ? `The idle share is (p−1)/(m+p−1) = ${p - 1}/${m + p - 1}. Compared with the useful time it is (p−1)/m = ${((p - 1) / m).toFixed(2)}.`
+          : `The idle share is (p−1)/(m+p−1) = 0.`,
+        "This is the lecture's schedule, which flushes at the end of the step, with equal stages. Real stages are not equal, so the true idle share is larger.",
+      ],
     );
   }
   ui.start();

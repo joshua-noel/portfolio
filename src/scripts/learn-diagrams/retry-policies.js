@@ -5,9 +5,10 @@
 // policies differ only in what happens to a rejected request (the lecture's
 // code): none, immediate (next step), backoff_jitter (wait uniform(0, min(10,
 // 0.1 * 2**attempt))), budget (the same wait, if the budget holds a token; the
-// budget gains 0.1 per new request). The lecture's code is not printed whole and
-// its numbers come from one random run, so this port follows each rejected
-// request's distribution instead of drawing one value: the expected value.
+// budget gains 0.1 per new request). The lecture prints the whole simulation and
+// the output of one seeded run (seed=1). This port draws no random numbers: it
+// follows each rejected request's distribution instead, which gives the
+// expected values that the seeded run scatters around.
 import { label, panel, redraw, svgEl, thousands } from "./controls.js";
 
 export const DEFAULTS = { tries: 3, rej: 0.1, cap: 500, base: 0.1, jitter: true, ratio: 0.1 };
@@ -133,7 +134,8 @@ export default function init(figure) {
       shapes.push(label(X + gw + 8, 105 + y, `goodput ${thousands(v.goodput)}`, { size: 14, weight: "bold" }));
     });
     redraw(svg, shapes);
-    ui.say(sentence(o, r));
+    const [result, explanation] = sentence(o, r);
+    ui.say(result, explanation);
   }
   ui.start();
 }
@@ -141,12 +143,18 @@ export default function init(figure) {
 // The lecture's table of goodput by rejection cost (Deep, section 1): none, immediate, budget.
 const TABLE = { 0: [501, 497, 502], 0.3: [327, 0, 290] };
 
+/** The result in a sentence or two, and what is behind it. */
 function sentence(o, r) {
   const n = thousands;
   const x = (v) => (v.offered / NEW).toFixed(1);
   const waits = Array.from({ length: Math.min(o.tries, 3) }, (_, a) => Math.min(10, o.base * 2 ** a));
+  const pct = Math.round(o.ratio * 100);
+  const result = o.tries === 0
+    ? `With no retries, every policy offers ${NEW} requests per second and goodput is ${n(r.none.goodput)}.`
+    : `Immediate retry turns ${NEW} new requests per second into ${n(r.immediate.offered)} offered, and goodput ${r.immediate.goodput < r.none.goodput ? "falls" : "stays"} from ${n(r.none.goodput)} to ${n(r.immediate.goodput)}. ` +
+      `A ${pct}% retry budget gives ${n(r.budget.goodput)}.`;
   const out = [
-    `${NEW} new requests per second; for ${FAULT} seconds the backend can do ${n(o.cap)}, and a rejected request costs it ${o.rej} of a served one.`,
+    `${NEW} new requests per second arrive. For ${FAULT} seconds the backend can do ${n(o.cap)} per second, and rejecting a request costs it ${o.rej} of serving one.`,
     `No retry: ${n(r.none.offered)} offered, goodput ${n(r.none.goodput)}.`,
     `Immediate retry, up to ${o.tries} more ${o.tries === 1 ? "attempt" : "attempts"}: ${n(r.immediate.offered)} offered (${x(r.immediate)} times the traffic), goodput ${n(r.immediate.goodput)}, ${r.immediate.goodput < r.none.goodput ? `${n(r.none.goodput - r.immediate.goodput)} below no retry` : "not below no retry"}.`,
   ];
@@ -157,18 +165,24 @@ function sentence(o, r) {
         ? `. That is the same load as immediate retry: while the backend stays overloaded, backoff moves retries in time but sends as many.`
         : `, ${r.backoff.offered < r.immediate.offered ? "less" : "more"} offered than immediate retry because the waits, up to ${waits.map((w) => `${+w.toFixed(2)} s`).join(", ")}, keep the first seconds of the fault from reaching the steady state.`),
   );
-  out.push(`A retry budget of ${Math.round(o.ratio * 100)}%: ${n(r.budget.offered)} offered (${x(r.budget)} times), goodput ${n(r.budget.goodput)}.`);
+  out.push(`A retry budget of ${pct}%: ${n(r.budget.offered)} offered (${x(r.budget)} times), goodput ${n(r.budget.goodput)}.`);
   const flat = spread({ jitter: false }), spreadOut = spread({ jitter: true });
   out.push(
-    `What jitter changes, in the lecture's separate test of 1,000 clients that fail at the same moment and retry 4 times with a base of 1 second: the busiest 100 ms carries ${n(flat.peak)} retries without jitter and about ${n(spreadOut.peak)} with full jitter, spread over about ${spreadOut.buckets} buckets (the lecture's random run: 151 over 136). Both send 4,000 retries.`,
+    `What jitter changes, in the lecture's separate test of 1,000 clients that fail at the same moment and retry 4 times with a base of 1 second: the busiest 100 ms carries ${n(flat.peak)} retries without jitter and about ${n(spreadOut.peak)} with full jitter, spread over about ${spreadOut.buckets} buckets. The lecture reports 151 over 136 from one run. Both send 4,000 retries.`,
   );
   const others = Object.keys(DEFAULTS).every((k) => k === "rej" || o[k] === DEFAULTS[k]);
-  const note = "Expected values of the lecture's model, averaged over seconds 10 to 30 of the fault";
+  const note =
+    "These are expected values of the lecture's model: it follows the probability of each rejected request instead of drawing random numbers, and averages seconds 10 to 30 of the fault. " +
+    "The lecture prints its code and one seeded run of it (seed=1), averaged over seconds 25 to 45 of a 120-second run, and another seed moves each figure by a few requests per second.";
   if (others && o.rej === DEFAULTS.rej) {
-    out.push(`${note}. The lecture's single random run printed 3,312 and 182 for immediate retry, 3,307 and 187 for backoff with jitter, 990 and 445 for the budget, so they differ by a few requests per second.`);
+    out.push(
+      `${note} That run printed 900 offered and 456 goodput for no retry, 3,312 and 182 for immediate retry, 3,307 and 187 for backoff with jitter, and 990 and 445 for the budget. The lecture's own expected-value solution, with no random draws, gives about 3,303 offered and 189 goodput for immediate retry, which is what this diagram shows.`,
+    );
   } else if (others && TABLE[o.rej]) {
     const [a, b, c] = TABLE[o.rej];
-    out.push(`${note}. The lecture's table for a rejection cost of ${o.rej} prints goodput ${a} with no retry, ${b} with immediate retry and ${c} with a budget.`);
-  } else out.push(`${note}. The lecture does not work this setting.`);
-  return out.join(" ");
+    out.push(
+      `${note} For a rejection cost of ${o.rej} the lecture's table lists goodput ${a} with no retry, ${b} with immediate retry and ${c} with a budget, each from one seeded run.`,
+    );
+  } else out.push(`${note} The lecture does not work this setting.`);
+  return [result, out];
 }

@@ -76,14 +76,20 @@ export default function init(figure) {
 
     const states = CONDITIONS.map((c) => `${c.name}: ${on[c.id] ? "on" : "off"}`).join(". ");
     if (exposed) {
-      ui.say(`${states}. All three present: an attacker can steal your data. Remove one and that attack is gone.`);
+      ui.say(
+        "All three are on, so an attacker can steal your data. Turn off any one and that attack is closed.",
+        [states + ".", "This diagram covers data theft only, not the other impacts of injection the lecture lists."],
+      );
     } else {
       const names = missing.map((id) => CONDITIONS.find((c) => c.id === id).name.toLowerCase());
       const hints = missing.map((id, i) => `for ${names[i]}, remove ${list(providers(id))}`);
       ui.say(
-        `${states}. Not all three present, so this class of attack (data theft) is closed; missing: ${list(names)}. ` +
-          `Closing a leg means removing every tool that provides it. In the lecture's six-tool example: ${hints.join("; ")}. ` +
+        `Not all three are on, so this attack (data theft) is closed. Missing: ${list(names)}.`,
+        [
+          states + ".",
+          `Closing a leg means removing every tool that provides it. In the lecture's six-tool example: ${hints.join("; ")}.`,
           "This diagram covers data theft only, not the other impacts of injection the lecture lists.",
+        ],
       );
     }
   }
