@@ -205,7 +205,8 @@ Measured against a built server, these settings are **unsafe**, by what the real
 | Caddy alone (it replaces the header of untrusted clients) | `1` | correct |
 | two proxies that both append | `2` | correct |
 
-There is one admin account and no user table. Generate its password hash
+The blog has one admin account, set in the environment (readers of the
+lecture host are separate accounts: see "Accounts" above). Generate its password hash
 with:
 
 ```sh
