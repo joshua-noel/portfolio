@@ -8,6 +8,7 @@
 //   2. Required configuration is checked before the socket opens, so a
 //      missing secret is a startup failure in the journal instead of a 500
 //      on the first request.
+import http from "node:http";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -56,5 +57,40 @@ if (cfg("PORTFOLIO_LEARN_CONTENT_DIRS") === undefined && cfg("PORTFOLIO_LEARN_CO
 
 process.env.HOST = cfg("PORTFOLIO_HOST") ?? "127.0.0.1";
 process.env.PORT = cfg("PORTFOLIO_PORT") ?? "4321";
+
+// Responses the framework sends before the middleware runs (a trailing-slash
+// redirect, a static file under /_astro, a method it refuses) never pass
+// through `seal` in src/middleware.ts, and nothing in the bundle can reach
+// them. So the server's request listener is wrapped here: for the lecture
+// host, a floor of headers is set on the response first. The middleware's own
+// values replace these on everything it answers (the full policy, and a
+// route's own cache-control), and static files keep their own caching.
+//
+// Not covered: a request Node's HTTP parser refuses (an unknown method such as
+// FOO, a malformed request line) is answered before any listener runs, and
+// before the Host header is known; it carries no content.
+const learnHost = new URL(cfg("PORTFOLIO_LEARN_URL")).host;
+const FLOOR = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Cache-Control": "private, no-store",
+  Vary: "Cookie",
+};
+const createServer = http.createServer;
+http.createServer = (...args) => {
+  const at = args.findIndex((arg) => typeof arg === "function");
+  if (at !== -1) {
+    const listener = args[at];
+    args[at] = (req, res) => {
+      if (req.headers.host === learnHost) {
+        for (const [name, value] of Object.entries(FLOOR)) res.setHeader(name, value);
+      }
+      return listener(req, res);
+    };
+  }
+  return createServer.apply(http, args);
+};
 
 await import("../dist/server/entry.mjs");

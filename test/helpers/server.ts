@@ -1,5 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -100,6 +100,12 @@ export async function start(options: {
   env?: Record<string, string>;
   /** Reuse a state directory (the database and its sessions) from an earlier server. */
   stateDir?: string;
+  /**
+   * Start through bin/serve.mjs, the way production does, instead of the
+   * bundle's entry. The launcher is copied next to the build (it imports
+   * ../dist/server/entry.mjs), so the test's own build is what it runs.
+   */
+  viaLauncher?: boolean;
   /** Ready on any answer, even a 500: for a server that is meant to refuse its configuration. */
   anyAnswer?: boolean;
 }): Promise<Server> {
@@ -134,10 +140,20 @@ export async function start(options: {
     if (options.env?.[name] === undefined) delete env[name];
   }
 
+  let entry = join(options.out, "server", "entry.mjs");
+  if (options.viaLauncher) {
+    env.PORTFOLIO_HOST = "127.0.0.1";
+    env.PORTFOLIO_PORT = String(port);
+    const bin = join(dirname(options.out), "bin");
+    mkdirSync(bin, { recursive: true });
+    entry = join(bin, "serve.mjs");
+    copyFileSync(join(ROOT, "bin", "serve.mjs"), entry);
+  }
+
   let stderr = "";
   const child: ChildProcess = spawn(
     process.execPath,
-    [join(options.out, "server", "entry.mjs")],
+    [entry],
     {
       cwd: ROOT,
       env,

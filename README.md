@@ -99,9 +99,11 @@ This repository is public, so `members` and `friends` content comes from outside
 
 Lecture files come from outside this repository, so what they say is not trusted. Raw HTML in Markdown is cut down to an allow-list (`src/lib/learn/sanitize.ts`): `details`, `summary`, basic inline formatting, tables, lists, links (relative, `#fragment`, `http`, `https`, `mailto`) and images; scripts, event handlers, `javascript:` URLs, frames, forms, `style` and the rest are removed. KaTeX's output is added afterwards and is trusted. A diagram is parsed as a browser would parse it and every element and attribute must be on a list (`src/lib/learn/svg.ts`): no `script`, `style`, `foreignObject`, animation (`set`, `animate`), `image`, event handlers or external references, and `href` only to a `#id` in the same diagram. A diagram that fails is a load error, and what is inlined is the parser's own output, not the file's text.
 
-Every response on the lecture host carries a Content-Security-Policy, `X-Frame-Options: DENY`, `nosniff`, `Vary: Cookie` and `Cache-Control: private, no-store` (public media says its own), including 404s, 403s, redirects and 500s; one function in `src/middleware.ts` sets them. The policy is `default-src 'self'`; `script-src 'self'` (no inline script: the theme script is `src/scripts/learn-init.js`); `style-src 'self'`; `style-src-attr 'unsafe-inline'`; `img-src 'self' data:`; `media-src 'self'`; `font-src 'self' data:`; `frame-ancestors 'none'`; `base-uri 'none'`; `object-src 'none'`; `form-action 'self'`. The one relaxation is `style` attributes, which KaTeX output, the diagrams and the course cards need; an attribute cannot run code, and nothing an author writes keeps a `style`.
+Video, captions and poster are served under the lecture's slug (`/media/<course>/<slug>.mp4`, `.vtt`, `.poster.png`), never under the file's `NN-` number: after a `local` lecture is left out the page says "Lecture 4" while the file says 05, and the number in a URL would show that one is missing. The numbered names are a 404. `next` on sign-in and sign-out is resolved against a fixed dummy origin and only the normalised path comes back; dot segments, encoded dot segments, backslashes and control characters cannot produce another host.
 
-One broken lecture or course file does not take the lecture host down: the server loads what is valid, logs each file it left out, and shows the admin (only) a notice at the top of each page. `pnpm check` and the checker are strict and fail on the first problem as before.
+Every response on the lecture host carries a Content-Security-Policy, `X-Frame-Options: DENY`, `nosniff`, `Vary: Cookie` and `Cache-Control: private, no-store` (public media says its own), including 404s, 403s, 400s, redirects and 500s; one function in `src/middleware.ts` sets them. What the framework answers before the middleware (a trailing-slash redirect, a static file under `/_astro`, a `TRACE`) gets a floor of the same headers (`nosniff`, `X-Frame-Options`, a `default-src 'none'` policy, `private, no-store`, `Vary: Cookie`) from a wrapper around the server's request listener in `bin/serve.mjs`, for the lecture host only; static files keep their own caching. Not covered: a request Node's HTTP parser refuses (an unknown method such as `FOO`, a malformed request line) is answered before any code of ours runs and before the Host is known; it carries no content. The policy is `default-src 'self'`; `script-src 'self'` (no inline script: the theme script is `src/scripts/learn-init.js`); `style-src 'self'`; `style-src-attr 'unsafe-inline'`; `img-src 'self' data:`; `media-src 'self'`; `font-src 'self' data:`; `frame-ancestors 'none'`; `base-uri 'none'`; `object-src 'none'`; `form-action 'self'`. The one relaxation is `style` attributes, which KaTeX output, the diagrams and the course cards need; an attribute cannot run code, and nothing an author writes keeps a `style`.
+
+One broken lecture or course file does not take the lecture host down: the server loads what is valid, logs each file it left out, and tells an admin (only) how many files were left out, as a number at the top of each page. The detail (file names, a quote of what is wrong, server paths) goes to the server log and nowhere else, because it can quote a `local` file; only the dev server on your own machine, with the local switch on, shows it on the page. A file over its size limit (lecture 1 MiB, diagram 512 KiB, course file 256 KiB; the largest real ones are 40 KB, 43 KB and 3 KB) is not read, and the log says so. A change to the content is built in the background while the previous catalog is served, and swapped in when done; only the first request after a start waits. `pnpm check` and the checker are strict and fail on the first problem as before.
 
 ## Running it on Windows (no `just`, no bash)
 
@@ -169,13 +171,24 @@ proxies in front of the process, so it is a setting, not a guess:
 Forwarded headers are believed only when the peer is loopback or one of the
 comma-separated addresses in `PORTFOLIO_TRUSTED_PROXIES`; a header with fewer
 entries than hops is ignored. **The owner must confirm the production
-chain.** The example in this README, Caddy on the same machine, is one hop.
+chain.** With Caddy alone in front of the process, `1` is right. The example in this README, Caddy on the same machine, is one hop.
 If a bot check or CDN sits in front of Caddy, count it too: with one hop too
 few, every visitor shares one address and five failures lock sign-in for all;
 with one too many, the rightmost entry the client could forge is trusted and
 the per-address limit can be bypassed. Check what the app really receives
 before relying on it, for example with `curl -H 'X-Forwarded-For: 6.6.6.6'`
 through the whole chain and a log of the header at the app.
+
+Measured against a built server, these settings are **unsafe**, by what the real chain is:
+
+| real chain | setting | what happens |
+| ---------- | ------- | ------------ |
+| any proxy in front | `0` | every client is keyed as the proxy (`127.0.0.1`): five failures from one person lock **everyone** out of sign-in |
+| fewer proxies than the setting (one real proxy, `2`) | too high | the header has too few entries, so the peer is used and everyone shares one address and one lockout; or, if the client adds an entry of its own, a forged entry is trusted and the per-address limit is bypassed by rotating it |
+| more proxies than the setting (a CDN or bot check in front of Caddy, `1`) | too low | every visitor shares the CDN's address: five failures lock everyone out |
+| a proxy that passes the client's `X-Forwarded-For` through unchanged, neither appending nor replacing | any | the client chooses its own address and is never locked: the limit is defeated |
+| Caddy alone (it replaces the header of untrusted clients) | `1` | correct |
+| two proxies that both append | `2` | correct |
 
 There is one admin account and no user table. Generate its password hash
 with:

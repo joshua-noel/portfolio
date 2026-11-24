@@ -1,3 +1,4 @@
+import { GOOD_NEXT, HOSTILE_NEXT } from "./helpers/redirects.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -293,47 +294,24 @@ test("addUser stores a hash the server's own check accepts, and never the passwo
 });
 
 test("next is a path on this host and nothing else", () => {
-  const base = new URL("https://learn.example.com/signin?next=x");
-  const ok = [
-    "/",
-    "/a/b",
-    "/a/b?depth=deep",
-    "/how-language-models-work/attention?x=1#frag",
-  ];
-  for (const value of ok) assert.equal(safeNext(value, base), value.replace(/#.*/, ""));
-  const bad = [
-    "//evil.example",
-    "//evil.example/path",
-    "/\\evil.example",
-    "\\\\evil.example",
-    "https://evil.example/",
-    "http://learn.example.com/x",
-    "javascript:alert(1)",
-    "evil.example",
-    "",
-    "/signin",
-    "/signin?next=/x",
-    "/signout",
-    "/signin/",
-    "/\t/evil.example",
-    "/%2F/evil.example",
-    null,
-    undefined,
-    ["/x"],
-    42,
-  ];
-  for (const value of bad) {
-    const out = safeNext(value, base);
-    assert.ok(
-      out === "/" ||
-        (out.startsWith("/") && !out.startsWith("//") && !out.includes("\\")),
-      `${String(value)} -> ${out}`,
-    );
+  for (const [value, expected] of GOOD_NEXT) assert.equal(safeNext(value), expected, value);
+  const nothing: unknown[] = [null, undefined, ["/x"], 42, {}, true, ""];
+  for (const value of nothing) assert.equal(safeNext(value), "/", String(value));
+  for (const value of HOSTILE_NEXT) {
+    const out = safeNext(value);
+    // Whatever comes out is one slash and a path: resolved against any host it stays there.
+    assert.ok(/^\/(?![/\\])/.test(out), `${JSON.stringify(value)} -> ${out}`);
+    assert.ok(!/[\\\u0000-\u001f\u007f]/.test(out), `${JSON.stringify(value)} -> ${out}`);
+    assert.equal(new URL(out, "https://learn.example.com").origin, "https://learn.example.com");
+    assert.equal(new URL(out, "https://learn.example.com").pathname.startsWith("//"), false);
+    assert.ok(!/^\/sign(in|out)(\/|$)/i.test(out), `${JSON.stringify(value)} -> ${out}`);
   }
-  assert.equal(safeNext("//evil.example", base), "/");
-  assert.equal(safeNext("/\\evil.example", base), "/");
-  assert.equal(safeNext("https://evil.example/", base), "/");
-  assert.equal(safeNext("/signin", base), "/");
+  // The review's own cases.
+  for (const value of ["/..//evil.test", "/x/../..//evil.test", "/./\\evil.test", "//evil.test"]) {
+    assert.equal(safeNext(value), "/", value);
+  }
+  // The helper returns the normalised path, never the raw input.
+  assert.equal(safeNext("/a/%2e%2e/b"), "/b");
 });
 
 test("sign in: success makes a new session and kills the old one", async () => {

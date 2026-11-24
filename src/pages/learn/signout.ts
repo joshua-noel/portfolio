@@ -20,7 +20,10 @@ export const POST: APIRoute = async (context) => {
   context.cookies.delete(LEARN_COOKIE_HOST, { path: "/", secure: true });
   context.cookies.delete(LEARN_COOKIE, { path: "/" });
   const form = await context.request.formData().catch(() => undefined);
-  return context.redirect(safeNext(form?.get("next"), context.url), 303);
+  // A body that is not a form is a bad request; no body at all is a plain sign-out.
+  const hasBody = Number(context.request.headers.get("content-length") ?? 0) > 0;
+  if (!form && hasBody) return new Response("Bad request", { status: 400 });
+  return context.redirect(safeNext(form?.get("next")), 303);
 };
 
 export const GET: APIRoute = (context) => context.redirect("/", 303);

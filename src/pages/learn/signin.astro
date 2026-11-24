@@ -19,8 +19,10 @@ if (Astro.request.method === "POST") {
   const length = Number(Astro.request.headers.get("content-length") ?? Infinity);
   if (!(length <= MAX_BODY_BYTES)) return new Response("Too large", { status: 413 });
 
-  const form = await Astro.request.formData();
-  const next = safeNext(form.get("next"), Astro.url);
+  // Not a form (another content type, no body): a client error, not a crash.
+  const form = await Astro.request.formData().catch(() => undefined);
+  if (!form) return new Response("Bad request", { status: 400 });
+  const next = safeNext(form.get("next"));
   const result = await signIn({
     handle: getDb(),
     now: now(),
@@ -54,7 +56,7 @@ if (Astro.request.method === "POST") {
   return Astro.redirect(next, 303);
 }
 
-const next = safeNext(Astro.url.searchParams.get("next"), Astro.url);
+const next = safeNext(Astro.url.searchParams.get("next"));
 const failed = Astro.url.searchParams.has("failed");
 const locked = Astro.url.searchParams.has("locked");
 ---

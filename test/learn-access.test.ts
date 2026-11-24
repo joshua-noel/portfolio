@@ -372,8 +372,17 @@ test("one broken lecture file costs that lecture, not the catalog", async () => 
   const visitor = forViewer(catalog, undefined, false);
   assert.equal(findLecture(findCourse(visitor, "c-public")!, "l-public")!.locked, false);
   assert.deepEqual(visitor.problems, []);
+  assert.equal(visitor.problemCount, 0);
   assert.deepEqual(forViewer(catalog, "friend", false).problems, []);
-  assert.equal(forViewer(catalog, "admin", false).problems.length, 4);
+  assert.equal(forViewer(catalog, "friend", false).problemCount, 0);
+  // An admin is told how many, and nothing more: the detail quotes files that may be local, and paths.
+  const admin = forViewer(catalog, "admin", false);
+  assert.equal(admin.problemCount, 4);
+  assert.deepEqual(admin.problems, []);
+  assert.ok(!/02-broken|03-math|\/gone|ENOENT/.test(JSON.stringify(admin)), "no file name in what an admin gets");
+  // On the owner's own machine (the local switch, a clean loopback request) the detail is shown.
+  assert.equal(forViewer(catalog, "admin", true).problems.length, 4);
+  assert.deepEqual(forViewer(catalog, "friend", true).problems, []);
 });
 
 test("a catalog loaded with local content shows none of it to a request that is not the owner's", async () => {

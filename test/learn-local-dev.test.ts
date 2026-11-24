@@ -99,7 +99,7 @@ after(() => {
 });
 
 test("on the dev server, from loopback with no proxy header, a local lecture is served", async () => {
-  for (const path of ["/c-local/l-local", "/c-local", "/media/c-local/01-l-local.mp4"]) {
+  for (const path of ["/c-local/l-local", "/c-local", "/media/c-local/l-local.mp4"]) {
     const res = await get(path);
     assert.equal(res.status, 200, path);
   }

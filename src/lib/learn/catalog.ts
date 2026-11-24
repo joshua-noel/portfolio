@@ -62,10 +62,14 @@ export interface Catalog {
   /** Lectures and courses of visibility `local` that were left out. */
   localIgnored: number;
   /**
-   * Files that could not be loaded, in `lenient` mode, as text for the owner.
-   * `forViewer` empties it for everyone but an admin.
+   * Files that could not be loaded, in `lenient` mode, as text for the
+   * server log. It holds file names, folder paths and quotes of the files'
+   * own text, which may be `local`: `forViewer` empties it for everyone
+   * except an admin on the owner's own machine.
    */
   problems: string[];
+  /** How many files were left out. The only thing an admin is shown on a server. */
+  problemCount: number;
 }
 
 export interface LoadOptions {
@@ -104,11 +108,22 @@ export async function loadCatalog(
   const problems: string[] = [...(content.problems ?? [])];
   const courses: Course[] = [];
   let localIgnored = 0;
+  // How many files were left out, for the one number an admin is shown.
+  let leftOutFiles = content.problems?.length ?? 0;
+  // Slugs of lectures that are not in the catalog on purpose (local, on a
+  // server) or because their file was bad: a prerequisite that names one is
+  // not an error to report, least of all one that names a local lecture.
+  const hiddenSlugs = new Set<string>();
+  const slugOfFile = (path: string): string | undefined =>
+    /(?:^|[\\/])\d{2}-([^\\/]*)\.md$/.exec(path)?.[1];
 
   /** Strict: the first bad file stops the load. Lenient: it is set aside and described. */
   const reject = (path: string, why: string[]): void => {
     if (!lenient) throw new LectureError(path, why);
     problems.push(new LectureError(path, why).message);
+    leftOutFiles += 1;
+    const slug = slugOfFile(path);
+    if (slug !== undefined) hiddenSlugs.add(slug);
   };
 
   for (const source of content.courses) {
@@ -132,12 +147,19 @@ export async function loadCatalog(
     }
     if (front.visibility === "local" && !allowLocal) {
       localIgnored += 1;
+      for (const file of source.lectures) {
+        const slug = slugOfFile(file.path);
+        if (slug !== undefined) hiddenSlugs.add(slug);
+      }
       continue;
     }
 
     const lectures: Lecture[] = [];
     let leftOut = 0;
     for (const file of source.lectures) {
+      // Building a lecture is CPU work on the one thread every host shares:
+      // give requests a turn between lectures instead of after all of them.
+      await new Promise<void>((resolve) => setImmediate(resolve));
       let lecture: Lecture;
       try {
         lecture = await buildLecture(file, front.slug, source.diagrams, source.media, {
@@ -153,6 +175,8 @@ export async function loadCatalog(
             ? error.issues
             : [error instanceof Error ? error.message : String(error)],
         );
+        // A lecture gone for any reason must not leave a hole in the numbers.
+        leftOut += 1;
         continue;
       }
       if (repository && lecture.front.visibility !== "public") {
@@ -163,6 +187,7 @@ export async function loadCatalog(
       if (lecture.front.visibility === "local" && !allowLocal) {
         localIgnored += 1;
         leftOut += 1;
+        hiddenSlugs.add(lecture.slug);
         continue;
       }
       lectures.push(lecture);
@@ -215,6 +240,7 @@ export async function loadCatalog(
       issues.push(`${course.front.slug} and ${twin.front.slug} share shelf and order`);
     for (const lecture of course.lectures) {
       for (const wanted of lecture.front.prerequisites) {
+        if ((lenient || !allowLocal) && hiddenSlugs.has(wanted)) continue;
         const same = course.lectures.filter((other) => other.slug === wanted);
         const anywhere = courses
           .flatMap((c) => c.lectures)
@@ -233,11 +259,16 @@ export async function loadCatalog(
     if (!lenient) throw new LectureError("courses", [...new Set(issues)]);
     problems.push(new LectureError("courses", [...new Set(issues)]).message);
   }
-  return assemble(courses, localIgnored, problems);
+  return assemble(courses, localIgnored, problems, leftOutFiles);
 }
 
 /** Shelves, flat lists and warnings from courses in any order. */
-function assemble(courses: Course[], localIgnored: number, problems: string[]): Catalog {
+function assemble(
+  courses: Course[],
+  localIgnored: number,
+  problems: string[],
+  problemCount: number,
+): Catalog {
   const shelves = SHELVES.map((shelf) => ({
     id: shelf.id as string,
     title: shelf.title as string,
@@ -260,6 +291,7 @@ function assemble(courses: Course[], localIgnored: number, problems: string[]): 
     ),
     localIgnored,
     problems,
+    problemCount,
   };
 }
 
@@ -338,11 +370,16 @@ export function forViewer(catalog: Catalog, role: unknown, allowLocal: boolean):
         lectures,
       };
     });
-  // What went wrong with the files is for the owner (the admin) only.
+  // What went wrong with the files is for the server log. An admin is told how
+  // many files were left out, and nothing else: the detail quotes files that
+  // may be `local` and gives server paths. Only on the owner's own machine
+  // (`allowLocal`, which is the dev server and a clean loopback request) is it shown.
+  const admin = parseRole(role) === "admin";
   return assemble(
     courses,
     catalog.localIgnored,
-    parseRole(role) === "admin" ? catalog.problems : [],
+    admin && allowLocal ? catalog.problems : [],
+    admin ? catalog.problemCount : 0,
   );
 }
 
