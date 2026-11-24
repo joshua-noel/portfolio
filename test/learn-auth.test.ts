@@ -7,8 +7,11 @@ import { hashPassword, verifyPassword } from "../src/lib/password.ts";
 import { signIn } from "../src/lib/learn-signin.ts";
 import {
   createSession,
+  credentialFingerprint,
   destroySession,
   destroyUserSessions,
+  LEARN_COOKIE_HOST,
+  learnCookieName,
   lookupSession,
   SESSION_TTL_SECONDS,
 } from "../src/lib/sessions.ts";
@@ -28,12 +31,15 @@ const sql = (name: string): string =>
 function database(): DatabaseSync {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
-  migrate(db, [sql("001_init.sql"), sql("002_summary.sql"), "", sql("004_users.sql")]);
+  migrate(db, [sql("001_init.sql"), sql("002_summary.sql"), "", sql("004_users.sql"),
+    sql("005_session_credential.sql"),
+  ]);
   return db;
 }
 
 const NOW = 1_800_000_000;
 const ADMIN = { username: "owner", passwordHash: hashPassword("the-owner-password") };
+const BOOT = { username: "owner", credential: credentialFingerprint(ADMIN.passwordHash) };
 
 test("004 adds users and the session scope, user and role", () => {
   const db = database();
@@ -93,25 +99,29 @@ test("a session only validates in its own scope", () => {
     now: NOW,
   });
   const learn = createSession(db, NOW, { scope: "learn", userId: id });
-  const admin = createSession(db, NOW, { scope: "admin", role: "admin" });
+  const admin = createSession(db, NOW, {
+    scope: "admin",
+    role: "admin",
+    credential: BOOT.credential,
+  });
 
-  assert.deepEqual(lookupSession(db, learn.token, "learn", NOW, "owner"), {
+  assert.deepEqual(lookupSession(db, learn.token, "learn", NOW, BOOT), {
     username: "ada",
     role: "friend",
     userId: id,
   });
   assert.equal(
-    lookupSession(db, learn.token, "admin", NOW, "owner"),
+    lookupSession(db, learn.token, "admin", NOW, BOOT),
     undefined,
     "a learn token is worthless in the admin",
   );
-  assert.deepEqual(lookupSession(db, admin.token, "admin", NOW, "owner"), {
+  assert.deepEqual(lookupSession(db, admin.token, "admin", NOW, BOOT), {
     username: "owner",
     role: "admin",
     userId: null,
   });
   assert.equal(
-    lookupSession(db, admin.token, "learn", NOW, "owner"),
+    lookupSession(db, admin.token, "learn", NOW, BOOT),
     undefined,
     "an admin token is worthless on learn",
   );
@@ -126,15 +136,15 @@ test("a user's session cannot be an admin-scope session, even if one is forged i
     now: NOW,
   });
   const forged = createSession(db, NOW, { scope: "admin", userId: id });
-  assert.equal(lookupSession(db, forged.token, "admin", NOW, "owner"), undefined);
+  assert.equal(lookupSession(db, forged.token, "admin", NOW, BOOT), undefined);
 });
 
 test("a session without a user is the bootstrap admin only when its role says so", () => {
   const db = database();
   const none = createSession(db, NOW, { scope: "learn" });
-  assert.equal(lookupSession(db, none.token, "learn", NOW, "owner"), undefined);
+  assert.equal(lookupSession(db, none.token, "learn", NOW, BOOT), undefined);
   const friend = createSession(db, NOW, { scope: "learn", role: "friend" });
-  assert.equal(lookupSession(db, friend.token, "learn", NOW, "owner"), undefined);
+  assert.equal(lookupSession(db, friend.token, "learn", NOW, BOOT), undefined);
 });
 
 test("sessions expire, are found by hash only, and can be destroyed", () => {
@@ -146,9 +156,9 @@ test("sessions expire, are found by hash only, and can be destroyed", () => {
     now: NOW,
   });
   const s = createSession(db, NOW, { scope: "learn", userId: id });
-  assert.ok(lookupSession(db, s.token, "learn", NOW + SESSION_TTL_SECONDS - 1, "owner"));
+  assert.ok(lookupSession(db, s.token, "learn", NOW + SESSION_TTL_SECONDS - 1, BOOT));
   assert.equal(
-    lookupSession(db, s.token, "learn", NOW + SESSION_TTL_SECONDS, "owner"),
+    lookupSession(db, s.token, "learn", NOW + SESSION_TTL_SECONDS, BOOT),
     undefined,
   );
   const stored = (
@@ -156,14 +166,14 @@ test("sessions expire, are found by hash only, and can be destroyed", () => {
   ).token_hash;
   assert.notEqual(stored, s.token);
   assert.equal(
-    lookupSession(db, stored, "learn", NOW, "owner"),
+    lookupSession(db, stored, "learn", NOW, BOOT),
     undefined,
     "the stored hash is not a token",
   );
-  assert.equal(lookupSession(db, undefined, "learn", NOW, "owner"), undefined);
-  assert.equal(lookupSession(db, "", "learn", NOW, "owner"), undefined);
+  assert.equal(lookupSession(db, undefined, "learn", NOW, BOOT), undefined);
+  assert.equal(lookupSession(db, "", "learn", NOW, BOOT), undefined);
   destroySession(db, s.token);
-  assert.equal(lookupSession(db, s.token, "learn", NOW, "owner"), undefined);
+  assert.equal(lookupSession(db, s.token, "learn", NOW, BOOT), undefined);
 });
 
 test("a disabled account's sessions stop working at once, and a role change applies at once", () => {
@@ -176,17 +186,17 @@ test("a disabled account's sessions stop working at once, and a role change appl
   });
   const s = createSession(db, NOW, { scope: "learn", userId: id });
   db.prepare("UPDATE users SET role = 'member' WHERE id = ?").run(id);
-  assert.equal(lookupSession(db, s.token, "learn", NOW, "owner")?.role, "member");
+  assert.equal(lookupSession(db, s.token, "learn", NOW, BOOT)?.role, "member");
   db.prepare("UPDATE users SET disabled = 1 WHERE id = ?").run(id);
   assert.equal(
-    lookupSession(db, s.token, "learn", NOW, "owner"),
+    lookupSession(db, s.token, "learn", NOW, BOOT),
     undefined,
     "disabled, though the row is still there",
   );
   db.prepare("UPDATE users SET disabled = 0 WHERE id = ?").run(id);
-  assert.ok(lookupSession(db, s.token, "learn", NOW, "owner"));
+  assert.ok(lookupSession(db, s.token, "learn", NOW, BOOT));
   destroyUserSessions(db, id);
-  assert.equal(lookupSession(db, s.token, "learn", NOW, "owner"), undefined);
+  assert.equal(lookupSession(db, s.token, "learn", NOW, BOOT), undefined);
 });
 
 test("deleting an account deletes its sessions", () => {
@@ -344,12 +354,12 @@ test("sign in: success makes a new session and kills the old one", async () => {
   if (result.kind !== "ok") return;
   assert.notEqual(result.token, old.token);
   assert.equal(
-    lookupSession(db, old.token, "learn", NOW, "owner"),
+    lookupSession(db, old.token, "learn", NOW, BOOT),
     undefined,
     "the old session is gone",
   );
-  assert.equal(lookupSession(db, planted, "learn", NOW, "owner"), undefined);
-  assert.equal(lookupSession(db, result.token, "learn", NOW, "owner")?.username, "ada");
+  assert.equal(lookupSession(db, planted, "learn", NOW, BOOT), undefined);
+  assert.equal(lookupSession(db, result.token, "learn", NOW, BOOT)?.username, "ada");
   assert.equal(result.expiresAt, NOW + SESSION_TTL_SECONDS);
 });
 
@@ -365,19 +375,19 @@ test("sign in: the bootstrap admin gets a learn session with no user row", async
   });
   assert.equal(result.kind, "ok");
   if (result.kind !== "ok") return;
-  assert.deepEqual(lookupSession(db, result.token, "learn", NOW, "owner"), {
+  assert.deepEqual(lookupSession(db, result.token, "learn", NOW, BOOT), {
     username: "owner",
     role: "admin",
     userId: null,
   });
   assert.equal(
-    lookupSession(db, result.token, "admin", NOW, "owner"),
+    lookupSession(db, result.token, "admin", NOW, BOOT),
     undefined,
     "and none for the admin site",
   );
 });
 
-test("sign in: failures are all alike, and five lock the address and the name before any derivation", async () => {
+test("sign in: failures are all alike, and five lock the address, and the name at that address, before any derivation", async () => {
   const db = database();
   addUser(db, { username: "ada", password: "correct horse 1", role: "friend", now: NOW });
   const attempt = (ip: string, username: string, password: string) =>
@@ -404,11 +414,12 @@ test("sign in: failures are all alike, and five lock the address and the name be
     "locked",
     "the address is locked for every name",
   );
-  // The name is locked from every address, so a spread-out guess does not get five more tries each.
-  assert.equal((await attempt("198.51.100.11", "ada", "correct horse 1")).kind, "locked");
-  // A name that does not exist is counted too: the lockout says nothing about who is real.
-  for (let i = 0; i < 5; i++) await attempt(`198.51.100.${20 + i}`, "ghost", "no");
-  assert.equal((await attempt("198.51.100.30", "ghost", "no")).kind, "locked");
+  // The name alone is not locked: failures from one address never refuse another
+  // address's correct password (see the next test).
+  assert.equal((await attempt("198.51.100.11", "ada", "correct horse 1")).kind, "ok");
+  // A name that does not exist is counted too, by name and address: the lockout says nothing about who is real.
+  for (let i = 0; i < 5; i++) await attempt("198.51.100.20", "ghost", "no");
+  assert.equal((await attempt("198.51.100.20", "ghost", "no")).kind, "locked");
   // Another name from another address is unaffected, and success clears the counts.
   assert.equal(
     (
@@ -425,9 +436,102 @@ test("sign in: failures are all alike, and five lock the address and the name be
   );
 });
 
+test("one address cannot lock a name out for everyone else (denial of service)", async () => {
+  const db = database();
+  addUser(db, { username: "ada", password: "correct horse 1", role: "friend", now: NOW });
+  const attempt = (ip: string, username: string, password: string) =>
+    signIn({ handle: db, now: NOW, bootstrap: ADMIN, ip, username, password });
+
+  for (const [name, password] of [
+    ["ada", "correct horse 1"],
+    // The environment admin's name is the default target.
+    ["owner", "the-owner-password"],
+  ] as const) {
+    // An attacker spreads wrong guesses over many addresses, and five on each.
+    for (let a = 0; a < 20; a++) {
+      for (let i = 0; i < 5; i++) await attempt(`203.0.113.${100 + a}`, name, "wrong");
+    }
+    // The one doing it is locked...
+    assert.equal((await attempt("203.0.113.100", name, password)).kind, "locked");
+    // ...but the real person, from an address of their own, is not.
+    assert.equal((await attempt("198.51.100.77", name, password)).kind, "ok", name);
+  }
+});
+
+test("a success clears what its address had counted against that name", async () => {
+  const db = database();
+  addUser(db, { username: "ada", password: "correct horse 1", role: "friend", now: NOW });
+  const attempt = (ip: string, username: string, password: string) =>
+    signIn({ handle: db, now: NOW, bootstrap: ADMIN, ip, username, password });
+  for (let i = 0; i < 4; i++) await attempt("198.51.100.90", "ada", "wrong");
+  // Success from this address clears what it had against that name.
+  assert.equal((await attempt("198.51.100.90", "ada", "correct horse 1")).kind, "ok");
+  for (let i = 0; i < 4; i++) await attempt("198.51.100.90", "ada", "wrong");
+  assert.equal((await attempt("198.51.100.90", "ada", "correct horse 1")).kind, "ok");
+});
+
 test("the lockout ends, and the admin's and the lecture host's counts are separate", () => {
   for (let i = 0; i < 5; i++) recordFailure("203.0.113.50", NOW);
   assert.equal(isLockedOut("203.0.113.50", NOW + 10), true);
   assert.equal(isLockedOut("learn-ip:203.0.113.50", NOW + 10), false);
   assert.equal(isLockedOut("203.0.113.50", NOW + 15 * 60 + 1), false);
+});
+
+test("changing the environment admin's password ends its sessions, on both sites", async () => {
+  const db = database();
+  const learn = await signIn({
+    handle: db,
+    now: NOW,
+    bootstrap: ADMIN,
+    ip: "203.0.113.60",
+    username: "owner",
+    password: "the-owner-password",
+  });
+  assert.equal(learn.kind, "ok");
+  if (learn.kind !== "ok") return;
+  const admin = createSession(db, NOW, {
+    scope: "admin",
+    role: "admin",
+    credential: BOOT.credential,
+  });
+  assert.ok(lookupSession(db, learn.token, "learn", NOW, BOOT));
+  assert.ok(lookupSession(db, admin.token, "admin", NOW, BOOT));
+
+  // The owner sets a new password: the configured hash changes (it has a new salt even if the words did not).
+  const changed = {
+    username: "owner",
+    credential: credentialFingerprint(hashPassword("a-new-password")),
+  };
+  assert.notEqual(changed.credential, BOOT.credential);
+  assert.equal(lookupSession(db, learn.token, "learn", NOW, changed), undefined);
+  assert.equal(lookupSession(db, admin.token, "admin", NOW, changed), undefined);
+
+  // A session made before this column existed has no fingerprint, and never validates.
+  const old = createSession(db, NOW, { scope: "learn", role: "admin" });
+  assert.equal(lookupSession(db, old.token, "learn", NOW, BOOT), undefined);
+
+  // Signing in again under the new password works.
+  const again = await signIn({
+    handle: db,
+    now: NOW,
+    bootstrap: { username: "owner", passwordHash: hashPassword("a-new-password") },
+    ip: "203.0.113.61",
+    username: "owner",
+    password: "a-new-password",
+  });
+  assert.equal(again.kind, "ok");
+});
+
+test("a user's session does not depend on the environment admin's password", () => {
+  const db = database();
+  const id = addUser(db, { username: "ada", password: "pw-pw-pw-pw-1", role: "friend", now: NOW });
+  const s = createSession(db, NOW, { scope: "learn", userId: id });
+  const changed = { username: "owner", credential: "something-else" };
+  assert.equal(lookupSession(db, s.token, "learn", NOW, changed)?.username, "ada");
+});
+
+test("the lecture cookie is __Host- named on https and plain on http", () => {
+  assert.equal(learnCookieName(new URL("https://learn.example.com/x")), "__Host-learn_session");
+  assert.equal(learnCookieName(new URL("http://learn.localhost:4321/")), "learn_session");
+  assert.equal(LEARN_COOKIE_HOST.startsWith("__Host-"), true);
 });

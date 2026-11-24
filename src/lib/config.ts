@@ -30,8 +30,10 @@ export interface Config {
    */
   learnContentDirs: string[];
   /**
-   * Serve `local` lectures. For the owner's own machine only: refused unless
-   * the server listens on loopback, and the NixOS module has no option for it.
+   * Serve `local` lectures. For the owner's own machine only, and only under
+   * `astro dev`: refused unless the learn URL is itself a localhost origin and
+   * this is the dev server, never the built server. Each request is then
+   * checked again (`mayServeLocal`). The NixOS module has no option for it.
    */
   learnAllowLocal: boolean;
   dbPath: string;
@@ -46,6 +48,25 @@ export interface Config {
   adminPasswordHash: string;
   /** Proxy addresses, beyond loopback, whose X-Forwarded-For is believed. */
   trustedProxies: string[];
+  /**
+   * How many reverse proxies stand between a visitor and this process, each
+   * appending the address it saw to X-Forwarded-For. 0 ignores forwarded
+   * headers altogether; the default, 1, is one proxy on this host.
+   */
+  trustedProxyHops: number;
+}
+
+/** True for `localhost` and `*.localhost`, which no resolver sends off the machine. */
+export const isLocalhostName = (hostname: string): boolean =>
+  hostname === "localhost" || hostname.endsWith(".localhost");
+
+export interface LoadOptions {
+  /**
+   * Whether this is the dev server. The default reads a flag the bundler
+   * fixes when it builds: false in `dist/server/entry.mjs`, whatever the
+   * environment says, and absent (so false) under plain Node.
+   */
+  devServer?: boolean;
 }
 
 const isLoopbackHost = (host: string): boolean =>
@@ -65,7 +86,10 @@ function contentDirs(env: Env): string[] {
   return dirs.map((dir) => resolve(dir.trim()));
 }
 
-export function loadConfig(env: Env = process.env): Config {
+export function loadConfig(
+  env: Env = process.env,
+  { devServer = import.meta.env?.DEV === true }: LoadOptions = {},
+): Config {
   const missing: string[] = [];
   const require_ = (name: string): string => {
     const value = readEnv(name, env);
@@ -89,11 +113,24 @@ export function loadConfig(env: Env = process.env): Config {
 
   const host = readEnv("PORTFOLIO_HOST", env) ?? "127.0.0.1";
   const learnAllowLocal = readEnv("PORTFOLIO_LEARN_ALLOW_LOCAL", env) === "1";
-  if (learnAllowLocal && !isLoopbackHost(host)) {
-    throw new Error(
-      "PORTFOLIO_LEARN_ALLOW_LOCAL=1 serves local lectures to anyone who can connect, " +
-        `so it refuses to run on ${host}: it is for the owner's own machine, on loopback`,
-    );
+  if (learnAllowLocal) {
+    const refuse = (why: string): never => {
+      throw new Error(
+        "PORTFOLIO_LEARN_ALLOW_LOCAL=1 serves local lectures to anyone who can reach the " +
+          `server, so it refuses to run: ${why}. It is for the owner's own machine, under \`pnpm learn:dev\`.`,
+      );
+    };
+    // The anchor, and it cannot be fooled by a proxy: a server that answers
+    // for a real hostname is not the owner's own machine.
+    if (!isLocalhostName(new URL(learnUrl).hostname)) {
+      refuse(`PORTFOLIO_LEARN_URL (${learnUrl}) is not a localhost address`);
+    }
+    if (!devServer) refuse("this is not the dev server");
+    if (!isLoopbackHost(host)) refuse(`it would listen on ${host}, not loopback`);
+  }
+  const hops = Number(readEnv("PORTFOLIO_TRUSTED_PROXY_HOPS", env) ?? "1");
+  if (!Number.isInteger(hops) || hops < 0 || hops > 10) {
+    throw new Error("PORTFOLIO_TRUSTED_PROXY_HOPS must be a whole number from 0 to 10");
   }
 
   return {
@@ -115,6 +152,7 @@ export function loadConfig(env: Env = process.env): Config {
     trustedProxies: (readEnv("PORTFOLIO_TRUSTED_PROXIES", env) ?? "")
       .split(/[\s,]+/)
       .filter(Boolean),
+    trustedProxyHops: hops,
   };
 }
 
@@ -129,8 +167,8 @@ export function getConfig(): Config {
     cached = loadConfig();
     if (cached.learnAllowLocal) {
       console.warn(
-        "\n!!! PORTFOLIO_LEARN_ALLOW_LOCAL=1: `local` lectures are being served to ANYONE who can " +
-          "reach this server. This is for the owner's own machine. Never set it on a server. !!!\n",
+        "\n!!! PORTFOLIO_LEARN_ALLOW_LOCAL=1: `local` lectures are served to requests from this machine's " +
+          "loopback with no proxy headers. This is for the owner's own machine. Never set it on a server. !!!\n",
       );
     }
   }

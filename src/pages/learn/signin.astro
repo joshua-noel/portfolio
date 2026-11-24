@@ -1,6 +1,6 @@
 ---
 import Learn from "../../layouts/Learn.astro";
-import { LEARN_COOKIE } from "../../lib/auth.ts";
+import { learnCookieName } from "../../lib/auth.ts";
 import { getConfig } from "../../lib/config.ts";
 import { getDb, now } from "../../lib/db.ts";
 import { signIn } from "../../lib/learn-signin.ts";
@@ -29,10 +29,11 @@ if (Astro.request.method === "POST") {
       Astro.clientAddress,
       Astro.request.headers.get("x-forwarded-for"),
       config.trustedProxies,
+      config.trustedProxyHops,
     ),
     username: form.get("username"),
     password: form.get("password"),
-    oldToken: Astro.cookies.get(LEARN_COOKIE)?.value,
+    oldToken: Astro.cookies.get(learnCookieName(Astro.url))?.value,
   });
 
   if (result.kind === "locked")
@@ -40,7 +41,8 @@ if (Astro.request.method === "POST") {
   if (result.kind === "failed")
     return Astro.redirect(`/signin?next=${encodeURIComponent(next)}&failed`, 303);
 
-  Astro.cookies.set(LEARN_COOKIE, result.token, {
+  // `__Host-` on https: see learnCookieName.
+  Astro.cookies.set(learnCookieName(Astro.url), result.token, {
     httpOnly: true,
     // Behind a TLS-terminating proxy in production; plain http locally.
     secure: Astro.url.protocol === "https:",

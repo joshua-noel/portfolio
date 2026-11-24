@@ -6,7 +6,7 @@ import { search } from "../../lib/learn/search.ts";
 // index to the browser: the server already holds the text.
 export const GET: APIRoute = async ({ url, locals }) => {
   const query = (url.searchParams.get("q") ?? "").slice(0, 200);
-  const { lectures } = await getCatalogFor(locals.viewer?.role);
+  const { lectures } = await getCatalogFor(locals.viewer?.role, locals.allowLocal);
   return Response.json(search(lectures, query, 8), {
     headers: { "cache-control": "no-store" },
   });

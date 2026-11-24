@@ -27,7 +27,7 @@ export const GET: APIRoute = async ({ url, request, locals }) => {
     /^\/media\/([^/]+)\/([^/]+)$/.exec(url.pathname) ?? [];
   const match = FILE.exec(name);
   // The reader's own catalog: a lecture they may not open is a stub with no files.
-  const catalog = await getCatalogFor(locals.viewer?.role);
+  const catalog = await getCatalogFor(locals.viewer?.role, locals.allowLocal);
   const course = findCourse(catalog, courseSlug);
   const lecture = course?.lectures.find((l) => l.file === match?.[1]);
   const available =

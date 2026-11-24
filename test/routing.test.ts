@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clientIp, resolveRoute } from "../src/lib/routing.ts";
+import {
+  clientIp,
+  isForbiddenCrossOriginRequest,
+  mayServeLocal,
+  resolveRoute,
+} from "../src/lib/routing.ts";
 
 const route = (host: string, pathname: string, search = "") =>
   resolveRoute({
@@ -130,4 +135,91 @@ test("a listed proxy's X-Forwarded-For is believed; an unlisted peer's is not", 
   assert.equal(clientIp("::ffff:172.17.0.1", "203.0.113.9", trusted), "203.0.113.9");
   assert.equal(clientIp("172.17.0.2", "203.0.113.9", trusted), "172.17.0.2");
   assert.equal(clientIp("172.17.0.1", "203.0.113.9"), "172.17.0.1");
+});
+
+test("with one hop the last entry counts; with more hops, that many from the right", () => {
+  // client -> proxy A -> proxy B -> app: the app's peer is B, which appended A.
+  const chain = "198.51.100.1, 203.0.113.9";
+  assert.equal(clientIp("127.0.0.1", chain, [], 1), "203.0.113.9");
+  assert.equal(clientIp("127.0.0.1", chain, [], 2), "198.51.100.1");
+  // A client's own forged leftmost entry never wins against two real hops.
+  assert.equal(clientIp("127.0.0.1", `6.6.6.6, ${chain}`, [], 2), "198.51.100.1");
+  // Fewer entries than hops means the chain is not what was configured: the peer.
+  assert.equal(clientIp("127.0.0.1", "203.0.113.9", [], 2), "127.0.0.1");
+  assert.equal(clientIp("127.0.0.1", null, [], 2), "127.0.0.1");
+});
+
+test("with zero trusted hops forwarded headers are ignored, from any peer", () => {
+  assert.equal(clientIp("127.0.0.1", "203.0.113.9", [], 0), "127.0.0.1");
+  assert.equal(clientIp("::1", "203.0.113.9", [], 0), "::1");
+  assert.equal(clientIp("172.17.0.1", "203.0.113.9", ["172.17.0.1"], 0), "172.17.0.1");
+  assert.equal(clientIp("198.51.100.7", "203.0.113.9", [], 0), "198.51.100.7");
+});
+
+test("a peer that is not a proxy is never believed, however many hops are set", () => {
+  assert.equal(clientIp("198.51.100.7", "1.1.1.1, 2.2.2.2", [], 2), "198.51.100.7");
+});
+
+test("IPv6 clients are keyed on their /64", () => {
+  const a = clientIp("2001:db8:1:2:aaaa:bbbb:cccc:dddd", null);
+  const b = clientIp("2001:db8:1:2:1::1", null);
+  const other = clientIp("2001:db8:1:3::1", null);
+  assert.equal(a, b);
+  assert.notEqual(a, other);
+  assert.equal(a, "2001:db8:1:2::/64");
+  // Short forms, upper case and zone ids reach the same key.
+  assert.equal(clientIp("2001:DB8:1:2::5", null), a);
+  assert.equal(clientIp("2001:db8:1:2::5%eth0", null), a);
+  // Behind a proxy the forwarded address is keyed the same way.
+  assert.equal(clientIp("127.0.0.1", "2001:db8:1:2::9"), a);
+  // IPv4, and an IPv4-mapped peer, keep the whole address.
+  assert.equal(clientIp("::ffff:198.51.100.7", null), "198.51.100.7");
+  assert.equal(clientIp("198.51.100.7", null), "198.51.100.7");
+});
+
+test("local lectures are for a loopback peer with no sign of a proxy", () => {
+  const h = (init: Record<string, string> = {}): Headers => new Headers(init);
+  assert.equal(mayServeLocal("127.0.0.1", h()), true);
+  assert.equal(mayServeLocal("::1", h()), true);
+  assert.equal(mayServeLocal("::ffff:127.0.0.1", h()), true);
+  // Not loopback, or no peer known.
+  assert.equal(mayServeLocal("203.0.113.9", h()), false);
+  assert.equal(mayServeLocal("192.168.1.5", h()), false);
+  assert.equal(mayServeLocal("::ffff:203.0.113.9", h()), false);
+  assert.equal(mayServeLocal(undefined, h()), false);
+  assert.equal(mayServeLocal("", h()), false);
+  // A proxy on this machine says so, by any of its usual headers.
+  for (const name of [
+    "x-forwarded-for",
+    "Forwarded",
+    "VIA",
+    "x-real-ip",
+    "x-forwarded-proto",
+    "x-forwarded-host",
+    "cf-connecting-ip",
+    "true-client-ip",
+  ]) {
+    assert.equal(mayServeLocal("127.0.0.1", h({ [name]: "1.2.3.4" })), false, name);
+  }
+});
+
+test("a cross-site form post is refused; same-origin, safe methods and non-form bodies are not", () => {
+  const post = (origin: string | null, contentType: string | null, method = "POST") =>
+    isForbiddenCrossOriginRequest({
+      method,
+      origin,
+      contentType,
+      urlOrigin: "https://learn.example.com",
+    });
+  const form = "application/x-www-form-urlencoded";
+  assert.equal(post("https://evil.test", form), true);
+  assert.equal(post(null, form), true);
+  assert.equal(post("https://evil.test", "multipart/form-data; boundary=x"), true);
+  assert.equal(post("https://evil.test", "Text/Plain;charset=utf-8"), true);
+  assert.equal(post("https://evil.test", null), true);
+  assert.equal(post("https://learn.example.com", form), false);
+  assert.equal(post("https://evil.test", "application/json"), false);
+  assert.equal(post("https://evil.test", form, "GET"), false);
+  assert.equal(post("https://evil.test", form, "HEAD"), false);
+  assert.equal(post("https://evil.test", form, "DELETE"), true);
 });

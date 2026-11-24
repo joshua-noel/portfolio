@@ -121,6 +121,21 @@ in
       '';
     };
 
+    trustedProxyHops = lib.mkOption {
+      type = lib.types.ints.between 0 10;
+      default = 1;
+      example = 2;
+      description = ''
+        How many reverse proxies stand between a visitor and the service,
+        each appending the address it saw to X-Forwarded-For. The client
+        address for login throttling is the entry that many places from the
+        right; entries to its left are the client's to forge and are
+        ignored. 0 ignores forwarded headers altogether. The default, 1, is
+        one proxy on this machine (the Caddy example in the README). Count
+        every proxy, CDN or bot check in the chain, and confirm it.
+      '';
+    };
+
     environmentFile = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = null;
@@ -190,6 +205,7 @@ in
         PORTFOLIO_LEARN_CONTENT_DIRS = lib.concatMapStringsSep ":" toString cfg.learnContentDirs;
         PORTFOLIO_ADMIN_USERNAME = cfg.adminUsername;
         PORTFOLIO_TRUSTED_PROXIES = lib.concatStringsSep "," cfg.trustedProxies;
+        PORTFOLIO_TRUSTED_PROXY_HOPS = toString cfg.trustedProxyHops;
         # %d is the credentials directory systemd populates from
         # LoadCredential below.
         PORTFOLIO_ADMIN_PASSWORD_HASH_FILE = "%d/admin-password-hash";

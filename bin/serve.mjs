@@ -34,25 +34,17 @@ if (missing.length > 0) {
   process.exit(78); // EX_CONFIG
 }
 
-// Serving `local` lectures is for the owner's own machine. Refuse before the
-// socket opens if anything else could connect, and say so loudly if it is on.
+// This is the production server, and it never serves `local` lectures: they are
+// for the owner's own machine under `pnpm learn:dev`. A switch that only
+// looked at where the server listens could be fooled by a proxy on the same
+// host, so there is no such switch here at all. (The bundle refuses it too:
+// see loadConfig in src/lib/config.ts.)
 if (cfg("PORTFOLIO_LEARN_ALLOW_LOCAL") === "1") {
-  const host = cfg("PORTFOLIO_HOST") ?? "127.0.0.1";
-  if (!(
-    host === "localhost" ||
-    host === "::1" ||
-    host === "[::1]" ||
-    /^127\./.test(host)
-  )) {
-    process.stderr.write(
-      `PORTFOLIO_LEARN_ALLOW_LOCAL=1 refuses to run on ${host}: it serves local lectures to anyone who can connect\n`,
-    );
-    process.exit(78); // EX_CONFIG
-  }
   process.stderr.write(
-    "\n!!! PORTFOLIO_LEARN_ALLOW_LOCAL=1: local lectures are served to anyone who can reach this server. " +
-      "For the owner's own machine only. !!!\n\n",
+    "PORTFOLIO_LEARN_ALLOW_LOCAL is refused by the production server: local lectures are " +
+      "for your own machine only, under `pnpm learn:dev`. Unset it.\n",
   );
+  process.exit(78); // EX_CONFIG
 }
 
 // The sample lectures that ship in the package, unless a folder is named.

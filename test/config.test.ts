@@ -85,28 +85,83 @@ test("the lecture folders default to the sample lectures and can be named", () =
   );
 });
 
-test("serving local lectures needs an explicit 1 and a loopback address", () => {
+const dev = { devServer: true };
+const local = {
+  ...base,
+  PORTFOLIO_LEARN_URL: "http://learn.localhost:4321",
+  PORTFOLIO_LEARN_ALLOW_LOCAL: "1",
+};
+
+test("serving local lectures needs an explicit 1", () => {
   assert.equal(loadConfig(base).learnAllowLocal, false);
   assert.equal(
-    loadConfig({ ...base, PORTFOLIO_LEARN_ALLOW_LOCAL: "true" }).learnAllowLocal,
+    loadConfig({ ...local, PORTFOLIO_LEARN_ALLOW_LOCAL: "true" }, dev).learnAllowLocal,
     false,
   );
-  assert.equal(
-    loadConfig({ ...base, PORTFOLIO_LEARN_ALLOW_LOCAL: "1" }).learnAllowLocal,
-    true,
-  );
+  assert.equal(loadConfig(local, dev).learnAllowLocal, true);
+});
+
+test("the local switch is refused unless the learn URL is a localhost origin", () => {
+  // The bare-proxy case: a real hostname, the switch on, requests that will
+  // all arrive from loopback with no forwarded headers. It must not start.
+  for (const url of [
+    "https://learn.example.com",
+    "http://learn.localhost.example.com",
+    "http://notlocalhost",
+    "http://localhost.evil.test",
+    "http://127.0.0.1:4321",
+    "http://localhost.:4321",
+  ]) {
+    assert.throws(
+      () => loadConfig({ ...local, PORTFOLIO_LEARN_URL: url }, dev),
+      /not a localhost address/,
+      url,
+    );
+  }
+  for (const url of [
+    "http://localhost:4321",
+    "http://learn.localhost:4321",
+    "https://a.b.localhost",
+  ]) {
+    assert.equal(
+      loadConfig({ ...local, PORTFOLIO_LEARN_URL: url }, dev).learnAllowLocal,
+      true,
+    );
+  }
+});
+
+test("the local switch is refused outside the dev server, whatever the environment says", () => {
+  assert.throws(() => loadConfig(local), /not the dev server/);
+  assert.throws(() => loadConfig(local, { devServer: false }), /not the dev server/);
   assert.throws(
-    () =>
-      loadConfig({
-        ...base,
-        PORTFOLIO_LEARN_ALLOW_LOCAL: "1",
-        PORTFOLIO_HOST: "0.0.0.0",
-      }),
-    /refuses to run on 0\.0\.0\.0/,
+    () => loadConfig({ ...local, NODE_ENV: "development", DEV: "true" }),
+    /not the dev server/,
+  );
+});
+
+test("the local switch is refused when the server would listen beyond loopback", () => {
+  assert.throws(
+    () => loadConfig({ ...local, PORTFOLIO_HOST: "0.0.0.0" }, dev),
+    /not loopback/,
+  );
+  assert.equal(loadConfig({ ...local, PORTFOLIO_HOST: "::1" }, dev).learnAllowLocal, true);
+});
+
+test("trusted proxy hops default to one, and must be a small whole number", () => {
+  assert.equal(loadConfig(base).trustedProxyHops, 1);
+  assert.equal(
+    loadConfig({ ...base, PORTFOLIO_TRUSTED_PROXY_HOPS: "0" }).trustedProxyHops,
+    0,
   );
   assert.equal(
-    loadConfig({ ...base, PORTFOLIO_LEARN_ALLOW_LOCAL: "1", PORTFOLIO_HOST: "::1" })
-      .learnAllowLocal,
-    true,
+    loadConfig({ ...base, PORTFOLIO_TRUSTED_PROXY_HOPS: "2" }).trustedProxyHops,
+    2,
   );
+  for (const bad of ["-1", "1.5", "many", "11"]) {
+    assert.throws(
+      () => loadConfig({ ...base, PORTFOLIO_TRUSTED_PROXY_HOPS: bad }),
+      /PORTFOLIO_TRUSTED_PROXY_HOPS/,
+      bad,
+    );
+  }
 });

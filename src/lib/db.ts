@@ -7,6 +7,7 @@ import { migrate, type Migration } from "./migrate.ts";
 import init001 from "../migrations/001_init.sql?raw";
 import summary002 from "../migrations/002_summary.sql?raw";
 import users004 from "../migrations/004_users.sql?raw";
+import credential005 from "../migrations/005_session_credential.sql?raw";
 
 /**
  * Summaries saved before excerptFrom read the parsed tree carry headings,
@@ -36,6 +37,7 @@ export const MIGRATIONS: readonly Migration[] = [
   summary002,
   resummarise003,
   users004,
+  credential005,
 ];
 
 let db: DatabaseSync | undefined;

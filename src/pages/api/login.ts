@@ -34,6 +34,7 @@ export const POST: APIRoute = async (context) => {
     context.clientAddress,
     context.request.headers.get("x-forwarded-for"),
     getConfig().trustedProxies,
+    getConfig().trustedProxyHops,
   );
   if (isLockedOut(ip)) return context.redirect("/admin/login?locked", 303);
 
