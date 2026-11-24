@@ -2,6 +2,10 @@
 import { defineConfig } from "astro/config";
 import node from "@astrojs/node";
 
+// Astro gives a config file no `command`, so read it from the command line:
+// `astro build` is the one that produces the shipped server bundle.
+const building = process.argv.slice(2).includes("build");
+
 export default defineConfig({
   // Blog routes read SQLite, and canonical URLs use runtime configuration.
   // Nothing is prerendered, so the build never touches a database.
@@ -33,7 +37,13 @@ export default defineConfig({
     // closure keeps all of astro's build-time machinery -- rolldown alone
     // ships a ~18 MB binary per platform, and a deps FOD fetches every
     // platform. Bundling drops the shipped node_modules entirely.
-    ssr: { noExternal: true },
+    //
+    // Only for the build. In `astro dev` the same setting makes Vite's module
+    // runner load CommonJS packages (picomatch) as ES modules, where `require`
+    // does not exist, and the server dies before it listens -- on Windows,
+    // where the dev server is what the owner runs. Dev has no bundle to keep
+    // small, so it resolves dependencies from node_modules as usual.
+    ssr: { noExternal: building ? true : undefined },
     build: {
       // Never inline a script into the page: the admin CSP (src/middleware.ts)
       // allows only script-src 'self'. Other assets keep Vite's default.

@@ -11,10 +11,13 @@
     "build": "node ./bin/check-learn.mjs && astro build",
     "start": "node ./bin/serve.mjs",
     "check": "node ./bin/check-learn.mjs && astro check",
-    "test": "node --test 'test/*.test.ts'"
+    "test": "node --test \"test/*.test.ts\"",
+    "learn:dev": "node ./bin/learn-dev.mjs",
+    "learn:check": "node ./bin/check-learn.mjs"
   },
   "bin": {
-    "portfolio-hash-password": "./bin/hash-password.mjs"
+    "portfolio-hash-password": "./bin/hash-password.mjs",
+    "portfolio-user": "./bin/user.mjs"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.4",
