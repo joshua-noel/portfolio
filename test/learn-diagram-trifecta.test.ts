@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CONDITIONS, exposure, providers, TOOLS } from "../src/scripts/learn-diagrams/trifecta.js";
+import { CONDITIONS, exposure, providers, TOOLS as TOOL_TABLE } from "../src/scripts/learn-diagrams/trifecta.js";
+
+const TOOLS: Record<string, string[]> = TOOL_TABLE;
 
 // The lecture's rule: theft needs all three conditions at once; remove one and it closes.
 // Its worked example counts exposed tool subsets (34 of 63), which the same rule must give.
