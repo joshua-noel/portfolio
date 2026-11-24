@@ -1,10 +1,10 @@
 ---
-import { getCatalog } from "../../lib/learn/content.ts";
+import { getCatalogFor } from "../../lib/learn/content.ts";
 import { search } from "../../lib/learn/search.ts";
 import Learn from "../../layouts/Learn.astro";
 
 const query = (Astro.url.searchParams.get("q") ?? "").slice(0, 200);
-const catalog = await getCatalog();
+const catalog = await getCatalogFor(Astro.locals.viewer?.role);
 const hits = search(catalog.lectures, query, 20);
 ---
 

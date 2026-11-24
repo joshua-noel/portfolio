@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 
 export type Env = Record<string, string | undefined>;
 
@@ -23,8 +23,17 @@ export interface Config {
   host: string;
   port: number;
   stateDir: string;
-  /** Folder of courses, laid out as learn-content/CONTRACT.md says. */
-  learnContentDir: string;
+  /**
+   * Folders of courses, laid out as learn-content/CONTRACT.md says, merged.
+   * Only the sample folder in the repository holds public content alone;
+   * private folders are read here, at run time, and nowhere else.
+   */
+  learnContentDirs: string[];
+  /**
+   * Serve `local` lectures. For the owner's own machine only: refused unless
+   * the server listens on loopback, and the NixOS module has no option for it.
+   */
+  learnAllowLocal: boolean;
   dbPath: string;
   uploadsDir: string;
   siteUrl: string;
@@ -37,6 +46,23 @@ export interface Config {
   adminPasswordHash: string;
   /** Proxy addresses, beyond loopback, whose X-Forwarded-For is believed. */
   trustedProxies: string[];
+}
+
+const isLoopbackHost = (host: string): boolean =>
+  host === "localhost" || host === "::1" || host === "[::1]" || /^127\./.test(host);
+
+/**
+ * PORTFOLIO_LEARN_CONTENT_DIRS is a list separated like PATH (`;` on Windows,
+ * `:` elsewhere); PORTFOLIO_LEARN_CONTENT_DIR names one; with neither, the
+ * sample lectures in the repository.
+ */
+function contentDirs(env: Env): string[] {
+  const list = readEnv("PORTFOLIO_LEARN_CONTENT_DIRS", env);
+  const one = readEnv("PORTFOLIO_LEARN_CONTENT_DIR", env);
+  const dirs = list
+    ? list.split(delimiter).filter((dir) => dir.trim() !== "")
+    : [one ?? "content/learn"];
+  return dirs.map((dir) => resolve(dir.trim()));
 }
 
 export function loadConfig(env: Env = process.env): Config {
@@ -61,13 +87,21 @@ export function loadConfig(env: Env = process.env): Config {
     );
   }
 
+  const host = readEnv("PORTFOLIO_HOST", env) ?? "127.0.0.1";
+  const learnAllowLocal = readEnv("PORTFOLIO_LEARN_ALLOW_LOCAL", env) === "1";
+  if (learnAllowLocal && !isLoopbackHost(host)) {
+    throw new Error(
+      "PORTFOLIO_LEARN_ALLOW_LOCAL=1 serves local lectures to anyone who can connect, " +
+        `so it refuses to run on ${host}: it is for the owner's own machine, on loopback`,
+    );
+  }
+
   return {
-    host: readEnv("PORTFOLIO_HOST", env) ?? "127.0.0.1",
+    host,
     port: Number(readEnv("PORTFOLIO_PORT", env) ?? "4321"),
     stateDir,
-    learnContentDir: resolve(
-      readEnv("PORTFOLIO_LEARN_CONTENT_DIR", env) ?? "content/learn",
-    ),
+    learnContentDirs: contentDirs(env),
+    learnAllowLocal,
     dbPath: readEnv("PORTFOLIO_DB_PATH", env) ?? join(stateDir, "portfolio.db"),
     uploadsDir: readEnv("PORTFOLIO_UPLOADS_DIR", env) ?? join(stateDir, "uploads"),
     siteUrl: siteUrl.replace(/\/+$/, ""),
@@ -91,6 +125,14 @@ let cached: Config | undefined;
  * module, and a build should never need production secrets to succeed.
  */
 export function getConfig(): Config {
-  cached ??= loadConfig();
+  if (!cached) {
+    cached = loadConfig();
+    if (cached.learnAllowLocal) {
+      console.warn(
+        "\n!!! PORTFOLIO_LEARN_ALLOW_LOCAL=1: `local` lectures are being served to ANYONE who can " +
+          "reach this server. This is for the owner's own machine. Never set it on a server. !!!\n",
+      );
+    }
+  }
   return cached;
 }

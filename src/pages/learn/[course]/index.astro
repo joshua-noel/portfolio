@@ -3,11 +3,12 @@ import Lock from "../../../components/learn/Lock.astro";
 import Learn from "../../../layouts/Learn.astro";
 import { getConfig } from "../../../lib/config.ts";
 import { findCourse, lectureUrl } from "../../../lib/learn/catalog.ts";
-import { getCatalog } from "../../../lib/learn/content.ts";
+import { getCatalogFor } from "../../../lib/learn/content.ts";
 import { minutesAt } from "../../../lib/learn/lecture.ts";
+import { whyLocked } from "../../../lib/access.ts";
 
 const { learnUrl } = getConfig();
-const catalog = await getCatalog();
+const catalog = await getCatalogFor(Astro.locals.viewer?.role);
 const course = findCourse(catalog, Astro.params.course);
 if (!course) Astro.response.status = 404;
 ---
@@ -34,11 +35,19 @@ if (!course) Astro.response.status = 404;
           {course.locked && (
             <div class="locked-note">
               <h2>
-                <Lock /> This course is not public
+                <Lock /> Locked
               </h2>
+              <p>{whyLocked(course.front.visibility)}</p>
               <p>
-                Its lectures are listed so you can see what is here. Their text is not
-                served.
+                {Astro.locals.viewer ? (
+                  "Your account cannot read this."
+                ) : (
+                  <a
+                    href={`/signin?next=${encodeURIComponent(Astro.locals.here?.pathname ?? Astro.url.pathname)}`}
+                  >
+                    Sign in to read
+                  </a>
+                )}
               </p>
             </div>
           )}

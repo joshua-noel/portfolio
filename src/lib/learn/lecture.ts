@@ -326,8 +326,9 @@ export function readLecture(
     const s = new Reader(item, `sources[${index}]`);
     const id = s.text("id");
     const url = s.text("url");
-    if (id !== "" && !/^[A-Za-z][A-Za-z0-9]*$/.test(id))
+    if (id !== "" && !/^[A-Za-z][A-Za-z0-9]*$/.test(id)) {
       s.issues.push(`sources[${index}]: "id" is letters and digits`);
+    }
     if (seen.has(id)) s.issues.push(`sources[${index}]: two sources are called ${id}`);
     seen.add(id);
     if (url !== "" && !/^https?:\/\/\S+$/.test(url))
@@ -600,7 +601,6 @@ export async function buildLecture(
       }
     }
   }
-
   parts.tail.push(referencesHtml(front));
   issues.push(...renderer.facts.issues);
   checkStructure(front, renderer.facts, counts, issues);

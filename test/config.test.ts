@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 import { loadConfig, readEnv } from "../src/lib/config.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "portfolio-config-"));
@@ -42,8 +42,8 @@ test("missing required variables are all named at once", () => {
 
 test("derives paths from the state directory", () => {
   const config = loadConfig({ ...base, PORTFOLIO_STATE_DIR: "/srv/state" });
-  assert.equal(config.dbPath, "/srv/state/portfolio.db");
-  assert.equal(config.uploadsDir, "/srv/state/uploads");
+  assert.equal(config.dbPath, join("/srv/state", "portfolio.db"));
+  assert.equal(config.uploadsDir, join("/srv/state", "uploads"));
 });
 
 test("strips trailing slashes and extracts hosts", () => {
@@ -68,8 +68,45 @@ test("defaults host, port and admin username", () => {
   assert.equal(config.adminUsername, "admin");
 });
 
-test("the lecture folder defaults to the sample lectures and can be named", () => {
-  assert.equal(loadConfig(base).learnContentDir, resolve("content/learn"));
-  const named = loadConfig({ ...base, PORTFOLIO_LEARN_CONTENT_DIR: "/srv/learn-content" });
-  assert.equal(named.learnContentDir, resolve("/srv/learn-content"));
+test("the lecture folders default to the sample lectures and can be named", () => {
+  assert.deepEqual(loadConfig(base).learnContentDirs, [resolve("content/learn")]);
+  assert.deepEqual(
+    loadConfig({ ...base, PORTFOLIO_LEARN_CONTENT_DIR: "/srv/one" }).learnContentDirs,
+    [resolve("/srv/one")],
+  );
+  const several = ["/srv/a", "/srv/b"].join(delimiter);
+  assert.deepEqual(
+    loadConfig({
+      ...base,
+      PORTFOLIO_LEARN_CONTENT_DIRS: several,
+      PORTFOLIO_LEARN_CONTENT_DIR: "/x",
+    }).learnContentDirs,
+    [resolve("/srv/a"), resolve("/srv/b")],
+  );
+});
+
+test("serving local lectures needs an explicit 1 and a loopback address", () => {
+  assert.equal(loadConfig(base).learnAllowLocal, false);
+  assert.equal(
+    loadConfig({ ...base, PORTFOLIO_LEARN_ALLOW_LOCAL: "true" }).learnAllowLocal,
+    false,
+  );
+  assert.equal(
+    loadConfig({ ...base, PORTFOLIO_LEARN_ALLOW_LOCAL: "1" }).learnAllowLocal,
+    true,
+  );
+  assert.throws(
+    () =>
+      loadConfig({
+        ...base,
+        PORTFOLIO_LEARN_ALLOW_LOCAL: "1",
+        PORTFOLIO_HOST: "0.0.0.0",
+      }),
+    /refuses to run on 0\.0\.0\.0/,
+  );
+  assert.equal(
+    loadConfig({ ...base, PORTFOLIO_LEARN_ALLOW_LOCAL: "1", PORTFOLIO_HOST: "::1" })
+      .learnAllowLocal,
+    true,
+  );
 });

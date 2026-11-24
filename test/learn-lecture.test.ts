@@ -18,7 +18,6 @@ import {
   LectureError,
   minutesAt,
   proseWords,
-  VISIBILITIES,
   type SourceFile,
 } from "../src/lib/learn/lecture.ts";
 import { Renderer, smarten, type HNode } from "../src/lib/learn/render.ts";
@@ -493,6 +492,7 @@ const sample = fileURLToPath(new URL("../content/learn", import.meta.url));
 
 const course = (slug: string, extra = "", lectures: SourceFile[] = []): CourseSource => ({
   slug,
+  dir: `/fixture/${slug}`,
   course: {
     path: `${slug}/course.md`,
     name: "course.md",
@@ -504,7 +504,8 @@ const course = (slug: string, extra = "", lectures: SourceFile[] = []): CourseSo
 });
 
 test("the lectures in the repository pass the contract and are public", async () => {
-  const catalog = await loadCatalog(readContentDir(sample), VISIBILITIES, {
+  const catalog = await loadCatalog(readContentDir(sample), {
+    allowLocal: true,
     repository: true,
   });
   assert.ok(catalog.lectures.length >= 2);
@@ -512,7 +513,7 @@ test("the lectures in the repository pass the contract and are public", async ()
 });
 
 test("shelves stand in their order, courses and lectures by their order, with neighbours", async () => {
-  const catalog = await loadCatalog(readContentDir(sample), ["public"]);
+  const catalog = await loadCatalog(readContentDir(sample), { allowLocal: false });
   assert.deepEqual(
     catalog.shelves.map((s) => s.id),
     ["systems", "language-models"],
@@ -525,73 +526,38 @@ test("shelves stand in their order, courses and lectures by their order, with ne
   assert.match(models.introHtml, /<p>/);
 });
 
-test("non-public content is listed, locked, and never committed", async () => {
-  const hidden = lecture();
-  hidden.raw = hidden.raw.replace("visibility: public", "visibility: friends");
-  const content: Content = { courses: [course("c", "", [hidden])] };
-  await assert.rejects(
-    loadCatalog(content, ["public"], { repository: true }),
-    /"friends" lecture must not be committed/,
-  );
-
-  const publicView = await loadCatalog(content, ["public"]);
-  const [listed] = publicView.lectures;
-  assert.equal(listed?.locked, true);
-  assert.deepEqual(listed?.segments, []);
-  assert.equal(listed?.front.title, "A lecture");
-  assert.deepEqual(search(publicView.lectures, "word"), []);
-
-  const friendView = await loadCatalog(content, ["public", "friends"]);
-  assert.equal(friendView.lectures[0]?.locked, false);
-  assert.ok(friendView.lectures[0]!.segments.length > 0);
-
-  const lockedCourse = course("c", "", [lecture()]);
-  lockedCourse.course.raw = lockedCourse.course.raw.replace(
-    "visibility: public",
-    "visibility: members",
-  );
-  const view = await loadCatalog({ courses: [lockedCourse] }, ["public"]);
-  assert.equal(view.courses[0]?.locked, true);
-  assert.equal(view.courses[0]?.introHtml, "");
-  assert.equal(view.lectures[0]?.locked, true);
-  await assert.rejects(
-    loadCatalog({ courses: [lockedCourse] }, ["public"], { repository: true }),
-    /"members" course must not be committed/,
-  );
-});
-
 test("courses and lectures must agree", async () => {
   const bad = course("c");
   bad.course.raw = bad.course.raw.replace("shelf: systems", "shelf: nowhere");
   await assert.rejects(
-    loadCatalog({ courses: [bad] }, ["public"]),
+    loadCatalog({ courses: [bad] }, { allowLocal: false }),
     /one of foundations, systems/,
   );
   const wrongSlug = course("c");
   wrongSlug.course.raw = wrongSlug.course.raw.replace("slug: c", "slug: d");
   await assert.rejects(
-    loadCatalog({ courses: [wrongSlug] }, ["public"]),
+    loadCatalog({ courses: [wrongSlug] }, { allowLocal: false }),
     /"slug" must be "c"/,
   );
   const reserved = course("search");
   await assert.rejects(
-    loadCatalog({ courses: [reserved] }, ["public"]),
+    loadCatalog({ courses: [reserved] }, { allowLocal: false }),
     /is a page of the site/,
   );
   await assert.rejects(
-    loadCatalog({ courses: [course("a"), course("b")] }, ["public"]),
+    loadCatalog({ courses: [course("a"), course("b")] }, { allowLocal: false }),
     /share shelf and order/,
   );
   const needs = lecture();
   needs.raw = needs.raw.replace("prerequisites: []", "prerequisites: [nothing]");
   await assert.rejects(
-    loadCatalog({ courses: [course("c", "", [needs])] }, ["public"]),
+    loadCatalog({ courses: [course("c", "", [needs])] }, { allowLocal: false }),
     /prerequisite "nothing" is not a lecture/,
   );
 });
 
 test("search needs every word, ranks titles first, and gives a snippet", async () => {
-  const catalog = await loadCatalog(readContentDir(sample), ["public"]);
+  const catalog = await loadCatalog(readContentDir(sample), { allowLocal: false });
   const hits = search(catalog.lectures, "attention transformer");
   assert.equal(hits[0]?.url, "/how-language-models-work/attention-and-the-transformer");
   assert.deepEqual(search(catalog.lectures, "zzzqqq"), []);

@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { getConfig } from "../lib/config.ts";
 import { isoDate } from "../lib/format.ts";
-import { getCatalog } from "../lib/learn/content.ts";
+import { getCatalogFor } from "../lib/learn/content.ts";
 import { listPublished } from "../lib/posts.ts";
 
 const XML_ENTITIES: Record<string, string> = {
@@ -18,7 +18,8 @@ const xml = (text: string): string => text.replace(/[&<>"']/g, (c) => XML_ENTITI
 // is only known at request time, which a build-time integration cannot see.
 export const GET: APIRoute = async () => {
   const { blogUrl, siteUrl, learnUrl } = getConfig();
-  const { lectures } = await getCatalog();
+  // Crawlers are visitors: only what anyone may read goes in.
+  const { lectures } = await getCatalogFor(undefined);
   const entries = [
     `<url><loc>${xml(siteUrl)}/</loc></url>`,
     `<url><loc>${xml(blogUrl)}/</loc></url>`,

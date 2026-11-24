@@ -1,3 +1,4 @@
+import { canRead } from "../access.ts";
 import {
   buildLecture,
   LectureError,
@@ -16,6 +17,8 @@ import { Renderer } from "./render.ts";
 export interface CourseSource {
   /** The folder's name, which is the course's slug. */
   slug: string;
+  /** Where the folder is, for serving the files beside a lecture. */
+  dir: string;
   course: SourceFile;
   /** `NN-slug.md` files, not the `.script.md` ones. */
   lectures: SourceFile[];
@@ -31,9 +34,11 @@ export interface Content {
 
 export interface Course {
   front: CourseFront;
+  /** The folder on disk. Empty for a course the reader may not open. */
+  dir: string;
   /** The course's own paragraph, as HTML; empty when the course is locked. */
   introHtml: string;
-  /** True when this process may not show the course or its lectures. */
+  /** True when the reader may not open the course or its lectures. */
   locked: boolean;
   lectures: Lecture[];
 }
@@ -52,23 +57,38 @@ export interface Catalog {
   /** Every lecture, in reading order. */
   lectures: Lecture[];
   warnings: string[];
+  /** Lectures and courses of visibility `local` that were left out. */
+  localIgnored: number;
+}
+
+export interface LoadOptions {
+  /**
+   * Whether `local` content may be loaded. When it may not, it is read only as
+   * far as its front matter, left out of the catalog entirely, and counted.
+   */
+  allowLocal: boolean;
+  /**
+   * Content that lives in the repository is public by definition, so this
+   * makes any other visibility an error: a members-only lecture must never be
+   * committed.
+   */
+  repository?: boolean;
 }
 
 /**
- * Builds every course and lecture. Throws `LectureError` for the first file
- * with problems and for any inconsistency between files. `audience` is the
- * visibilities this process may show: a lecture outside it is still checked,
- * and listed as locked, but its body is never rendered or kept. Content that
- * lives in the repository is public by definition, so `repository` makes any
- * other visibility an error: a members-only lecture must never be committed.
+ * Builds every course and lecture, rendering all of them whatever their
+ * visibility: who may read what is decided later, per reader, by `forViewer`.
+ * Throws `LectureError` for the first file with problems and for any
+ * inconsistency between files.
  */
 export async function loadCatalog(
   content: Content,
-  audience: readonly Visibility[],
-  { repository = false }: { repository?: boolean } = {},
+  options: LoadOptions,
 ): Promise<Catalog> {
+  const { allowLocal, repository = false } = options;
   const issues: string[] = [];
   const courses: Course[] = [];
+  let localIgnored = 0;
 
   for (const source of content.courses) {
     let split;
@@ -82,31 +102,37 @@ export async function loadCatalog(
     const { front, issues: problems } = readCourse(split.data, source.slug);
     if (!front) throw new LectureError(source.course.path, problems);
 
-    const courseShown = audience.includes(front.visibility);
     if (repository && front.visibility !== "public") {
       issues.push(
         `${front.slug}: a "${front.visibility}" course must not be committed; this repository is public`,
       );
     }
+    if (front.visibility === "local" && !allowLocal) {
+      localIgnored += 1;
+      continue;
+    }
 
     const lectures: Lecture[] = [];
     for (const file of source.lectures) {
-      // A public course can hold a locked lecture, so this is decided per lecture.
       const lecture = await buildLecture(
         file,
         front.slug,
         source.diagrams,
         source.media,
         {
-          shows: (visibility) => courseShown && audience.includes(visibility),
+          shows: (visibility) => visibility !== "local" || allowLocal,
         },
       );
-      lectures.push(lecture);
       if (repository && lecture.front.visibility !== "public") {
         issues.push(
           `${front.slug}/${lecture.slug}: a "${lecture.front.visibility}" lecture must not be committed; this repository is public`,
         );
       }
+      if (lecture.front.visibility === "local" && !allowLocal) {
+        localIgnored += 1;
+        continue;
+      }
+      lectures.push(lecture);
     }
     lectures.sort((a, b) => a.front.order - b.front.order);
 
@@ -119,15 +145,17 @@ export async function loadCatalog(
       issues.push(`${front.slug}: two lectures have order ${order}`);
     }
 
-    const introHtml = courseShown
-      ? await new Renderer().render(split.body, "waterline")
-      : "";
-    courses.push({ front, introHtml, locked: !courseShown, lectures });
+    const introHtml = await new Renderer().render(split.body, "waterline");
+    courses.push({ front, dir: source.dir, introHtml, locked: false, lectures });
   }
 
   const slugs = courses.map((course) => course.front.slug);
   for (const slug of new Set(slugs.filter((slug, i) => slugs.indexOf(slug) !== i))) {
-    issues.push(`two courses named "${slug}"`);
+    const where = content.courses
+      .filter((c) => c.slug === slug)
+      .map((c) => c.dir)
+      .join(" and ");
+    issues.push(`two courses named "${slug}", in ${where}`);
   }
   for (const course of courses) {
     const twin = courses.find(
@@ -153,13 +181,11 @@ export async function loadCatalog(
     }
   }
   if (issues.length > 0) throw new LectureError("courses", [...new Set(issues)]);
+  return assemble(courses, localIgnored);
+}
 
-  for (const course of courses) {
-    for (const lecture of course.lectures) {
-      lecture.locked = course.locked || !audience.includes(lecture.front.visibility);
-    }
-  }
-
+/** Shelves, flat lists and warnings from courses in any order. */
+function assemble(courses: Course[], localIgnored: number): Catalog {
   const shelves = SHELVES.map((shelf) => ({
     id: shelf.id as string,
     title: shelf.title as string,
@@ -180,7 +206,71 @@ export async function loadCatalog(
         ),
       ),
     ),
+    localIgnored,
   };
+}
+
+/**
+ * What a lecture shows a reader who may not open it: its place and its title
+ * and promise, which the listing shows anyway, and nothing else. Every other
+ * field is empty, so no template can print what it was never given.
+ */
+function lockedLecture(lecture: Lecture): Lecture {
+  const { course, order, slug, title, promise, visibility, placeholder } = lecture.front;
+  return {
+    course,
+    slug,
+    file: "",
+    front: {
+      course,
+      order,
+      slug,
+      title,
+      promise,
+      visibility,
+      placeholder,
+      video: false,
+      minutes: { tip: 0, waterline: 0, deep: 0, abyss: 0 },
+      objectives: [],
+      prerequisites: [],
+      sources: [],
+      checked: "",
+    },
+    locked: true,
+    segments: [],
+    objectivesHtml: [],
+    toc: [],
+    text: "",
+    media: { video: false, captions: false },
+    warnings: [],
+  };
+}
+
+/**
+ * The catalog as one reader sees it: every course and lecture is still listed,
+ * but those this reader may not open are stubs. `role` is the reader's role,
+ * or undefined for a visitor. A course the reader may not open locks all of
+ * its lectures, whatever their own visibility: the stricter of the two wins.
+ */
+export function forViewer(catalog: Catalog, role: unknown, allowLocal: boolean): Catalog {
+  const courses = catalog.courses.map((course): Course => {
+    const open = canRead(course.front.visibility, role, allowLocal);
+    const lectures = course.lectures.map((lecture) =>
+      open && canRead(lecture.front.visibility, role, allowLocal)
+        ? lecture
+        : lockedLecture(lecture),
+    );
+    if (open) return { ...course, lectures };
+    const { slug, title, shelf, promise, visibility, order, cover } = course.front;
+    return {
+      front: { slug, title, shelf, promise, visibility, order, cover },
+      dir: "",
+      introHtml: "",
+      locked: true,
+      lectures,
+    };
+  });
+  return assemble(courses, catalog.localIgnored);
 }
 
 export function findCourse(

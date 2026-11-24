@@ -2,9 +2,8 @@ import type { APIRoute } from "astro";
 import { createReadStream, statSync } from "node:fs";
 import { join } from "node:path";
 import { Readable } from "node:stream";
-import { getConfig } from "../../../../lib/config.ts";
 import { findCourse } from "../../../../lib/learn/catalog.ts";
-import { getCatalog } from "../../../../lib/learn/content.ts";
+import { getCatalogFor } from "../../../../lib/learn/content.ts";
 
 const TYPES: Record<string, string> = {
   mp4: "video/mp4",
@@ -21,13 +20,14 @@ const FILE = /^(\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*)(?:\.poster)?\.(mp4|vtt|png|jpg)$
  * names the contract allows, of a lecture this process may show, are served:
  * the folder holds locked lectures' files too, and `..` must go nowhere.
  */
-export const GET: APIRoute = async ({ url, request }) => {
+export const GET: APIRoute = async ({ url, request, locals }) => {
   // From the address, not `params`: this route is reached by the learn host's
   // rewrite, which leaves `params` empty for an endpoint.
   const [, courseSlug, name = ""] =
     /^\/media\/([^/]+)\/([^/]+)$/.exec(url.pathname) ?? [];
   const match = FILE.exec(name);
-  const catalog = await getCatalog();
+  // The reader's own catalog: a lecture they may not open is a stub with no files.
+  const catalog = await getCatalogFor(locals.viewer?.role);
   const course = findCourse(catalog, courseSlug);
   const lecture = course?.lectures.find((l) => l.file === match?.[1]);
   const available =
@@ -38,7 +38,7 @@ export const GET: APIRoute = async ({ url, request }) => {
       name === lecture.media.poster);
   if (!match || !course || !available) return new Response("Not found", { status: 404 });
 
-  const path = join(getConfig().learnContentDir, course.front.slug, name);
+  const path = join(course.dir, name);
   let size: number;
   try {
     size = statSync(path).size;
@@ -49,7 +49,12 @@ export const GET: APIRoute = async ({ url, request }) => {
   const headers: Record<string, string> = {
     "content-type": TYPES[match[2]!]!,
     "accept-ranges": "bytes",
-    "cache-control": "public, max-age=300",
+    // Anyone may cache what anyone may read; what needs an account does not
+    // leave the browser that asked.
+    "cache-control":
+      lecture.front.visibility === "public" && course.front.visibility === "public"
+        ? "public, max-age=300"
+        : "private, no-store",
   };
   const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get("range") ?? "");
   if (!range) {

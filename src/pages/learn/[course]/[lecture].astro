@@ -10,7 +10,7 @@ import {
   lectureUrl,
   neighbours,
 } from "../../../lib/learn/catalog.ts";
-import { getCatalog } from "../../../lib/learn/content.ts";
+import { getCatalogFor } from "../../../lib/learn/content.ts";
 import {
   DEFAULT_DEPTH,
   DEPTHS,
@@ -18,9 +18,10 @@ import {
   parseDepth,
 } from "../../../lib/learn/depth.ts";
 import { minutesAt } from "../../../lib/learn/lecture.ts";
+import { whyLocked } from "../../../lib/access.ts";
 
 const { learnUrl } = getConfig();
-const catalog = await getCatalog();
+const catalog = await getCatalogFor(Astro.locals.viewer?.role);
 const course = findCourse(catalog, Astro.params.course);
 const lecture = course && findLecture(course, Astro.params.lecture);
 
@@ -230,17 +231,22 @@ const prerequisites = lecture
             {lecture.front.order}
           </p>
           <h1>{lecture.front.title}</h1>
+          <p class="promise">{lecture.front.promise}</p>
           <div class="locked-note">
             <h2>
-              <Lock /> This lecture is not public
+              <Lock /> Locked
             </h2>
+            <p>{whyLocked(lecture.front.visibility)}</p>
             <p>
-              It is listed here so you can see it exists. Its text is not served to
-              readers who are not signed in as{" "}
-              {lecture.front.visibility === "local"
-                ? "the author, on the author's machine"
-                : `a ${lecture.front.visibility} reader`}
-              .
+              {Astro.locals.viewer ? (
+                "Your account cannot read this."
+              ) : (
+                <a
+                  href={`/signin?next=${encodeURIComponent(Astro.locals.here?.pathname ?? Astro.url.pathname)}`}
+                >
+                  Sign in to read
+                </a>
+              )}
             </p>
           </div>
         </header>

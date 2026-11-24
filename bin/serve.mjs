@@ -34,6 +34,27 @@ if (missing.length > 0) {
   process.exit(78); // EX_CONFIG
 }
 
+// Serving `local` lectures is for the owner's own machine. Refuse before the
+// socket opens if anything else could connect, and say so loudly if it is on.
+if (cfg("PORTFOLIO_LEARN_ALLOW_LOCAL") === "1") {
+  const host = cfg("PORTFOLIO_HOST") ?? "127.0.0.1";
+  if (!(
+    host === "localhost" ||
+    host === "::1" ||
+    host === "[::1]" ||
+    /^127\./.test(host)
+  )) {
+    process.stderr.write(
+      `PORTFOLIO_LEARN_ALLOW_LOCAL=1 refuses to run on ${host}: it serves local lectures to anyone who can connect\n`,
+    );
+    process.exit(78); // EX_CONFIG
+  }
+  process.stderr.write(
+    "\n!!! PORTFOLIO_LEARN_ALLOW_LOCAL=1: local lectures are served to anyone who can reach this server. " +
+      "For the owner's own machine only. !!!\n\n",
+  );
+}
+
 // The sample lectures that ship in the package, unless a folder is named.
 if (cfg("PORTFOLIO_LEARN_CONTENT_DIR") === undefined) {
   process.env.PORTFOLIO_LEARN_CONTENT_DIR = fileURLToPath(

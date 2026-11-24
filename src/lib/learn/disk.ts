@@ -8,6 +8,15 @@ import type { Content, CourseSource } from "./catalog.ts";
  * The server, the build-time check and the tests all load content through here.
  */
 export function readContentDir(root: string): Content {
+  return readContentDirs([root]);
+}
+
+/** Several folders, merged: their courses side by side. A name in two is the catalog's error to report. */
+export function readContentDirs(roots: readonly string[]): Content {
+  return { courses: roots.flatMap((root) => readCourses(root)) };
+}
+
+function readCourses(root: string): CourseSource[] {
   const courses: CourseSource[] = [];
   for (const entry of readdirSync(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
@@ -31,6 +40,7 @@ export function readContentDir(root: string): Content {
 
     courses.push({
       slug: entry.name,
+      dir,
       course: {
         path: coursePath,
         name: "course.md",
@@ -49,14 +59,14 @@ export function readContentDir(root: string): Content {
     });
   }
   courses.sort((a, b) => a.slug.localeCompare(b.slug));
-  return { courses };
+  return courses;
 }
 
 /**
  * A cheap fingerprint of a content folder: every file's path, size and
  * modification time. The server compares it to reload content that changed.
  */
-export function contentSignature(root: string): string {
+export function contentSignature(roots: readonly string[]): string {
   const parts: string[] = [];
   const walk = (dir: string): void => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -71,6 +81,6 @@ export function contentSignature(root: string): string {
       }
     }
   };
-  walk(root);
+  for (const root of roots) walk(root);
   return parts.join("\n");
 }

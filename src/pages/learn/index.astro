@@ -3,12 +3,12 @@ import Lock from "../../components/learn/Lock.astro";
 import Learn from "../../layouts/Learn.astro";
 import { getConfig } from "../../lib/config.ts";
 import { lectureUrl } from "../../lib/learn/catalog.ts";
-import { getCatalog } from "../../lib/learn/content.ts";
+import { getCatalogFor } from "../../lib/learn/content.ts";
 import { DEPTHS, DEPTH_HINTS, DEPTH_LABELS } from "../../lib/learn/depth.ts";
 import { minutesAt } from "../../lib/learn/lecture.ts";
 
 const { learnUrl } = getConfig();
-const catalog = await getCatalog();
+const catalog = await getCatalogFor(Astro.locals.viewer?.role);
 ---
 
 <Learn title="Learn · Joshua Noel" canonical={`${learnUrl}/`} layout="plain">
