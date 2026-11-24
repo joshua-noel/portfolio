@@ -876,23 +876,28 @@ test(
           for (const type of ['pointerover', 'pointerout', 'pointermove'])
             document.addEventListener(type, (e) => window.__seen.push(type + ':' + (e.target.closest?.('li')?.dataset.slug ?? e.target.tagName) + '@' + Math.round(e.clientX) + ',' + Math.round(e.clientY)), true);
           document.readyState`);
+        const explain = `JSON.stringify({
+          seen: window.__seen,
+          ready: document.readyState,
+          pulled: [...document.querySelectorAll('.book.is-pulled')].map((b) => b.dataset.slug),
+          sides: [...document.querySelectorAll('.book')].map((b) => b.dataset.slug + ':' + (b.dataset.side ?? '')),
+          hit: (() => { const r = document.querySelector('li[data-slug="c-public"] .hit').getBoundingClientRect(); return [r.left, r.top, r.width, r.height, scrollY, innerWidth, innerHeight]; })(),
+          transform: getComputedStyle(document.querySelector('li[data-slug="c-public"] .vol')).transform,
+          running: document.getAnimations().map((a) => a.playState + ':' + (a.transitionProperty ?? '')),
+          stylesheets: [...document.styleSheets].length,
+          focus: document.activeElement.tagName,
+        })`;
         await page.hover('li[data-slug="c-public"] .hit');
+        // First what the page decides (the book is marked as pulled), which does not
+        // depend on how fast the browser can draw; then the turn itself, which a machine
+        // starved of CPU can take many seconds to draw.
         await page.waitFor(
-          `${yaw} < 0.5`,
-          `${where}: the book turns`,
-          8000,
-          `JSON.stringify({
-            seen: window.__seen,
-            ready: document.readyState,
-            pulled: [...document.querySelectorAll('.book.is-pulled')].map((b) => b.dataset.slug),
-            sides: [...document.querySelectorAll('.book')].map((b) => b.dataset.slug + ':' + (b.dataset.side ?? '')),
-            hit: (() => { const r = document.querySelector('li[data-slug="c-public"] .hit').getBoundingClientRect(); return [r.left, r.top, r.width, r.height, scrollY, innerWidth, innerHeight]; })(),
-            transform: getComputedStyle(document.querySelector('li[data-slug="c-public"] .vol')).transform,
-            running: document.getAnimations().map((a) => a.playState + ':' + (a.transitionProperty ?? '')),
-            stylesheets: [...document.styleSheets].length,
-            focus: document.activeElement.tagName,
-          })`,
+          "document.querySelector('li[data-slug=\"c-public\"]').classList.contains('is-pulled')",
+          `${where}: the book is pulled`,
+          15000,
+          explain,
         );
+        await page.waitFor(`${yaw} < 0.5`, `${where}: the book turns`, 30000, explain);
         // The books beside it step aside, and the one it turns is solid: pages show.
         assert.equal(
           await page.evaluate("document.querySelector('li[data-slug=\"c-members\"]').dataset.side"),
