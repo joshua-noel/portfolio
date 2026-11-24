@@ -22,6 +22,29 @@ export function readContentDirs(roots: readonly string[]): Content {
   return { courses, problems };
 }
 
+/**
+ * Size limits, so one huge file cannot stall the process that serves every
+ * host while it is parsed and rendered (a 52 MB lecture held the event loop
+ * for minutes). Set from the real content, whose largest lecture is 40 KB and
+ * largest diagram 43 KB, with a wide margin; a file over its limit is not
+ * read, and the log line says which and by how much.
+ */
+export const MAX_LECTURE_BYTES = 1024 * 1024;
+export const MAX_DIAGRAM_BYTES = 512 * 1024;
+export const MAX_COURSE_BYTES = 256 * 1024;
+
+/** The file's text, or undefined (with a problem described) if it is over `limit` bytes. */
+function readCapped(path: string, limit: number, problems: string[]): string | undefined {
+  const { size } = statSync(path);
+  if (size > limit) {
+    problems.push(
+      `${path}: ${size} bytes is over the ${limit} byte limit for this kind of file; not loaded`,
+    );
+    return undefined;
+  }
+  return readFileSync(path, "utf8");
+}
+
 const describe = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
@@ -38,7 +61,7 @@ function readCourses(root: string, problems: string[]): CourseSource[] {
     if (!entry.isDirectory()) continue;
     const dir = join(root, entry.name);
     try {
-      const course = readCourse(dir, entry.name);
+      const course = readCourse(dir, entry.name, problems);
       if (course) courses.push(course);
     } catch (error) {
       problems.push(`${dir}: cannot be read: ${describe(error)}`);
@@ -48,9 +71,11 @@ function readCourses(root: string, problems: string[]): CourseSource[] {
   return courses;
 }
 
-function readCourse(dir: string, slug: string): CourseSource | undefined {
+function readCourse(dir: string, slug: string, problems: string[]): CourseSource | undefined {
   const coursePath = join(dir, "course.md");
   if (!existsSync(coursePath)) return undefined;
+  const courseRaw = readCapped(coursePath, MAX_COURSE_BYTES, problems);
+  if (courseRaw === undefined) return undefined;
 
   const files = readdirSync(dir);
   const diagrams = new Map<string, string>();
@@ -58,7 +83,8 @@ function readCourse(dir: string, slug: string): CourseSource | undefined {
   if (existsSync(diagramDir)) {
     for (const name of readdirSync(diagramDir)) {
       if (extname(name) === ".svg") {
-        diagrams.set(basename(name, ".svg"), readFileSync(join(diagramDir, name), "utf8"));
+        const svg = readCapped(join(diagramDir, name), MAX_DIAGRAM_BYTES, problems);
+        if (svg !== undefined) diagrams.set(basename(name, ".svg"), svg);
       }
     }
   }
@@ -69,16 +95,16 @@ function readCourse(dir: string, slug: string): CourseSource | undefined {
     course: {
       path: coursePath,
       name: "course.md",
-      raw: readFileSync(coursePath, "utf8"),
+      raw: courseRaw,
     },
     lectures: files
       .filter((name) => /^\d{2}-.*\.md$/.test(name) && !name.endsWith(".script.md"))
       .sort()
-      .map((name) => ({
-        path: join(dir, name),
-        name,
-        raw: readFileSync(join(dir, name), "utf8"),
-      })),
+      .flatMap((name) => {
+        const path = join(dir, name);
+        const raw = readCapped(path, MAX_LECTURE_BYTES, problems);
+        return raw === undefined ? [] : [{ path, name, raw }];
+      }),
     diagrams,
     media: new Set(files),
   };

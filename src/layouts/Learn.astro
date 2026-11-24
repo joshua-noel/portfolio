@@ -75,13 +75,20 @@ const query = linkDepth ? `?depth=${linkDepth}` : "";
       next={here.pathname + here.search}
     />
     {
+      /* For an admin: a number and nothing else. What went wrong is in the
+         server log, because it quotes files that may be `local` and gives
+         server paths. The dev server on the owner's own machine adds detail. */
+      catalog.problemCount > 0 && (
+        <p class="load-notice" role="status">
+          {catalog.problemCount} {catalog.problemCount === 1 ? "file was" : "files were"} left
+          out; see the server log.
+        </p>
+      )
+    }
+    {
       catalog.problems.length > 0 && (
         <details class="load-notice" open>
-          <summary>
-            {catalog.problems.length} problem{catalog.problems.length === 1 ? "" : "s"} in
-            the lecture files: what could not be loaded is left out, and everything else is
-            still served.
-          </summary>
+          <summary>Detail, shown on your own machine only</summary>
           <pre>{catalog.problems.join("\n\n")}</pre>
         </details>
       )

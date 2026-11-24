@@ -9,22 +9,26 @@ interface Props {
 }
 
 const { lecture } = Astro.props;
+// By slug, never by the file's `NN-` number: after a `local` lecture is left
+// out the page says "Lecture 4" while the file says 05, and the number in a URL
+// would show that one is missing. The media route maps the slug to the file.
 const base = `/media/${lecture.course}`;
-const poster = lecture.media.poster;
+const stem = lecture.slug;
+const posterExt = lecture.media.poster?.split(".").pop();
 ---
 
 <figure class="video">
-  <video controls preload="metadata" playsinline poster={poster && `${base}/${poster}`}>
-    <source src={`${base}/${lecture.file}.mp4`} type="video/mp4" />
+  <video controls preload="metadata" playsinline poster={posterExt && `${base}/${stem}.poster.${posterExt}`}>
+    <source src={`${base}/${stem}.mp4`} type="video/mp4" />
     <track
       kind="captions"
-      src={`${base}/${lecture.file}.vtt`}
+      src={`${base}/${stem}.vtt`}
       srclang="en"
       label="English"
       default
     />
     <p>
-      Your browser cannot play this video. <a href={`${base}/${lecture.file}.mp4`}
+      Your browser cannot play this video. <a href={`${base}/${stem}.mp4`}
         >Download it</a
       >.
     </p>

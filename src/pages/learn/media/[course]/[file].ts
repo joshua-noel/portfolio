@@ -12,8 +12,13 @@ const TYPES: Record<string, string> = {
   jpg: "image/jpeg",
 };
 
-/** `NN-slug.mp4`, `NN-slug.vtt` or `NN-slug.poster.png`: the files that sit beside a lecture. */
-const FILE = /^(\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*)(?:\.poster)?\.(mp4|vtt|png|jpg)$/;
+/**
+ * `slug.mp4`, `slug.vtt` or `slug.poster.png`: the files that sit beside a
+ * lecture, named by its slug. The file on disk is `NN-slug.mp4`, but that
+ * number is the lecture's place among every lecture, hidden ones included, so
+ * it is never in a URL; a numbered name matches no lecture and is a 404.
+ */
+const FILE = /^([a-z0-9]+(?:-[a-z0-9]+)*)(\.poster)?\.(mp4|vtt|png|jpg)$/;
 
 /**
  * The video, captions and poster of a lecture, from the content folder. Only
@@ -29,16 +34,22 @@ export const GET: APIRoute = async ({ url, request, locals }) => {
   // The reader's own catalog: a lecture they may not open is a stub with no files.
   const catalog = await getCatalogFor(locals.viewer?.role, locals.allowLocal);
   const course = findCourse(catalog, courseSlug);
-  const lecture = course?.lectures.find((l) => l.file === match?.[1]);
-  const available =
-    lecture &&
-    !lecture.locked &&
-    (name === `${lecture.file}.mp4` ||
-      name === `${lecture.file}.vtt` ||
-      name === lecture.media.poster);
-  if (!match || !course || !available) return new Response("Not found", { status: 404 });
+  const lecture = course?.lectures.find((l) => l.slug === match?.[1]);
+  // The real file name, from what the loader found beside the lecture.
+  const [, , isPoster, ext] = match ?? [];
+  const file =
+    lecture && !lecture.locked
+      ? isPoster
+        ? lecture.media.poster?.endsWith(`.poster.${ext}`)
+          ? lecture.media.poster
+          : undefined
+        : ext === "mp4" || ext === "vtt"
+          ? `${lecture.file}.${ext}`
+          : undefined
+      : undefined;
+  if (!match || !course || !lecture || !file) return new Response("Not found", { status: 404 });
 
-  const path = join(course.dir, name);
+  const path = join(course.dir, file);
   let size: number;
   try {
     size = statSync(path).size;
@@ -47,7 +58,7 @@ export const GET: APIRoute = async ({ url, request, locals }) => {
   }
 
   const headers: Record<string, string> = {
-    "content-type": TYPES[match[2]!]!,
+    "content-type": TYPES[ext!]!,
     "accept-ranges": "bytes",
     // Anyone may cache what anyone may read; what needs an account does not
     // leave the browser that asked.
