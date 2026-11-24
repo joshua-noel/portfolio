@@ -34,8 +34,8 @@
      rose, never a green that would read as "fine". */
   --c1: #e08a6c;
   --c2: #6fd0c4;
-  --c3: #b7a4ff;
-  --c4: #8fb2ff;
+  --c3: #c39bff;
+  --c4: #74b4ff;
   --c5: #f0b45f;
   --c6: #ff7096;
 
@@ -71,8 +71,8 @@
 
   --c1: #b0431f;
   --c2: #0b6f64;
-  --c3: #5638c0;
-  --c4: #2450b4;
+  --c3: #6a2fc0;
+  --c4: #1c63b8;
   --c5: #85500a;
   --c6: #b4235a;
 }
@@ -890,6 +890,18 @@ html[data-depth="deep"] [data-layer="abyss"] {
 .prose .katex {
   font-size: 1.06em;
 }
+/* An inline formula wider than its line scrolls inside its own box instead of
+   widening the page. learn.js sets the class on those, and only those: a box
+   with an overflow has its baseline at its bottom edge, which would lift the
+   ordinary formulas off the line of text. */
+.prose .wide-math {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  vertical-align: bottom;
+  scrollbar-width: thin;
+}
 .math-block {
   overflow-x: auto;
   overflow-y: hidden;
@@ -1163,13 +1175,48 @@ html[data-depth="deep"] [data-layer="abyss"] {
   height: 1.1rem;
   accent-color: var(--accent);
 }
+/* The result of a diagram, in the body font: one or two sentences. */
 .dg-readout {
   margin: 0;
-  padding: 0.5rem 0.25rem 0;
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  line-height: 1.5;
+  padding: 0.6rem 0.25rem 0;
+  max-width: 70ch;
+  font-family: var(--font-text);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.55;
   color: var(--fg);
+}
+/* Everything else the reader may want to check, closed until asked for. */
+.dg-more {
+  max-width: 70ch;
+  padding: 0.35rem 0.25rem 0;
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.dg-more summary {
+  width: fit-content;
+  cursor: pointer;
+  border-radius: 0.25rem;
+}
+.dg-more summary:hover {
+  color: var(--fg);
+}
+.dg-more[open] summary {
+  margin-bottom: 0.4rem;
+}
+.dg-more p {
+  margin: 0 0 0.6em;
+}
+.dg-more p:last-child {
+  margin-bottom: 0;
+}
+/* An arrowhead takes the color of the line it ends, whatever the file says. */
+@supports (fill: context-stroke) {
+  .diagram marker :is(path, polygon, polyline) {
+    fill: context-stroke !important;
+  }
 }
 
 .dg-token {
