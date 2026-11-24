@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { forViewer, loadCatalog, type Catalog } from "../src/lib/learn/catalog.ts";
 import {
   buildShelves,
+  CASE_MAX_REM,
+  caseWidth,
+  packCases,
   standingWidth,
   WIDE_SHELF_REM,
   type ShelfView,
@@ -332,6 +335,76 @@ test("a shelf with more books than half the page holds takes the whole page", as
   assert.equal(shelves.find((s) => s.id === "agents")!.wide, false);
   assert.ok(standingWidth([{ thickness: 3 }, { thickness: 3 }]) === 6.125);
   assert.ok(WIDE_SHELF_REM > 10);
+});
+
+test("shelves are packed into bookcases in order, as big as fits, and no case is wider than the page", async () => {
+  const course = (
+    slug: string,
+    shelf: string,
+    order: number,
+    lectures: number,
+  ): FixtureCourse => ({
+    slug,
+    shelf,
+    order,
+    visibility: "public",
+    lectures: Array.from({ length: lectures }, (_, i) => lecture(i + 1)),
+  });
+  // Five courses on three shelves, as the real library is: one case, the biggest books.
+  const five = [
+    course("a", "systems", 1, 8),
+    course("b", "language-models", 1, 8),
+    course("c", "language-models", 2, 7),
+    course("d", "language-models", 3, 7),
+    course("e", "agents", 1, 10),
+  ];
+  const real = packCases(buildShelves(await load(five)));
+  assert.equal(real.cases.length, 1);
+  assert.deepEqual(
+    real.cases[0]!.shelves.map((s) => s.id),
+    ["systems", "language-models", "agents"],
+  );
+  assert.equal(real.scale, 1.2);
+  assert.equal(real.cases[0]!.scrolls, false);
+  assert.deepEqual(packCases([]).cases, []);
+
+  // Thirty books on five shelves: several cases, the shelves still in order, none too wide.
+  const thirty = Array.from({ length: 30 }, (_, i) =>
+    course(
+      `t${i}`,
+      ["foundations", "systems", "language-models", "agents", "frontier"][
+        Math.floor(i / 6)
+      ]!,
+      i + 1,
+      5,
+    ),
+  );
+  const shelves = buildShelves(await load(thirty));
+  const packed = packCases(shelves);
+  assert.ok(packed.cases.length > 1 && packed.cases.length < shelves.length);
+  assert.deepEqual(
+    packed.cases.flatMap((c) => c.shelves.map((s) => s.id)),
+    shelves.map((s) => s.id),
+  );
+  for (const plan of packed.cases) {
+    assert.ok(caseWidth(plan.shelves, packed.scale) <= CASE_MAX_REM, "fits the page");
+    assert.equal(plan.scrolls, false);
+  }
+
+  // One shelf with more books than the page holds has a case to itself, and scrolls.
+  const many = Array.from({ length: 24 }, (_, i) => course(`m${i}`, "special", i + 1, 8));
+  const wide = packCases(buildShelves(await load([...five, ...many])));
+  assert.equal(
+    wide.cases
+      .at(-1)!
+      .shelves.map((s) => s.id)
+      .join(),
+    "special",
+  );
+  assert.equal(wide.cases.at(-1)!.scrolls, true);
+  // A scrolling case cannot be made bigger: nothing is.
+  assert.equal(wide.scale, 1);
+  assert.ok(wide.cases.slice(0, -1).every((c) => !c.scrolls));
 });
 
 // ---------------------------------------------------------------------------

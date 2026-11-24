@@ -21,6 +21,13 @@
   --wall-shade: rgba(0, 0, 0, 0.5);
   --book-shadow: rgba(0, 0, 0, 0.55);
   --bookend: #5d616d;
+  --wall-hi: #1d1f26;
+  --wall-lo: #14151a;
+  --wall-side: rgba(0, 0, 0, 0.28);
+  --panel: #2d251e;
+  --panel-edge: rgba(0, 0, 0, 0.45);
+  --engrave: #e6d3b3;
+  --engrave-edge: rgba(0, 0, 0, 0.6);
 }
 :root[data-theme="light"] {
   --wood-top: #d9c7ab;
@@ -30,6 +37,13 @@
   --wall-shade: rgba(60, 40, 20, 0.22);
   --book-shadow: rgba(40, 24, 10, 0.4);
   --bookend: #8c8f98;
+  --wall-hi: #f3f0e8;
+  --wall-lo: #e0dccf;
+  --wall-side: rgba(60, 40, 20, 0.12);
+  --panel: #c8b595;
+  --panel-edge: rgba(60, 40, 20, 0.3);
+  --engrave: #3d2f1f;
+  --engrave-edge: rgba(255, 255, 255, 0.55);
 }
 
 .plain .page.shelf-page {
@@ -449,35 +463,76 @@
 
 .js .bookshelf {
   --b-d: 11.5rem;
+  --k: 1;
   --plank: 1.15rem;
 }
 /* The shelves stand side by side while the page is wide enough, as a wall of
    cases; one with too many books to fit in half the page takes the whole row,
    and so does the panel, which opens under the row of the book that opened it. */
 .js .shelves {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
-  gap: 2.25rem 2.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 2.25rem;
   margin-top: 2.25rem;
 }
-.js .shelf[data-wide] {
-  grid-column: 1 / -1;
+/* Below the width that shows bookcases, the shelves are cases of their own. */
+.js .bookcase {
+  display: contents;
+}
+.js .bookcase[hidden] {
+  display: none;
 }
 .js .shelf {
+  /* As wide as its books, never wider than the page; a wide one is the page. */
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 100%;
   margin-top: 0;
+}
+.js .shelf[data-wide] {
+  flex-basis: 100%;
 }
 .js .shelf[hidden] {
   display: none;
 }
-.js .case {
+
+/* The case: a back wall with a soft vertical gradient, a board down each side,
+   and a shadow on the wall below it. */
+.js .case,
+.js .bookcase {
   position: relative;
   border-radius: 0.3rem;
   background:
-    linear-gradient(180deg, var(--wall-shade), rgba(0, 0, 0, 0) 3.5rem), var(--wall);
+    linear-gradient(180deg, var(--wall-shade), rgba(0, 0, 0, 0) 4rem),
+    linear-gradient(
+      90deg,
+      var(--wall-side),
+      rgba(0, 0, 0, 0) 3.5rem calc(100% - 3.5rem),
+      var(--wall-side)
+    ),
+    linear-gradient(180deg, var(--wall-hi), var(--wall) 55%, var(--wall-lo));
 }
-.js .case::after {
-  /* The shadow the shelf throws on the wall below it. */
+.js .case::before,
+.js .bookcase::before {
+  /* The side boards. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    var(--panel) 0 0.6rem,
+    var(--panel-edge) 0.6rem 0.72rem,
+    rgba(0, 0, 0, 0) 0.72rem calc(100% - 0.72rem),
+    var(--panel-edge) calc(100% - 0.72rem) calc(100% - 0.6rem),
+    var(--panel) calc(100% - 0.6rem)
+  );
+}
+.js .case::after,
+.js .bookcase::after {
+  /* The shadow the board throws on the wall below it. */
   content: "";
   position: absolute;
   inset: 100% 0.5rem auto;
@@ -486,14 +541,10 @@
   opacity: 0.55;
   pointer-events: none;
 }
-.js .bookshelf .row {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  padding: 2.4rem 1.6rem var(--plank);
-  scrollbar-width: none;
+.js .bookshelf .row,
+.js .bookcase {
   /* The board does not scroll: the books slide along it. */
-  background:
+  --plank-bg:
     linear-gradient(
         180deg,
         var(--wood-edge) 0,
@@ -517,16 +568,21 @@
       )
       left bottom / 100% var(--plank) no-repeat;
 }
-.js .row::-webkit-scrollbar {
-  display: none;
-}
-/* A row with more books than room scrolls, and keeps room at both ends for a
-   cover to swing out. (The script sets data-scroll; a phone always scrolls.) */
-.js .bookshelf .row[data-scroll] {
-  padding-inline: calc(var(--b-d) / 2 + 0.6rem);
+.js .bookshelf .row {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  /* Room at both ends for a cover to swing out, so that nothing moves when
+     the script runs; a row with more books than room scrolls inside it. */
+  padding: 2.4rem calc(var(--b-d) * 0.66 + 0.3rem) var(--plank);
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  background: var(--plank-bg);
+}
+.js .row::-webkit-scrollbar {
+  display: none;
 }
 .js .row::after {
   /* A bookend, so the books stand and the end of the row is a thing. */
@@ -534,7 +590,7 @@
   flex: none;
   align-self: flex-end;
   width: 0.55rem;
-  height: 8rem;
+  height: calc(8rem * var(--k));
   margin: 0 0 -0.3rem 0.4rem;
   border-radius: 0.12rem 0.12rem 0 0;
   background:
@@ -548,14 +604,21 @@
 }
 
 .js .book {
+  --t: calc(var(--b-t) * var(--k));
+  --h: calc(var(--b-h) * var(--k));
+  /* How far a neighbour steps aside for a book that is pulled out. */
+  --part: calc(var(--b-d) * 0.5);
   position: relative;
   display: block;
   flex: none;
-  width: var(--b-t);
-  height: var(--b-h);
+  width: var(--t);
+  height: var(--h);
   /* Stands on the top face of the board, not at its front edge. */
   margin-bottom: -0.3rem;
   z-index: 0;
+}
+.js .bookshelf.has-open .book {
+  --part: calc(var(--b-d) * 0.66);
 }
 .js .book::before {
   /* The book's footing: a soft shadow on the board. */
@@ -577,10 +640,10 @@
   content: "";
   z-index: -1;
   position: absolute;
-  left: calc(50% - var(--b-d) * 0.5);
-  width: var(--b-d);
-  bottom: -0.55rem;
-  height: 1.1rem;
+  left: calc(50% - var(--b-d) * 0.55);
+  width: calc(var(--b-d) * 1.1);
+  bottom: -0.6rem;
+  height: 1.3rem;
   background: radial-gradient(
     ellipse at 50% 45%,
     var(--book-shadow),
@@ -621,6 +684,10 @@
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  /* The eye: level with the book at rest; above it and off to the right when it
+     is pulled out, so its top edge and its page block show. */
+  perspective: 1100px;
+  perspective-origin: 50% 50%;
 }
 .hit:focus-visible {
   outline: none;
@@ -634,7 +701,6 @@
   transform-style: preserve-3d;
   /* The hinge: the edge where the spine meets the front cover. */
   transform-origin: 100% 50%;
-  transform: perspective(1100px) translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg);
 }
 .js .vol .spine,
 .js .vol .edge,
@@ -657,22 +723,43 @@
     linear-gradient(180deg, var(--b-accent) 0 0) 0 0.45rem / 100% 2px no-repeat,
     linear-gradient(180deg, var(--b-accent) 0 0) 0 calc(100% - 0.45rem) / 100% 2px
       no-repeat,
+    /* The round of the spine catching the light. */
     linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.16),
-      rgba(255, 255, 255, 0.02) 24%,
-      rgba(0, 0, 0, 0) 58%,
-      rgba(0, 0, 0, 0.3)
-    ),
+        90deg,
+        rgba(255, 255, 255, 0.2),
+        rgba(255, 255, 255, 0.05) 16%,
+        rgba(255, 255, 255, 0) 34%,
+        rgba(0, 0, 0, 0) 60%,
+        rgba(0, 0, 0, 0.32)
+      ),
     var(--b-color);
   border-radius: 0.14rem 0.14rem 0 0;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    inset 1px 0 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+.js .spine::after {
+  /* The shadow of the book next to it, when one is pulled out. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.42s;
+}
+.js .book[data-side="before"] .spine::after {
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 85%);
+  opacity: 1;
+}
+.js .book[data-side="after"] .spine::after {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 85%);
+  opacity: 1;
 }
 .s-motif {
   flex: none;
-  width: min(1.5rem, calc(var(--b-t) - 1rem));
+  width: min(1.5rem, calc(var(--t) - 1rem));
   height: auto;
   margin-top: 0.4rem;
   color: var(--b-mark);
@@ -684,7 +771,7 @@
   overflow: hidden;
   writing-mode: vertical-rl;
   font-family: var(--font-text);
-  font-size: var(--b-fs);
+  font-size: calc(var(--b-fs) * var(--k));
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: 0.01em;
@@ -720,11 +807,15 @@
   transform-origin: 0 50%;
   transform: rotateY(90deg);
 }
-/* The block of pages: the far face, and the top edge you see from above. */
+/* The block of pages: its fore-edge, the far face, and the top edge you see
+   from above. Pages are lines: stripes across the edge. */
 .js .edge {
   inset: 0;
   transform: translateZ(calc(var(--b-d) * -1)) rotateY(180deg);
-  background: #e9e4d8;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.1)),
+    repeating-linear-gradient(90deg, #f1ecdf 0 2px, #d6cfbc 2px 3px);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
 }
 .js .top {
   top: 0;
@@ -733,34 +824,51 @@
   height: var(--b-d);
   transform-origin: 50% 0;
   transform: translateZ(calc(var(--b-d) * -1)) rotateX(90deg);
-  background: repeating-linear-gradient(90deg, #f4f0e6 0 2px, #d9d3c3 2px 3px);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.12)),
+    repeating-linear-gradient(90deg, #f4f0e6 0 2px, #d6cfbc 2px 3px);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14);
 }
 
-/* Pulled out (pointer, keyboard) and opened: a book turns its cover to you. */
+/* Pulled out (pointer, keyboard) and opened: a book turns its cover to you,
+   and the books beside it step aside. The script marks them: .is-pulled,
+   .is-open, and data-side="before" or "after" on the others. */
 @media (prefers-reduced-motion: no-preference) {
   .js .book {
-    /* Slid out and turned about 78 degrees, centred on where it stood. */
-    --out: perspective(1100px)
-      translate3d(calc((var(--b-d) * 0.98 + var(--b-t) * 0.8) * -0.5), -0.55rem, 5.5rem)
-      rotateX(-4deg) rotateY(-78deg);
-    /* Opened: nearer, and square to the reader. */
-    --open: perspective(1100px)
-      translate3d(calc((var(--b-d) * 0.995 + var(--b-t) * 0.9) * -0.5), -0.8rem, 8rem)
-      rotateX(-3deg) rotateY(-85deg);
+    /* Slid out and turned a little past square, centred where it stood. */
+    --out: translate3d(
+        calc((var(--b-d) * 0.985 + var(--t) * 1.17) * -0.5),
+        -0.55rem,
+        5.5rem
+      )
+      rotateX(-5deg) rotateY(-100deg);
+    /* Opened: nearer, and almost square to the reader. */
+    --open: translate3d(calc((var(--b-d) * 0.995 + var(--t) * 1.1) * -0.5), -0.8rem, 8rem)
+      rotateX(-4deg) rotateY(-96deg);
+    transition: transform 0.42s cubic-bezier(0.22, 0.9, 0.28, 1);
   }
   .js .vol {
     transition: transform 0.42s cubic-bezier(0.22, 0.9, 0.28, 1);
     will-change: transform;
   }
-  .js .book:has(.hit:focus-visible) {
+  .js .hit {
+    transition: perspective-origin 0.42s cubic-bezier(0.22, 0.9, 0.28, 1);
+  }
+  .js .book[data-side="before"] {
+    transform: translateX(calc(var(--part) * -1));
+  }
+  .js .book[data-side="after"] {
+    transform: translateX(var(--part));
+  }
+  .js .book.is-pulled {
     z-index: 3;
   }
-  .js .book:has(.hit:focus-visible) .vol {
+  .js .book.is-pulled .vol {
     transform: var(--out);
   }
-  .js .book:has(.hit:focus-visible)::after {
-    opacity: 1;
+  .js .book.is-pulled .hit,
+  .js .book.is-open .hit {
+    perspective-origin: calc(100% + var(--b-d) * 1.6) -60%;
   }
   .js .book.is-open {
     z-index: 5;
@@ -768,25 +876,14 @@
   .js .book.is-open .vol {
     transform: var(--open);
   }
+  .js .book.is-pulled::after,
   .js .book.is-open::after {
     opacity: 1;
-  }
-  @media (hover: hover) {
-    /* While a book is open the others stay put; the open one is not disturbed. */
-    .js .bookshelf:not(.has-open) .book:hover {
-      z-index: 3;
-    }
-    .js .bookshelf:not(.has-open) .book:hover .vol {
-      transform: var(--out);
-    }
-    .js .bookshelf:not(.has-open) .book:hover::after {
-      opacity: 1;
-    }
   }
 }
 
 /* Focus: a ring on the cover when it is turned out. */
-.js .book:has(.hit:focus-visible) .vol .cover {
+.js .book.is-focus .vol .cover {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.07),
     0 0 0 2px var(--wall),
@@ -804,8 +901,7 @@
   .js .vol {
     transform: none;
   }
-  .js .book:hover .spine,
-  .js .book:has(.hit:focus-visible) .spine {
+  .js .book.is-pulled .spine {
     filter: brightness(1.22);
     box-shadow:
       inset 0 0 0 1px rgba(255, 255, 255, 0.06),
@@ -828,18 +924,117 @@
 }
 
 /* A locked book looks like the others, a little quieter. */
-.js .book[data-locked] .spine {
-  background-blend-mode: normal;
-}
 .js .book[data-locked] .s-title {
   opacity: 0.88;
+}
+
+/* ---------- Bookcases ---------- */
+
+/* On a wide screen the shelves are packed into bookcases, as many to a case as
+   fit the page, each shelf a group of books with a bookend after it and its name
+   lettered into the board below. A case is as wide as its books. */
+@media (min-width: 76rem) {
+  .js .shelves {
+    display: block;
+  }
+  .js .bookcase {
+    --k: var(--kc, 1);
+    --b-d: calc(11.5rem + (var(--k) - 1) * 7.5rem);
+    --plank: 2.7rem;
+    display: flex;
+    align-items: flex-end;
+    width: fit-content;
+    max-width: 100%;
+    margin-top: 2.25rem;
+    /* Room at both ends for the books to slide when one is pulled out. */
+    padding: 2.8rem calc(var(--b-d) * 0.66 + 0.3rem) var(--plank);
+    background:
+      var(--plank-bg), linear-gradient(180deg, var(--wall-shade), rgba(0, 0, 0, 0) 4rem),
+      linear-gradient(
+        90deg,
+        var(--wall-side),
+        rgba(0, 0, 0, 0) 3.5rem calc(100% - 3.5rem),
+        var(--wall-side)
+      ),
+      linear-gradient(180deg, var(--wall-hi), var(--wall) 55%, var(--wall-lo));
+    border-radius: 0.3rem 0.3rem 0 0;
+  }
+  .js .bookcase[hidden] {
+    display: none;
+  }
+  .js .bookcase .shelf {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    margin: 0;
+  }
+  .js .bookcase .shelf + .shelf:not([hidden]) {
+    margin-left: 1.6rem;
+  }
+  .js .bookcase .case {
+    background: none;
+    border-radius: 0;
+  }
+  .js .bookcase .case::before,
+  .js .bookcase .case::after {
+    content: none;
+  }
+  .js .bookcase .row {
+    padding: 0;
+    overflow: visible;
+    background: none;
+  }
+  /* A shelf wider than the page scrolls inside its case. */
+  .js .bookcase[data-scrolls] {
+    padding-inline: 0;
+  }
+  .js .bookcase[data-scrolls] .shelf {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .js .bookcase[data-scrolls] .row {
+    padding-inline: calc(var(--b-d) * 0.66 + 0.3rem);
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  /* The name of the group, lettered into the board it stands on: the heading
+     takes no height of its own and hangs below the books, over the board. */
+  .js .bookcase .shelf-head {
+    order: 2;
+    display: flex;
+    height: 0;
+    padding: 0;
+    overflow: visible;
+  }
+  .js .bookcase[data-scrolls] .shelf-head {
+    padding-inline: 1.6rem;
+  }
+  .js .bookcase .shelf-head h2 {
+    display: flex;
+    align-items: center;
+    height: calc(var(--plank) - 0.1rem);
+    padding-top: 0.5rem;
+    color: var(--engrave);
+    text-shadow: 0 1px 0 var(--engrave-edge);
+    white-space: nowrap;
+  }
+  .js .bookcase .shelf-count,
+  .js .bookcase:not([data-scrolls]) .shelf-arrows {
+    display: none;
+  }
+  .js .shelves > .panel {
+    margin-top: 0;
+  }
+  .js .shelves > .panel.is-open {
+    margin-top: 1.6rem;
+  }
 }
 
 /* ---------- The panel ---------- */
 
 .panel {
   scroll-margin-block: 1.5rem;
-  grid-column: 1 / -1;
+  flex: 0 0 100%;
   display: grid;
   grid-template-rows: 0fr;
   margin-top: -2.25rem;
@@ -854,6 +1049,13 @@
 .panel.is-open {
   grid-template-rows: 1fr;
   margin-top: -0.7rem;
+}
+/* Under the one case, not in the wall's grid, it needs no row gap to cancel. */
+.bookshelf > .panel {
+  margin-top: 0;
+}
+.bookshelf > .panel.is-open {
+  margin-top: 1.6rem;
 }
 .panel-clip {
   min-height: 0;
@@ -957,18 +1159,6 @@
 
 /* ---------- Smaller screens ---------- */
 
-/* Where the page has no margin to spare, a cover swinging out past the end of a
-   row would be cut off by the screen, so every row keeps room for it and
-   scrolls inside it. */
-@media (max-width: 82rem) {
-  .js .bookshelf .row {
-    padding-inline: calc(var(--b-d) / 2 + 0.6rem);
-    overflow-x: auto;
-    overflow-y: hidden;
-    overscroll-behavior-x: contain;
-  }
-}
-
 @media (max-width: 40rem) {
   .book {
     grid-template-columns: 1fr;
@@ -976,6 +1166,9 @@
   .js .bookshelf {
     --b-d: 10rem;
     --plank: 1rem;
+  }
+  .js .shelf {
+    flex-basis: 100%;
   }
   .js .bookshelf .row {
     scroll-snap-type: x proximity;
