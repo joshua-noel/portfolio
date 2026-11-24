@@ -7,7 +7,7 @@ import {
   type Section,
 } from "./blocks.ts";
 import { DEPTHS, type Depth } from "./depth.ts";
-import { Renderer, type Facts, type Heading } from "./render.ts";
+import { Renderer, suspectMaths, type Facts, type Heading } from "./render.ts";
 import { sanitizeSvg } from "./svg.ts";
 
 /**
@@ -622,6 +622,7 @@ export async function buildLecture(
   parts.tail.push(referencesHtml(front));
   issues.push(...renderer.facts.issues);
   checkStructure(front, renderer.facts, counts, issues);
+  issues.push(...suspectMaths(split.body, split.bodyLine));
   if (issues.length > 0) fail(...issues);
 
   lecture.segments = [
