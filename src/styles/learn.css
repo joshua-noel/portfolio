@@ -29,15 +29,17 @@
   --d-deep: #b7a4ff;
   --d-abyss: #f0b45f;
 
-  /* Diagram hues. Each course gives them a meaning in its course.md. Two
-     courses use the sixth for failing, hostile or wasted things, so it is a
-     rose, never a green that would read as "fine". */
+  /* Diagram hues. Each course gives them a meaning in its course.md. The sixth
+     is a green; a course that uses one hue for failing, hostile or wasted
+     things says so with `alert: cN` in its course.md, and on that course's
+     pages that hue is the alert rose (see `data-alert` below). */
   --c1: #e08a6c;
   --c2: #6fd0c4;
   --c3: #c39bff;
   --c4: #74b4ff;
   --c5: #f0b45f;
-  --c6: #ff7096;
+  --c6: #8fdc7a;
+  --alert: #ff7096;
 
   --topbar: 3.5rem;
   --font-ui:
@@ -74,7 +76,26 @@
   --c3: #6a2fc0;
   --c4: #1c63b8;
   --c5: #85500a;
-  --c6: #b4235a;
+  --c6: #33751b;
+  --alert: #b4235a;
+}
+:root[data-alert="c1"] {
+  --c1: var(--alert);
+}
+:root[data-alert="c2"] {
+  --c2: var(--alert);
+}
+:root[data-alert="c3"] {
+  --c3: var(--alert);
+}
+:root[data-alert="c4"] {
+  --c4: var(--alert);
+}
+:root[data-alert="c5"] {
+  --c5: var(--alert);
+}
+:root[data-alert="c6"] {
+  --c6: var(--alert);
 }
 
 *,

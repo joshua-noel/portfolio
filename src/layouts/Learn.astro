@@ -21,6 +21,8 @@ interface Props {
   /** `reading` has the lecture sidebar; `plain` is a single column. */
   layout?: "reading" | "plain";
   noindex?: boolean;
+  /** The course's alert hue (c1 to c6): the stylesheet draws it as the rose, on this course's pages only. */
+  alert?: string;
 }
 
 const {
@@ -32,6 +34,7 @@ const {
   linkDepth,
   layout = "reading",
   noindex = false,
+  alert,
 } = Astro.props;
 
 const { siteUrl } = getConfig();
@@ -46,7 +49,7 @@ const query = linkDepth ? `?depth=${linkDepth}` : "";
 ---
 
 <!doctype html>
-<html lang="en" data-depth={depth} data-theme="dark">
+<html lang="en" data-depth={depth} data-alert={alert} data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
