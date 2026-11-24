@@ -3,15 +3,20 @@
 // absolute: the same markup is served from whichever host asked for it.
 import { getConfig } from "../../lib/config.ts";
 import type { Catalog } from "../../lib/learn/catalog.ts";
+import type { Principal } from "../../lib/sessions.ts";
 
 interface Props {
   catalog: Catalog;
   /** Whether there is a sidebar for the menu button to open. */
   showNav: boolean;
+  /** Who is signed in, if anyone. */
+  viewer?: Principal;
+  /** Where to come back to after signing in. */
+  next: string;
 }
 
-const { catalog, showNav } = Astro.props;
-const { siteUrl, blogUrl } = getConfig();
+const { catalog, showNav, viewer, next } = Astro.props;
+const { siteUrl } = getConfig();
 ---
 
 <header class="topbar">
@@ -114,6 +119,20 @@ const { siteUrl, blogUrl } = getConfig();
       ></path>
     </svg>
   </button>
-  <!-- Until readers have accounts this is the admin's own login, kept quiet. -->
-  <a class="signin" href={`${blogUrl}/admin/login`}>Sign in</a>
+  {
+    viewer ? (
+      <form class="who" method="post" action="/signout">
+        <span class="who-name" title={`Signed in as ${viewer.username}`}>
+          {viewer.username}
+        </span>
+        <button class="signin" type="submit">
+          Sign out
+        </button>
+      </form>
+    ) : (
+      <a class="signin" href={`/signin?next=${encodeURIComponent(next)}`}>
+        Sign in
+      </a>
+    )
+  }
 </header>

@@ -349,6 +349,27 @@ button {
   padding: 0.4rem 0.2rem;
   white-space: nowrap;
 }
+button.signin {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+}
+.who {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0;
+}
+.who-name {
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
 .signin:hover {
   color: var(--fg);
   text-decoration: underline;
@@ -1543,7 +1564,7 @@ html[data-depth="tip"] .toc ol {
   }
   .topbar .spacer,
   .search kbd,
-  .signin {
+  .who-name {
     display: none;
   }
   .search {
@@ -1832,4 +1853,43 @@ html[data-depth="tip"] .toc ol {
 }
 .course-intro p {
   margin: 1rem 0 0;
+}
+
+/* ---------- Sign in ---------- */
+
+.signin-form {
+  display: grid;
+  gap: 1rem;
+  max-width: 22rem;
+  margin-top: 1.5rem;
+}
+.signin-form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.signin-form input {
+  height: 2.75rem;
+  padding: 0 0.9rem;
+  font: inherit;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+}
+.signin-form button {
+  height: 2.75rem;
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 0;
+  border-radius: 0.45rem;
+  font-weight: 650;
+}
+.form-error {
+  margin: 1rem 0 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.4rem;
+  color: var(--fg);
 }

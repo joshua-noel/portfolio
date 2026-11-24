@@ -1,5 +1,10 @@
 import { defineMiddleware } from "astro:middleware";
-import { SESSION_COOKIE, validateSession } from "./lib/auth.ts";
+import {
+  LEARN_COOKIE,
+  SESSION_COOKIE,
+  learnViewer,
+  validateSession,
+} from "./lib/auth.ts";
 import { getConfig } from "./lib/config.ts";
 import { resolveRoute } from "./lib/routing.ts";
 
@@ -48,8 +53,26 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // cookie is set on an origin the admin never uses again.
   if (action.kind === "redirect") return context.redirect(action.location, 301);
 
-  const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
+  const isLearn = host === config.learnHost;
   const isApi = pathname.startsWith("/api/");
+  if (isLearn) {
+    context.locals.here = { pathname, search };
+    // The admin and its API live on the blog host; on this one they do not exist.
+    if (isApi) return new Response("Not found", { status: 404 });
+    // Sign-in and sign-out change state, so they must come from this site's
+    // own pages: a form on another origin is refused, which is what stops
+    // someone signing a reader in to an account of their choosing.
+    if (
+      context.request.method === "POST" &&
+      (pathname === "/signin" || pathname === "/signout") &&
+      context.request.headers.get("origin") !== config.learnUrl
+    ) {
+      return new Response("Bad origin", { status: 403 });
+    }
+    context.locals.viewer = learnViewer(context.cookies.get(LEARN_COOKIE)?.value);
+  }
+
+  const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
   const isPublicEndpoint = pathname === "/admin/login" || pathname === "/api/login";
 
   if ((isAdmin || isApi) && !isPublicEndpoint) {
@@ -85,5 +108,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
     response.headers.set("Strict-Transport-Security", "max-age=31536000");
   }
   if (isAdmin) response.headers.set("Content-Security-Policy", ADMIN_CSP);
+  if (isLearn) {
+    // What a page shows depends on who is signed in, so no shared cache may
+    // keep one reader's copy for another. A route that knows better (public
+    // media) says so itself.
+    if (!response.headers.has("cache-control")) {
+      response.headers.set("Cache-Control", "private, no-store");
+    }
+    response.headers.append("Vary", "Cookie");
+  }
   return response;
 });

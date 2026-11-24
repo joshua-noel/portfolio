@@ -4,7 +4,7 @@ import "../styles/learn.css";
 import LearnNav from "../components/learn/LearnNav.astro";
 import LearnTopbar from "../components/learn/LearnTopbar.astro";
 import { getConfig } from "../lib/config.ts";
-import { getCatalog } from "../lib/learn/content.ts";
+import { getCatalogFor } from "../lib/learn/content.ts";
 import type { Depth } from "../lib/learn/depth.ts";
 
 interface Props {
@@ -34,7 +34,13 @@ const {
 } = Astro.props;
 
 const { siteUrl } = getConfig();
-const catalog = await getCatalog();
+// The address the reader typed, not the route it was rewritten to (/learn/…).
+const here = Astro.locals.here ?? {
+  pathname: Astro.url.pathname,
+  search: Astro.url.search,
+};
+const viewer = Astro.locals.viewer;
+const catalog = await getCatalogFor(viewer?.role);
 const query = linkDepth ? `?depth=${linkDepth}` : "";
 ---
 
@@ -76,7 +82,12 @@ const query = linkDepth ? `?depth=${linkDepth}` : "";
   </head>
   <body>
     <a class="skip" href="#main">Skip to the content</a>
-    <LearnTopbar catalog={catalog} showNav={layout === "reading"} />
+    <LearnTopbar
+      catalog={catalog}
+      showNav={layout === "reading"}
+      viewer={viewer}
+      next={here.pathname + here.search}
+    />
     <div class:list={["shell", layout === "plain" && "plain"]}>
       {
         layout === "reading" && (
