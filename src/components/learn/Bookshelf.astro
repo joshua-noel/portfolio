@@ -113,13 +113,18 @@ const bookStyle = (book: Book): string =>
                       data-slug={book.slug}
                       data-shelf={book.shelf}
                       data-videos={book.videos}
+                      data-minutes={
+                        book.minutes
+                          ? DEPTHS.map((d) => book.minutes![d]).join(",")
+                          : undefined
+                      }
                       data-locked={book.locked ? "" : undefined}
                       style={bookStyle(book)}
                     >
                       <span
                         class="vol"
                         aria-hidden="true"
-                        data-label={`${book.title}. ${plural(book.lectures.length, "lecture")}${book.minutes ? `, about ${book.minutes.abyss} minutes at Abyss` : ""}${book.locked ? ". Locked" : ""}`}
+                        data-label={`${book.title}. ${plural(book.lectures.length, "lecture")}`}
                       >
                         <span class="face spine">
                           <BookMotif class="s-motif" name={book.cover.motif} />

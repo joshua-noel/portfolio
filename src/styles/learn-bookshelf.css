@@ -541,6 +541,11 @@
   opacity: 0.55;
   pointer-events: none;
 }
+/* The pseudo-elements of a display: contents case would still be drawn. */
+.js .bookcase::before,
+.js .bookcase::after {
+  content: none;
+}
 .js .bookshelf .row,
 .js .bookcase {
   /* The board does not scroll: the books slide along it. */
@@ -959,8 +964,13 @@
       linear-gradient(180deg, var(--wall-hi), var(--wall) 55%, var(--wall-lo));
     border-radius: 0.3rem 0.3rem 0 0;
   }
-  .js .bookcase[hidden] {
+  .js .bookcase[hidden],
+  .js .bookcase .shelf[hidden] {
     display: none;
+  }
+  .js .bookcase::before,
+  .js .bookcase::after {
+    content: "";
   }
   .js .bookcase .shelf {
     display: flex;

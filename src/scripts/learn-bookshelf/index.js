@@ -3,10 +3,31 @@
 // moves a card's text into a panel when the book is opened, and adds the
 // filter pills. Plain DOM, no framework, nothing fetched.
 import { filterFromKey, matchesFilter } from "../../lib/learn/bookshelf-filter.ts";
+import { DEPTHS, DEPTH_LABELS } from "../../lib/learn/depth.ts";
 
 const root = document.documentElement;
 const shelf = document.querySelector("[data-bookshelf]");
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
+/**
+ * What a book is called to a screen reader: its title, its lectures, its
+ * reading time at the depth chosen (it changes with the switch), and whether
+ * it is locked.
+ */
+function nameBooks() {
+  const depth = DEPTHS.includes(root.dataset.depth) ? root.dataset.depth : "waterline";
+  for (const book of document.querySelectorAll("[data-book]")) {
+    const hit = book.querySelector(".hit");
+    if (!hit) continue;
+    const minutes = book.dataset.minutes?.split(",")[DEPTHS.indexOf(depth)];
+    const time = minutes ? `, about ${minutes} minutes at ${DEPTH_LABELS[depth]}` : "";
+    const locked = book.hasAttribute("data-locked") ? ". Locked" : "";
+    hit.setAttribute(
+      "aria-label",
+      `${book.querySelector(".vol").dataset.label}${time}${locked}`,
+    );
+  }
+}
 
 const store = {
   get(key) {
@@ -39,6 +60,7 @@ document.querySelector("[data-depth-switch]")?.addEventListener("click", (event)
   const url = new URL(location.href);
   url.searchParams.set("depth", depth);
   history.replaceState(history.state, "", url);
+  nameBooks();
 });
 
 // ---------------------------------------------------------------- resume
@@ -125,6 +147,7 @@ if (shelf) {
     button.append(vol);
     book.prepend(button);
   }
+  nameBooks();
   const hitOf = (book) => book.querySelector(".hit");
   const visibleBooks = (row) => [...row.querySelectorAll("[data-book]:not([hidden])")];
 
