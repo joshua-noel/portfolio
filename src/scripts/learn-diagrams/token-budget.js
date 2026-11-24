@@ -74,6 +74,7 @@ export default function init(figure) {
     shapes.push(label(line, 252, `budget ${thousands(r.budget)}`, { anchor: "middle", fill: "var(--c6)", weight: 600 }));
     if (r.raw > r.budget) shapes.push(label(rawEnd - 2, 128, `over by ${thousands(r.raw - r.budget)}`, { anchor: "end", fill: "var(--c6)", weight: 600 }));
     if (r.left >= 0) shapes.push(label((end + line) / 2, 222, `headroom ${thousands(r.left)}`, { anchor: "middle", fill: "var(--muted)" }));
+    else if (end < 560) shapes.push(label(end + 8, 188, `still over by ${thousands(-r.left)}`, { fill: "var(--c6)", weight: 600 }));
     else shapes.push(label(end - 2, 222, `still over by ${thousands(-r.left)}`, { anchor: "end", fill: "var(--c6)", weight: 600 }));
     [["var(--accent)", 1, "system, tools, user", 40], ["var(--c5)", 1, "memory", 223], ["var(--c4)", 1, "history", 315], ["var(--c3)", 1, "passages", 414], ["var(--c3)", 0.55, "tool results", 520]].forEach(([fill, opacity, text, x]) => {
       shapes.push(svgEl("rect", { x, y: 282, width: 16, height: 16, fill, "fill-opacity": opacity }));
