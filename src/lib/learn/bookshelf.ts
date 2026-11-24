@@ -71,7 +71,58 @@ export interface ShelfView {
 }
 
 /** Spines this wide (rem, with the gaps between them) fill half a page; more and the shelf spans it. */
-export const WIDE_SHELF_REM = 26;
+export const WIDE_SHELF_REM = 22;
+
+/** The widest a bookcase may be (rem): the page, at the narrowest width that shows bookcases (76 rem less the page's margins). */
+export const CASE_MAX_REM = 72;
+/** How much bigger than their natural size the books stand when every case has room for it, biggest first. */
+export const CASE_SCALES = [1.2, 1.1, 1] as const;
+/** A cover is this wide (rem) at scale 1, and 7.5 rem wider for each whole step of scale. */
+const COVER_REM = 11.5;
+const COVER_PER_SCALE_REM = 7.5;
+/** Each group of books adds a bookend and a gap. */
+const GROUP_REM = 2.4;
+
+/** One bookcase: shelves that stand side by side, as big as the books are drawn. */
+export interface CasePlan {
+  shelves: ShelfView[];
+  /** A single shelf too wide for the page: its row scrolls. */
+  scrolls: boolean;
+}
+
+/**
+ * The width a bookcase needs: its books at `scale`, the bookends and gaps
+ * between its groups, and room at both ends for the books to slide aside
+ * when one is pulled out.
+ */
+export function caseWidth(shelves: ShelfView[], scale: number): number {
+  const cover = COVER_REM + (scale - 1) * COVER_PER_SCALE_REM;
+  const slack = 2 * (cover * 0.66 + 0.3);
+  const books = shelves.flatMap((shelf) => shelf.books);
+  return standingWidth(books) * scale + shelves.length * GROUP_REM + slack;
+}
+
+/**
+ * Shelves into bookcases, in the catalog's order: each case takes shelves as
+ * long as they fit the page, so a few books share one case and no case is
+ * mostly empty; a shelf that is wider than the page has a case to itself and
+ * scrolls. `scale` is one size for every book: the biggest that fits every case.
+ */
+export function packCases(shelves: ShelfView[]): { cases: CasePlan[]; scale: number } {
+  const cases: CasePlan[] = [];
+  for (const shelf of shelves) {
+    const last = cases.at(-1);
+    if (last && caseWidth([...last.shelves, shelf], 1) <= CASE_MAX_REM)
+      last.shelves.push(shelf);
+    else cases.push({ shelves: [shelf], scrolls: false });
+  }
+  for (const plan of cases) plan.scrolls = caseWidth(plan.shelves, 1) > CASE_MAX_REM;
+  const scale =
+    CASE_SCALES.find((s) =>
+      cases.every((plan) => caseWidth(plan.shelves, s) <= CASE_MAX_REM),
+    ) ?? 1;
+  return { cases, scale };
+}
 
 /** How wide the books of a shelf stand, in rem. */
 export function standingWidth(books: { thickness: number }[]): number {

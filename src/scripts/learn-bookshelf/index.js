@@ -3,10 +3,31 @@
 // moves a card's text into a panel when the book is opened, and adds the
 // filter pills. Plain DOM, no framework, nothing fetched.
 import { filterFromKey, matchesFilter } from "../../lib/learn/bookshelf-filter.ts";
+import { DEPTHS, DEPTH_LABELS } from "../../lib/learn/depth.ts";
 
 const root = document.documentElement;
 const shelf = document.querySelector("[data-bookshelf]");
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
+/**
+ * What a book is called to a screen reader: its title, its lectures, its
+ * reading time at the depth chosen (it changes with the switch), and whether
+ * it is locked.
+ */
+function nameBooks() {
+  const depth = DEPTHS.includes(root.dataset.depth) ? root.dataset.depth : "waterline";
+  for (const book of document.querySelectorAll("[data-book]")) {
+    const hit = book.querySelector(".hit");
+    if (!hit) continue;
+    const minutes = book.dataset.minutes?.split(",")[DEPTHS.indexOf(depth)];
+    const time = minutes ? `, about ${minutes} minutes at ${DEPTH_LABELS[depth]}` : "";
+    const locked = book.hasAttribute("data-locked") ? ". Locked" : "";
+    hit.setAttribute(
+      "aria-label",
+      `${book.querySelector(".vol").dataset.label}${time}${locked}`,
+    );
+  }
+}
 
 const store = {
   get(key) {
@@ -39,6 +60,7 @@ document.querySelector("[data-depth-switch]")?.addEventListener("click", (event)
   const url = new URL(location.href);
   url.searchParams.set("depth", depth);
   history.replaceState(history.state, "", url);
+  nameBooks();
 });
 
 // ---------------------------------------------------------------- resume
@@ -76,7 +98,39 @@ if (shelf) {
   const status = shelf.querySelector("[data-status]");
   const rows = [...shelf.querySelectorAll("[data-row]")];
   const sections = [...shelf.querySelectorAll("[data-shelf-section]")];
+  const cases = [...shelf.querySelectorAll(".bookcase")];
+  const books = [...shelf.querySelectorAll("[data-book]")];
   let open; // the <li> of the open book
+  let pulled; // the <li> of the book pulled out by the pointer or by keyboard focus
+  let focused; // the <li> whose button has keyboard focus
+
+  /** Whether the shelves are packed into bookcases, as on a wide screen, or each is a case of its own. */
+  const packed = () => matchMedia("(min-width: 76rem)").matches;
+
+  /**
+   * Pulling a book out (or opening it) makes room: the books on either side of
+   * it step aside, those before it one way and those after it the other, within
+   * the case it stands in. The styles do the moving; this only says who is where.
+   */
+  function layout() {
+    const lead = open ?? pulled;
+    const scope = lead
+      ? [
+          ...(packed() ? lead.closest(".bookcase") : lead.parentElement).querySelectorAll(
+            "[data-book]:not([hidden])",
+          ),
+        ]
+      : [];
+    const at = scope.indexOf(lead);
+    for (const book of books) {
+      const i = scope.indexOf(book);
+      const side = i < 0 || i === at ? "" : i < at ? "before" : "after";
+      if (side) book.dataset.side = side;
+      else delete book.dataset.side;
+      book.classList.toggle("is-pulled", book === lead && book !== open);
+      book.classList.toggle("is-focus", book === focused);
+    }
+  }
 
   // ------------------------------------------------------------ books
 
@@ -93,6 +147,7 @@ if (shelf) {
     button.append(vol);
     book.prepend(button);
   }
+  nameBooks();
   const hitOf = (book) => book.querySelector(".hit");
   const visibleBooks = (row) => [...row.querySelectorAll("[data-book]:not([hidden])")];
 
@@ -108,7 +163,37 @@ if (shelf) {
 
   shelf.addEventListener("focusin", (event) => {
     const book = event.target.closest?.("[data-book]");
-    if (book && event.target.classList.contains("hit")) rove(book.parentElement, book);
+    if (!book || !event.target.classList.contains("hit")) return;
+    rove(book.parentElement, book);
+    if (event.target.matches(":focus-visible")) {
+      focused = pulled = book;
+      layout();
+    }
+  });
+  shelf.addEventListener("focusout", (event) => {
+    const book = event.target.closest?.("[data-book]");
+    if (book && book === focused) {
+      focused = undefined;
+      if (pulled === book) pulled = undefined;
+      layout();
+    }
+  });
+
+  // The pointer: a mouse pulls a book out; a finger only opens it.
+  shelf.addEventListener("pointerover", (event) => {
+    if (event.pointerType === "touch" || open) return;
+    const book = event.target.closest?.("[data-book]");
+    if (!book || !event.target.closest(".hit") || pulled === book) return;
+    pulled = book;
+    layout();
+  });
+  shelf.addEventListener("pointerout", (event) => {
+    const book = event.target.closest?.("[data-book]");
+    if (!book || book.contains(event.relatedTarget)) return;
+    if (pulled === book && focused !== book) {
+      pulled = undefined;
+      layout();
+    }
   });
 
   shelf.addEventListener("keydown", (event) => {
@@ -183,7 +268,7 @@ if (shelf) {
   /** Brings the book along its row and the panel into view, once the panel has its height. */
   function reveal(book) {
     const behavior = reducedMotion.matches ? "auto" : "smooth";
-    if (book.parentElement.hasAttribute("data-scroll")) {
+    if (book.parentElement.scrollWidth > book.parentElement.clientWidth + 4) {
       hitOf(book).scrollIntoView({ inline: "center", block: "nearest", behavior });
     }
     const show = () => panel.scrollIntoView({ block: "nearest", behavior });
@@ -193,6 +278,7 @@ if (shelf) {
 
   /** The last case on the same row of the wall as this book's: the panel opens after it. */
   function anchorOf(book) {
+    if (packed()) return book.closest(".bookcase");
     const section = book.closest("section");
     const top = Math.round(section.getBoundingClientRect().top);
     return sections
@@ -221,8 +307,10 @@ if (shelf) {
       panel.hidden = true;
     }
     open = book;
+    pulled = undefined;
     shelf.classList.add("has-open");
     book.classList.add("is-open");
+    layout();
     hitOf(book).setAttribute("aria-expanded", "true");
     fill(book);
     if (!sameShelf) {
@@ -247,6 +335,7 @@ if (shelf) {
     open = undefined;
     markClosed(book);
     shelf.classList.remove("has-open");
+    layout();
     panel.classList.remove("is-open");
     if (reducedMotion.matches) panel.hidden = true;
     else {
@@ -313,12 +402,18 @@ if (shelf) {
         `${here} course${here === 1 ? "" : "s"}`;
       shown += here;
     }
+    for (const bookcase of cases) {
+      bookcase.hidden = [...bookcase.querySelectorAll("[data-shelf-section]")].every(
+        (s) => s.hidden,
+      );
+    }
     if (open?.hidden) closeBook(false);
     rows.forEach((row) => {
       rove(row);
       row.scrollTo({ left: 0 });
     });
     measure();
+    layout();
     placePanel();
     if (status) status.textContent = `Showing ${shown} course${shown === 1 ? "" : "s"}.`;
   }
@@ -341,10 +436,7 @@ if (shelf) {
 
   function measure() {
     for (const { row, arrows } of pairs) {
-      // Is there room for the books with only a little padding? If not, scroll.
-      row.removeAttribute("data-scroll");
       const overflows = row.scrollWidth > row.clientWidth + 4;
-      if (overflows) row.setAttribute("data-scroll", "");
       arrows.hidden = !overflows;
       if (!overflows) continue;
       const [left, right] = arrows.querySelectorAll("button");
@@ -370,6 +462,7 @@ if (shelf) {
     requestAnimationFrame(() => {
       queued = false;
       measure();
+      layout();
       placePanel();
     });
   };

@@ -7,7 +7,7 @@
 import Lock from "./Lock.astro";
 import BookMotif from "./BookMotif.astro";
 import { filterPills } from "../../lib/learn/bookshelf-filter.ts";
-import type { Book, ShelfView } from "../../lib/learn/bookshelf.ts";
+import { packCases, type Book, type ShelfView } from "../../lib/learn/bookshelf.ts";
 import { DEPTHS } from "../../lib/learn/depth.ts";
 import "../../styles/learn-bookshelf.css";
 
@@ -21,6 +21,7 @@ interface Props {
 
 const { shelves, signin, signedIn } = Astro.props;
 const pills = filterPills(shelves);
+const { cases, scale } = packCases(shelves);
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** The properties a book's styles read: its colours, and its size on the shelf. */
@@ -49,206 +50,221 @@ const bookStyle = (book: Book): string =>
 
   <div class="shelves">
     {
-      shelves.map((shelf) => (
-        <section
-          class="shelf"
-          id={`shelf-${shelf.id}`}
-          aria-labelledby={`h-${shelf.id}`}
-          data-shelf-section={shelf.id}
-          data-wide={shelf.wide ? "" : undefined}
+      cases.map((plan) => (
+        <div
+          class="bookcase"
+          data-scrolls={plan.scrolls ? "" : undefined}
+          style={`--kc:${scale}`}
         >
-          <div class="shelf-head">
-            <h2 id={`h-${shelf.id}`}>{shelf.title}</h2>
-            <span class="shelf-count">{plural(shelf.books.length, "course")}</span>
-            <span class="shelf-arrows" data-arrows hidden>
-              <button
-                type="button"
-                data-scroll="-1"
-                aria-label={`${shelf.title}: scroll left`}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M15 5l-7 7 7 7" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                data-scroll="1"
-                aria-label={`${shelf.title}: scroll right`}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </span>
-          </div>
-          <div class="case">
-            <ul class="row" role="list" aria-labelledby={`h-${shelf.id}`} data-row>
-              {shelf.books.map((book) => (
-                <li
-                  class="book"
-                  data-book
-                  data-slug={book.slug}
-                  data-shelf={book.shelf}
-                  data-videos={book.videos}
-                  data-locked={book.locked ? "" : undefined}
-                  style={bookStyle(book)}
-                >
-                  <span
-                    class="vol"
-                    aria-hidden="true"
-                    data-label={`${book.title}. ${plural(book.lectures.length, "lecture")}${book.minutes ? `, about ${book.minutes.abyss} minutes at Abyss` : ""}${book.locked ? ". Locked" : ""}`}
+          {plan.shelves.map((shelf) => (
+            <section
+              class="shelf"
+              id={`shelf-${shelf.id}`}
+              aria-labelledby={`h-${shelf.id}`}
+              data-shelf-section={shelf.id}
+              data-wide={shelf.wide ? "" : undefined}
+            >
+              <div class="shelf-head">
+                <h2 id={`h-${shelf.id}`}>{shelf.title}</h2>
+                <span class="shelf-count">{plural(shelf.books.length, "course")}</span>
+                <span class="shelf-arrows" data-arrows hidden>
+                  <button
+                    type="button"
+                    data-scroll="-1"
+                    aria-label={`${shelf.title}: scroll left`}
                   >
-                    <span class="face spine">
-                      <BookMotif class="s-motif" name={book.cover.motif} />
-                      <span class="s-title" data-lines={book.spine.lines}>
-                        {book.main}
-                      </span>
-                      {book.locked && <Lock />}
-                      <span class="s-count">{book.lectures.length}</span>
-                    </span>
-                    <span class="face cover">
-                      {book.locked && (
-                        <span class="c-lock">
-                          <Lock />
-                        </span>
-                      )}
-                      <span class="c-shelf">{book.shelfTitle}</span>
-                      <span class="c-title">{book.main}</span>
-                      {book.sub && <span class="c-sub">{book.sub}</span>}
-                      <BookMotif class="c-motif" name={book.cover.motif} />
-                      <span class="c-promise">{book.promise}</span>
-                      <span class="c-foot">
-                        {plural(book.lectures.length, "lecture")}
-                        {book.locked && <Lock />}
-                      </span>
-                    </span>
-                    <span class="face edge" />
-                    <span class="face top" />
-                  </span>
-
-                  <div class="detail" data-detail>
-                    <p class="d-eyebrow">
-                      {book.shelfTitle} · {plural(book.lectures.length, "lecture")}
-                      {book.minutes &&
-                        DEPTHS.map((depth) => (
-                          <span class="rt" data-d={depth}>
-                            {" "}
-                            · {book.minutes![depth]} min
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M15 5l-7 7 7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    data-scroll="1"
+                    aria-label={`${shelf.title}: scroll right`}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </span>
+              </div>
+              <div class="case">
+                <ul class="row" role="list" aria-labelledby={`h-${shelf.id}`} data-row>
+                  {shelf.books.map((book) => (
+                    <li
+                      class="book"
+                      data-book
+                      data-slug={book.slug}
+                      data-shelf={book.shelf}
+                      data-videos={book.videos}
+                      data-minutes={
+                        book.minutes
+                          ? DEPTHS.map((d) => book.minutes![d]).join(",")
+                          : undefined
+                      }
+                      data-locked={book.locked ? "" : undefined}
+                      style={bookStyle(book)}
+                    >
+                      <span
+                        class="vol"
+                        aria-hidden="true"
+                        data-label={`${book.title}. ${plural(book.lectures.length, "lecture")}`}
+                      >
+                        <span class="face spine">
+                          <BookMotif class="s-motif" name={book.cover.motif} />
+                          <span class="s-title" data-lines={book.spine.lines}>
+                            {book.main}
                           </span>
-                        ))}
-                      {book.videos > 0 && <span> · {book.videos} with video</span>}
-                    </p>
-                    <h3 class="d-title">{book.title}</h3>
-                    <p class="d-promise">{book.promise}</p>
-                    {book.locked ? (
-                      <div class="d-locked">
-                        <p>
-                          <Lock /> {book.why}
+                          {book.locked && <Lock />}
+                          <span class="s-count">{book.lectures.length}</span>
+                        </span>
+                        <span class="face cover">
+                          {book.locked && (
+                            <span class="c-lock">
+                              <Lock />
+                            </span>
+                          )}
+                          <span class="c-shelf">{book.shelfTitle}</span>
+                          <span class="c-title">{book.main}</span>
+                          {book.sub && <span class="c-sub">{book.sub}</span>}
+                          <BookMotif class="c-motif" name={book.cover.motif} />
+                          <span class="c-promise">{book.promise}</span>
+                          <span class="c-foot">
+                            {plural(book.lectures.length, "lecture")}
+                            {book.locked && <Lock />}
+                          </span>
+                        </span>
+                        <span class="face edge" />
+                        <span class="face top" />
+                      </span>
+
+                      <div class="detail" data-detail>
+                        <p class="d-eyebrow">
+                          {book.shelfTitle} · {plural(book.lectures.length, "lecture")}
+                          {book.minutes &&
+                            DEPTHS.map((depth) => (
+                              <span class="rt" data-d={depth}>
+                                {" "}
+                                · {book.minutes![depth]} min
+                              </span>
+                            ))}
+                          {book.videos > 0 && <span> · {book.videos} with video</span>}
                         </p>
-                        {signedIn ? (
-                          <p>Your account cannot read this.</p>
+                        <h3 class="d-title">{book.title}</h3>
+                        <p class="d-promise">{book.promise}</p>
+                        {book.locked ? (
+                          <div class="d-locked">
+                            <p>
+                              <Lock /> {book.why}
+                            </p>
+                            {signedIn ? (
+                              <p>Your account cannot read this.</p>
+                            ) : (
+                              <a class="d-open" href={signin}>
+                                Sign in to read
+                              </a>
+                            )}
+                          </div>
                         ) : (
-                          <a class="d-open" href={signin}>
-                            Sign in to read
+                          <a class="d-open" href={book.href}>
+                            Open
+                            <span class="visually-hidden">: {book.title}</span>
                           </a>
                         )}
-                      </div>
-                    ) : (
-                      <a class="d-open" href={book.href}>
-                        Open
-                        <span class="visually-hidden">: {book.title}</span>
-                      </a>
-                    )}
-                    <ol class="d-list">
-                      {book.lectures.map((lecture) => (
-                        <li>
-                          <a
-                            href={lecture.href}
-                            class:list={[lecture.locked && "is-locked"]}
-                            data-lecture-key={
-                              lecture.locked ? undefined : `${book.slug}/${lecture.slug}`
-                            }
-                          >
-                            <span class="n">{lecture.order}</span>
-                            <span class="t">
-                              {lecture.title}
-                              {lecture.placeholder && (
-                                <span class="tag">Placeholder</span>
-                              )}
-                            </span>
-                            <span class="r">
-                              {lecture.locked ? (
-                                <Lock />
-                              ) : (
-                                <>
-                                  {lecture.video && (
-                                    <svg
-                                      class="vmark"
-                                      viewBox="0 0 24 24"
-                                      fill="currentColor"
-                                      role="img"
-                                      aria-label="Has video"
-                                    >
-                                      <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />
-                                    </svg>
+                        <ol class="d-list">
+                          {book.lectures.map((lecture) => (
+                            <li>
+                              <a
+                                href={lecture.href}
+                                class:list={[lecture.locked && "is-locked"]}
+                                data-lecture-key={
+                                  lecture.locked
+                                    ? undefined
+                                    : `${book.slug}/${lecture.slug}`
+                                }
+                              >
+                                <span class="n">{lecture.order}</span>
+                                <span class="t">
+                                  {lecture.title}
+                                  {lecture.placeholder && (
+                                    <span class="tag">Placeholder</span>
                                   )}
-                                  {DEPTHS.map((depth) => (
-                                    <span class="rt" data-d={depth}>
-                                      {lecture.minutes![depth]} min
-                                    </span>
-                                  ))}
-                                  <span
-                                    class="mark"
-                                    data-mark={`${book.slug}/${lecture.slug}`}
-                                  />
-                                </>
-                              )}
-                            </span>
-                            <span class="p">{lecture.promise}</span>
-                          </a>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
+                                </span>
+                                <span class="r">
+                                  {lecture.locked ? (
+                                    <Lock />
+                                  ) : (
+                                    <>
+                                      {lecture.video && (
+                                        <svg
+                                          class="vmark"
+                                          viewBox="0 0 24 24"
+                                          fill="currentColor"
+                                          role="img"
+                                          aria-label="Has video"
+                                        >
+                                          <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />
+                                        </svg>
+                                      )}
+                                      {DEPTHS.map((depth) => (
+                                        <span class="rt" data-d={depth}>
+                                          {lecture.minutes![depth]} min
+                                        </span>
+                                      ))}
+                                      <span
+                                        class="mark"
+                                        data-mark={`${book.slug}/${lecture.slug}`}
+                                      />
+                                    </>
+                                  )}
+                                </span>
+                                <span class="p">{lecture.promise}</span>
+                              </a>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+          ))}
+        </div>
       ))
     }
-    <div class="panel" id="bookshelf-panel" role="region" tabindex="-1" hidden data-panel>
-      <div class="panel-clip">
-        <div class="panel-inner">
-          <div class="panel-body" data-panel-body></div>
-          <button type="button" class="panel-close" data-panel-close>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg
-            >
-            <span class="visually-hidden">Close</span>
-          </button>
-        </div>
+  </div>
+  <div class="panel" id="bookshelf-panel" role="region" tabindex="-1" hidden data-panel>
+    <div class="panel-clip">
+      <div class="panel-inner">
+        <div class="panel-body" data-panel-body></div>
+        <button type="button" class="panel-close" data-panel-close>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg
+          >
+          <span class="visually-hidden">Close</span>
+        </button>
       </div>
     </div>
   </div>

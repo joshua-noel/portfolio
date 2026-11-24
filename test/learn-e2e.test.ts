@@ -853,6 +853,18 @@ test(
           assert.equal(/Locked/.test(label), !readable.includes(v), `${where}: label of ${v}`);
         }
 
+        // The reading time in a book's name follows the depth chosen.
+        assert.match(
+          await page.evaluate<string>("document.querySelector('li[data-slug=\"c-public\"] .hit').getAttribute('aria-label')"),
+          /about 9 minutes at Waterline/,
+        );
+        await page.click('[data-depth-switch] a[data-depth="abyss"]');
+        await page.waitFor(
+          "document.querySelector('li[data-slug=\"c-public\"] .hit').getAttribute('aria-label').includes('about 23 minutes at Abyss')",
+          `${where}: the name follows the depth`,
+        );
+        await page.click('[data-depth-switch] a[data-depth="waterline"]');
+        await page.moveAway();
         // One tab stop per shelf, and a book at rest is flat.
         assert.equal(await page.evaluate("document.querySelectorAll('button.hit[tabindex=\"0\"]').length"), 3);
         const yaw = "new DOMMatrix(getComputedStyle(document.querySelector('li[data-slug=\"c-public\"] .vol')).transform).m11";
@@ -861,6 +873,16 @@ test(
         // Hover pulls it out and turns its cover to the reader.
         await page.hover('li[data-slug="c-public"] .hit');
         await page.waitFor(`${yaw} < 0.5`, `${where}: the book turns`);
+        // The books beside it step aside, and the one it turns is solid: pages show.
+        assert.equal(
+          await page.evaluate("document.querySelector('li[data-slug=\"c-members\"]').dataset.side"),
+          "after",
+          `${where}: a neighbour steps aside`,
+        );
+        assert.equal(
+          await page.evaluate("document.querySelector('li[data-slug=\"c-public\"]').dataset.side ?? ''"),
+          "",
+        );
         await page.moveAway();
         await page.waitFor(`${yaw} > 0.99`, `${where}: the book goes back`);
 

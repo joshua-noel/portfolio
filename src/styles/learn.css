@@ -1358,40 +1358,6 @@ html[data-depth="tip"] .toc ol {
   line-height: 1.55;
   color: var(--muted);
 }
-.depth-legend {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
-  gap: 0.6rem;
-  margin: 1.75rem 0 0;
-  padding: 0;
-  list-style: none;
-  font-size: 0.86rem;
-}
-.depth-legend li {
-  padding: 0.6rem 0.8rem;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-top: 3px solid var(--c);
-  border-radius: 0.4rem;
-  color: var(--muted);
-}
-.depth-legend strong {
-  display: block;
-  color: var(--fg);
-}
-.depth-legend li:nth-child(1) {
-  --c: var(--d-tip);
-}
-.depth-legend li:nth-child(2) {
-  --c: var(--d-waterline);
-}
-.depth-legend li:nth-child(3) {
-  --c: var(--d-deep);
-}
-.depth-legend li:nth-child(4) {
-  --c: var(--d-abyss);
-}
-
 .book-part {
   margin-top: 3rem;
   scroll-margin-top: calc(var(--topbar) + 1.5rem);
@@ -1853,44 +1819,6 @@ html[data-depth="tip"] .toc ol {
 .shelf {
   margin-top: 3rem;
   scroll-margin-top: calc(var(--topbar) + 1.5rem);
-}
-.shelf > h2 {
-  margin: 0;
-  padding-bottom: 0.7rem;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-.course-card {
-  display: grid;
-  grid-template-columns: 0.55rem 1fr;
-  gap: 0 1.1rem;
-  padding: 1.25rem 0 0.4rem;
-}
-.course-card .spine {
-  border-radius: 0.2rem;
-  background: var(--cover, var(--surface));
-  box-shadow: inset -3px 0 0 var(--cover-accent, transparent);
-}
-.course-card h3 {
-  margin: 0;
-  font-size: 1.35rem;
-  letter-spacing: -0.02em;
-}
-.course-card h3 a {
-  color: var(--fg);
-  text-decoration: none;
-}
-.course-card h3 a:hover {
-  text-decoration: underline;
-}
-.course-card .promise-line {
-  margin: 0.3rem 0 0.4rem;
-  color: var(--muted);
-  font-size: 0.95rem;
 }
 .course-intro {
   max-width: 44rem;
