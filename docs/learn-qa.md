@@ -63,6 +63,22 @@ Then check by eye, at 360 px and in the light theme: the result is one or two sh
 - [ ] Sign-in page, wrong password (one message, no hint), sign-out; a locked lecture as a visitor (stub and sign-in link, nothing of the text); member and friend views; the 404 page.
 - [ ] Print preview of a lecture: no navigation, diagrams visible, links shown, no cut-off boxes.
 
+## Course alert hue
+
+- [ ] A course that uses one hue for failing, hostile or wasted things says so in `course.md` (`alert: c6`). Render its alert-hue figures in both themes and look: that hue is the rose there, and the other courses show `--c6` as green. A hue that means "bad" in a course that did not declare it is a content mistake.
+- [ ] `node bin/check-learn.mjs <content>` is clean: no inline maths that swallowed prose (write `\$2.50`), and every interactive diagram of `src/lib/learn/interactive.ts` is declared by its diagram file.
+
 ## Tests to run at the end
 
 `pnpm check`, `pnpm test`. The browser test of the bookshelf (`in a browser: the books stand…`) must pass 20 times in a row under load (start `pnpm build` in a loop and busy loops beside it): it waits on state, never on time, and `page.settle()` makes every click and hover wait until nothing on the page is still sliding or scrolling.
+
+## Runs
+
+### 2026-11-24 (second pass, machine loaded by video renders)
+
+- `pnpm check`: 0 errors, 0 warnings, 3 hints.
+- Full `pnpm test`: 330 tests, 329 pass, 1 fail: "a lecture over the size limit is refused with a log line, and the host stays up", which asserts that a refused file costs under 10 s. It took 34 to 38 s with nine busy loops running, and passes alone on a quiet machine (9.6 s in all). It does not touch anything changed here.
+- Bookshelf browser test, 20 runs in a row with nine busy loops and the machine's own load: 19 pass. The one failure (run 3) was `read ECONNRESET` in the test client, which reused an idle socket the server had just closed; the client now opens a new connection per request, and runs 4 to 20 all pass (17 in a row). The earlier "timed out waiting for the book turns" could not be made to happen in 40 fresh browsers under load; the test now waits for the page's own decision first (the book is marked as pulled), then for the draw with a 30 s limit, and prints what the page saw if it still times out.
+- `node bin/check-learn.mjs` on the 40 lectures: 3 errors, all in `training-and-fine-tuning/07-reasoning-post-training.md` (lines 136 and 245: unescaped dollar amounts).
+- Link crawl, all 40 lectures, the 5 course pages, the landing, search and sign-in pages, at 4 depths: 4,440 internal links, 14,248 in-page anchors, 389 distinct targets; no dead link, anchor or asset (apart from lecture 07 of training, which the checker leaves out).
+- Page audit, all 40 lectures at 4 depths at 1440: no heading jump, no image without alt, no unnamed diagram, no anchor to something hidden at its depth, no sideways scroll, one h1; about 70 characters a line.
