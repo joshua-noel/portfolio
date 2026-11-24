@@ -6,6 +6,7 @@ import { excerptFrom } from "./markdown.ts";
 import { migrate, type Migration } from "./migrate.ts";
 import init001 from "../migrations/001_init.sql?raw";
 import summary002 from "../migrations/002_summary.sql?raw";
+import users004 from "../migrations/004_users.sql?raw";
 
 /**
  * Summaries saved before excerptFrom read the parsed tree carry headings,
@@ -30,7 +31,12 @@ function resummarise003(handle: DatabaseSync): void {
  *
  * Append only. An entry's index is its version.
  */
-export const MIGRATIONS: readonly Migration[] = [init001, summary002, resummarise003];
+export const MIGRATIONS: readonly Migration[] = [
+  init001,
+  summary002,
+  resummarise003,
+  users004,
+];
 
 let db: DatabaseSync | undefined;
 
