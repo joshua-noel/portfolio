@@ -20,6 +20,7 @@ import {
   type Response,
   type Server,
 } from "./helpers/server.ts";
+import { Browser, findBrowser, type Page, type PageOptions } from "./helpers/browser.ts";
 import {
   DIAGRAM,
   SECRET,
@@ -51,6 +52,8 @@ writeLibrary(library, visibilityLibrary());
 
 let out: string;
 let server: Server;
+/** A headless Chromium for the landing page checks, started by the first test that needs it. */
+let browser: Browser | undefined;
 
 /** Cookie for each kind of reader. */
 const sessions: Record<string, string> = {};
@@ -110,6 +113,7 @@ before(async () => {
 });
 
 after(async () => {
+  await browser?.close();
   await server?.stop();
 });
 
@@ -734,6 +738,279 @@ test("changing a password ends the account's sessions", async () => {
   assert.equal((await signInAs("pw", PASSWORD)).cookie, "");
   assert.ok((await signInAs("pw", "a different password")).cookie);
 });
+
+// ---------------------------------------------------------------------------
+// The landing page: books on shelves
+
+/** The books the page lists, with whether each is locked, from the HTML alone. */
+function booksIn(html: string): Record<string, { locked: boolean }> {
+  const found: Record<string, { locked: boolean }> = {};
+  for (const [tag] of html.matchAll(/<li class="book"[^>]*>/g)) {
+    const slug = /data-slug="([^"]+)"/.exec(tag)?.[1];
+    assert.ok(slug, `a book names its course: ${tag}`);
+    found[slug] = { locked: /\sdata-locked/.test(tag) };
+  }
+  return found;
+}
+
+test("the landing page lists the right books and locks for every reader, with the links in the HTML and no locked text", async () => {
+  for (const [role, readable] of Object.entries(READS)) {
+    const res = await server.request("learn", "GET", "/", { cookie: sessions[role] });
+    const where = `${role} on the landing page`;
+    assert.equal(res.status, 200, where);
+
+    // One book per course the reader is told of: every kind but `local`, which a server never serves.
+    const books = booksIn(res.text);
+    assert.deepEqual(Object.keys(books).sort(), ["c-friends", "c-members", "c-public"], where);
+    for (const v of ["public", "members", "friends"] as const) {
+      assert.equal(books[`c-${v}`]!.locked, !readable.includes(v), `${where}: lock on ${v}`);
+    }
+    assert.doesNotMatch(res.text, /c-local/, `${where}: no local course`);
+
+    // Shelves in the catalog's order; one with no book is not drawn.
+    const shelves = [...res.text.matchAll(/<section class="shelf" id="shelf-([a-z-]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(shelves, ["foundations", "systems", "agents"], where);
+    assert.doesNotMatch(res.text, /id="shelf-special"/, where);
+    const pills = [...res.text.matchAll(/data-filter="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(pills, ["all", "shelf:foundations", "shelf:systems", "shelf:agents", "video"], where);
+
+    // Every lecture is a real link in the HTML, locked ones included, and only the ones that may be opened say so.
+    for (const v of ["public", "members", "friends"] as const) {
+      const open = readable.includes(v);
+      const link = new RegExp(`<a href="/c-${v}/l-${v}"([^>]*)>`).exec(res.text);
+      assert.ok(link, `${where}: link to the lecture of ${v}`);
+      assert.equal(/is-locked/.test(link[1]!), !open, `${where}: locked lecture of ${v}`);
+      assert.equal(/data-lecture-key/.test(link[1]!), open, `${where}: progress key of ${v}`);
+    }
+
+    // The page names no one's body, sources or objectives: none of the canaries, open or locked.
+    for (const v of VISIBILITIES) {
+      assert.equal(res.text.includes(SECRET[v]), false, `${where}: canary of ${v}`);
+    }
+
+    // A locked book says why and how to get in, and no more.
+    const locked = readable.length < 3;
+    if (role === "visitor") {
+      assert.match(res.text, /href="\/signin\?next=%2F"[^>]*>\s*Sign in to read/, where);
+      assert.match(res.text, /This is for members/, where);
+    } else if (locked) {
+      assert.doesNotMatch(res.text, /Sign in to read/, where);
+    }
+    assert.equal(/Your account cannot read this/.test(res.text), role !== "visitor" && locked, where);
+    if (readable.length === 3) assert.doesNotMatch(res.text, /d-locked/, `${where}: nothing locked`);
+
+    // What a visitor needs first.
+    assert.match(res.text, /<h1>Learn<\/h1>/, where);
+    assert.match(res.text, /Tip<\/strong>[\s\S]*Waterline<\/strong>[\s\S]*Deep<\/strong>[\s\S]*Abyss<\/strong>/, where);
+    assert.match(res.text, /data-depth-switch/, where);
+    assert.match(res.text, /role="search"/, where);
+  }
+});
+
+test("the landing page keeps the depth in the address, so reading times follow it without a script", async () => {
+  const res = await server.request("learn", "GET", "/?depth=abyss");
+  assert.match(res.text, /<html[^>]* data-depth="abyss"/);
+  const plain = await server.request("learn", "GET", "/?depth=nonsense");
+  assert.match(plain.text, /<html[^>]* data-depth="waterline"/);
+  // All four reading times are in the page; the depth chooses which shows.
+  assert.match(res.text, /class="rt" data-d="tip"[^>]*>[^<]*2 min/);
+  assert.match(res.text, /class="rt" data-d="abyss"[^>]*>[^<]*23 min/);
+});
+
+/** A page for `role` at http://learn.test/, behind the same proxy headers every other test sends. */
+async function landing(role: string, options: PageOptions = {}): Promise<Page> {
+  if (!browser) {
+    const executable = findBrowser();
+    assert.ok(executable, "no browser");
+    browser = await Browser.launch(executable, { host: "learn.test", port: server.port });
+  }
+  const page = await browser.newPage({
+    ...options,
+    headers: { "x-forwarded-proto": "https", ...(sessions[role] ? { cookie: sessions[role]! } : {}) },
+  });
+  await page.goto("http://learn.test/");
+  return page;
+}
+
+const NO_BROWSER = findBrowser() ? false : "no Chrome, Chromium or Edge found (set PORTFOLIO_TEST_BROWSER)";
+
+test(
+  "in a browser: the books stand, turn when hovered, open to a panel, close with Escape, and the policy is never broken",
+  { skip: NO_BROWSER },
+  async () => {
+    for (const [role, readable] of Object.entries(READS)) {
+      const where = role;
+      const page = await landing(role);
+      try {
+        await page.waitFor("document.querySelectorAll('button.hit').length === 3", `${where}: books`);
+        // One button per book, named with the title, the count and the lock.
+        const labels = await page.evaluate<string[]>(
+          "[...document.querySelectorAll('button.hit')].map((b) => b.getAttribute('aria-label'))",
+        );
+        for (const v of ["public", "members", "friends"] as const) {
+          const label = labels.find((l) => l.startsWith(`Course c-${v}.`));
+          assert.ok(label, `${where}: a button for c-${v}`);
+          assert.equal(/Locked/.test(label), !readable.includes(v), `${where}: label of ${v}`);
+        }
+
+        // One tab stop per shelf, and a book at rest is flat.
+        assert.equal(await page.evaluate("document.querySelectorAll('button.hit[tabindex=\"0\"]').length"), 3);
+        const yaw = "new DOMMatrix(getComputedStyle(document.querySelector('li[data-slug=\"c-public\"] .vol')).transform).m11";
+        assert.ok((await page.evaluate<number>(yaw)) > 0.99, `${where}: flat at rest`);
+
+        // Hover pulls it out and turns its cover to the reader.
+        await page.hover('li[data-slug="c-public"] .hit');
+        await page.waitFor(`${yaw} < 0.5`, `${where}: the book turns`);
+        await page.moveAway();
+        await page.waitFor(`${yaw} > 0.99`, `${where}: the book goes back`);
+
+        // Click opens the panel with every lecture as a link; focus goes in.
+        await page.click('li[data-slug="c-public"] .hit');
+        await page.waitFor("!document.querySelector('[data-panel]').hidden", `${where}: panel`);
+        assert.equal(
+          await page.evaluate("document.querySelector('li[data-slug=\"c-public\"] .hit').getAttribute('aria-expanded')"),
+          "true",
+        );
+        await page.waitFor("document.activeElement === document.querySelector('[data-panel]')", `${where}: focus`);
+        assert.deepEqual(
+          await page.evaluate("[...document.querySelectorAll('.panel-body .d-list a')].map((a) => a.getAttribute('href'))"),
+          ["/c-public/l-public"],
+        );
+        assert.equal(await page.evaluate("document.querySelector('.panel-body .d-open').getAttribute('href')"), "/c-public");
+
+        // Escape closes it and gives focus back to the book.
+        await page.press("Escape");
+        await page.waitFor("document.querySelector('[data-panel]').hidden", `${where}: closed`);
+        assert.equal(
+          await page.evaluate("document.activeElement === document.querySelector('li[data-slug=\"c-public\"] .hit')"),
+          true,
+          `${where}: focus returns`,
+        );
+
+        // A locked book opens to its stub and a way in; nothing else of it is in the page.
+        for (const v of ["members", "friends"] as const) {
+          if (readable.includes(v)) continue;
+          await page.click(`li[data-slug="c-${v}"] .hit`);
+          await page.waitFor(`document.querySelector('[data-panel]').getAttribute('aria-label') === 'Course c-${v}'`, `${where}: ${v} panel`);
+          const panel = await page.evaluate<string>("document.querySelector('[data-panel]').innerText");
+          assert.match(panel, role === "visitor" ? /Sign in to read/ : /Your account cannot read this/);
+          assert.equal(
+            await page.evaluate("Boolean(document.querySelector('.panel-body .d-open[href=\"/c-" + v + "\"]'))"),
+            false,
+            "no Open link to a locked course",
+          );
+          await page.press("Escape");
+        }
+        const html = await page.evaluate<string>("document.documentElement.outerHTML");
+        for (const v of VISIBILITIES) assert.equal(html.includes(SECRET[v]), false, `${where}: canary of ${v}`);
+
+        // Arrow keys move along a shelf; a pill hides the other shelves.
+        await page.evaluate("document.querySelector('li[data-slug=\"c-public\"] .hit').focus()");
+        await page.press("ArrowDown");
+        assert.equal(
+          await page.evaluate("document.activeElement.closest('li').dataset.slug"),
+          "c-members",
+          `${where}: ArrowDown`,
+        );
+        await page.click('[data-filter="shelf:agents"]');
+        assert.equal(
+          await page.evaluate("[...document.querySelectorAll('li.book:not([hidden])')].map((b) => b.dataset.slug).join()"),
+          "c-friends",
+        );
+        assert.equal(await page.evaluate("document.querySelector('#shelf-systems').hidden"), true);
+        await page.click('[data-filter="all"]');
+        assert.equal(await page.evaluate("document.querySelectorAll('li.book:not([hidden])').length"), 3);
+
+        // Where the reader left off, from the progress the lecture pages keep.
+        await page.evaluate(
+          "localStorage.setItem('learn-progress', JSON.stringify({ 'c-public/l-public': 'started' }))",
+        );
+        await page.goto("http://learn.test/");
+        await page.waitFor("!document.querySelector('[data-resume]').hidden", `${where}: resume`);
+        assert.equal(
+          await page.evaluate("document.querySelector('[data-resume] a').getAttribute('href')"),
+          "/c-public/l-public",
+        );
+        await page.evaluate("localStorage.clear()");
+
+        // Not one violation of the policy, and not one error.
+        assert.deepEqual(await page.reportedViolations(), [], `${where}: policy violations`);
+        assert.deepEqual(page.errors, [], `${where}: console errors`);
+      } finally {
+        await page.close();
+      }
+    }
+  },
+);
+
+test(
+  "in a browser with scripts off, the same page is cards: every course and lecture link is there to read",
+  { skip: NO_BROWSER },
+  async () => {
+    const page = await landing("friend", { javaScript: false });
+    try {
+      const state = await page.evaluate<{
+        buttons: number;
+        details: number;
+        visible: number;
+        lectures: string[];
+        filters: string;
+      }>(`(() => ({
+        buttons: document.querySelectorAll("button.hit").length,
+        details: document.querySelectorAll(".detail").length,
+        visible: [...document.querySelectorAll(".detail")].filter((d) => getComputedStyle(d).display !== "none").length,
+        lectures: [...document.querySelectorAll(".detail .d-list a")].map((a) => a.getAttribute("href")),
+        filters: getComputedStyle(document.querySelector("[data-filters]")).display,
+      }))()`);
+      assert.equal(state.buttons, 0);
+      assert.equal(state.details, 3);
+      assert.equal(state.visible, 3, "every card is shown");
+      assert.deepEqual(state.lectures.sort(), ["/c-friends/l-friends", "/c-members/l-members", "/c-public/l-public"]);
+      assert.equal(state.filters, "none", "pills need a script, so they are not shown");
+      // The cover is a flat picture on the card, not a turned book.
+      assert.equal(
+        await page.evaluate("getComputedStyle(document.querySelector('.vol .spine')).display"),
+        "none",
+      );
+      assert.deepEqual(await page.reportedViolations(), []);
+      assert.deepEqual(page.errors, []);
+    } finally {
+      await page.close();
+    }
+  },
+);
+
+test(
+  "in a browser asking for reduced motion, a book is highlighted and never turned or slid",
+  { skip: NO_BROWSER },
+  async () => {
+    const page = await landing("visitor", { reducedMotion: true });
+    try {
+      await page.waitFor("document.querySelectorAll('button.hit').length === 3", "books");
+      await page.hover('li[data-slug="c-public"] .hit');
+      await new Promise((r) => setTimeout(r, 700));
+      assert.equal(
+        await page.evaluate("getComputedStyle(document.querySelector('li[data-slug=\"c-public\"] .vol')).transform"),
+        "none",
+      );
+      assert.match(
+        await page.evaluate<string>("getComputedStyle(document.querySelector('li[data-slug=\"c-public\"] .spine')).boxShadow"),
+        /0px 0px 0px 2px/,
+      );
+      // The cover is shown beside the text instead.
+      await page.click('li[data-slug="c-public"] .hit');
+      await page.waitFor("!document.querySelector('[data-panel]').hidden", "panel");
+      assert.equal(
+        await page.evaluate("getComputedStyle(document.querySelector('.panel-cover')).display"),
+        "block",
+      );
+      assert.deepEqual(await page.reportedViolations(), []);
+      assert.deepEqual(page.errors, []);
+    } finally {
+      await page.close();
+    }
+  },
+);
 
 test("the top bar shows who is signed in, and a way out", async () => {
   const visitor = await server.request("learn", "GET", "/c-public/l-public");

@@ -1,0 +1,27 @@
+---
+// One of the small drawings on a book's spine and cover. The paths are in
+// src/lib/learn/motifs.ts; the stroke takes the colour of the text around it.
+import { MOTIFS } from "../../lib/learn/motifs.ts";
+
+interface Props {
+  name: string;
+  class?: string;
+}
+
+const { name, class: className } = Astro.props;
+const paths = MOTIFS[name] ?? [];
+---
+
+<svg
+  class={className}
+  viewBox="0 0 64 64"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="3"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+  focusable="false"
+>
+  {paths.map((d) => <path d={d} />)}
+</svg>

@@ -1,93 +1,65 @@
 ---
-import Lock from "../../components/learn/Lock.astro";
+import Bookshelf from "../../components/learn/Bookshelf.astro";
+import DepthSwitch from "../../components/learn/DepthSwitch.astro";
 import Learn from "../../layouts/Learn.astro";
 import { getConfig } from "../../lib/config.ts";
-import { lectureUrl } from "../../lib/learn/catalog.ts";
+import { buildShelves } from "../../lib/learn/bookshelf.ts";
 import { getCatalogFor } from "../../lib/learn/content.ts";
-import { DEPTHS, DEPTH_HINTS, DEPTH_LABELS } from "../../lib/learn/depth.ts";
-import { minutesAt } from "../../lib/learn/lecture.ts";
+import { DEFAULT_DEPTH, parseDepth } from "../../lib/learn/depth.ts";
 
 const { learnUrl } = getConfig();
 const catalog = await getCatalogFor(Astro.locals.viewer?.role, Astro.locals.allowLocal);
+const shelves = buildShelves(catalog);
+// The address the reader typed, not the route it was rewritten to.
+const here = Astro.locals.here ?? {
+  pathname: Astro.url.pathname,
+  search: Astro.url.search,
+};
+const signin = `/signin?next=${encodeURIComponent(here.pathname + here.search)}`;
+// The depth chooses which reading times show; the page script and the head
+// script keep it, as on a lecture.
+const depth = parseDepth(Astro.url.searchParams.get("depth")) ?? DEFAULT_DEPTH;
 ---
 
-<Learn title="Learn · Joshua Noel" canonical={`${learnUrl}/`} layout="plain">
-  <main class="page" id="main">
-    <h1>Learn</h1>
-    <p class="lede">
-      Lectures on computer science, system design, language models and agents. Each one
-      comes at four depths, so you can read it in two minutes or go as far down as the
-      papers do.
-    </p>
-
-    <ul class="depth-legend" aria-label="The four depths">
-      {
-        DEPTHS.map((depth) => (
-          <li>
-            <strong>{DEPTH_LABELS[depth]}</strong>
-            {DEPTH_HINTS[depth]}
-          </li>
-        ))
-      }
-    </ul>
+<Learn
+  title="Learn · Joshua Noel"
+  canonical={`${learnUrl}/`}
+  layout="plain"
+  depth={depth}
+>
+  <main class="page shelf-page" id="main">
+    <div class="intro">
+      <div class="intro-text">
+        <h1>Learn</h1>
+        <p class="lede">
+          University-style lectures on computer science, system design, language models
+          and agents, each at four depths.
+        </p>
+        <p class="depth-line">
+          Every lecture comes at four depths: <strong class="d-tip">Tip</strong>{", "}
+          <strong class="d-waterline">Waterline</strong>{", "}
+          <strong class="d-deep">Deep</strong>{" and "}
+          <strong class="d-abyss">Abyss</strong>. Start at two minutes with no jargon, or
+          go down to the edge cases and open questions. Search is in the bar above.
+        </p>
+        <p class="resume" data-resume hidden></p>
+      </div>
+      <DepthSwitch />
+    </div>
 
     {
-      catalog.shelves.map((shelf) => (
-        <section class="shelf" id={`shelf-${shelf.id}`} aria-labelledby={`h-${shelf.id}`}>
-          <h2 id={`h-${shelf.id}`}>{shelf.title}</h2>
-          {shelf.courses.map((course) => (
-            <article
-              class="course-card"
-              style={`--cover: ${course.front.cover.color}; --cover-accent: ${course.front.cover.accent}`}
-            >
-              <span class="spine" aria-hidden="true" />
-              <div>
-                <h3>
-                  <a href={`/${course.front.slug}`}>
-                    {course.locked && <Lock />} {course.front.title}
-                  </a>
-                </h3>
-                <p class="promise-line">{course.front.promise}</p>
-                <ol class="lecture-list">
-                  {course.lectures.map((lecture) => (
-                    <li>
-                      <a
-                        href={lectureUrl(lecture)}
-                        class:list={[lecture.locked && "is-locked"]}
-                        data-lecture-link={lecture.locked ? undefined : ""}
-                      >
-                        <span class="n">{lecture.front.order}</span>
-                        <span class="t">
-                          {lecture.front.title}
-                          {lecture.front.placeholder && (
-                            <span class="tag">Placeholder</span>
-                          )}
-                        </span>
-                        <span class="r">
-                          {lecture.locked ? (
-                            <Lock />
-                          ) : (
-                            <span>
-                              {minutesAt(lecture.front.minutes, "waterline")} min
-                            </span>
-                          )}
-                          {!lecture.locked && (
-                            <span
-                              class="mark"
-                              data-mark={`${lecture.course}/${lecture.slug}`}
-                            />
-                          )}
-                        </span>
-                        <span class="p">{lecture.front.promise}</span>
-                      </a>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </article>
-          ))}
-        </section>
-      ))
+      shelves.length > 0 ? (
+        <Bookshelf
+          shelves={shelves}
+          signin={signin}
+          signedIn={Boolean(Astro.locals.viewer)}
+        />
+      ) : (
+        <p class="empty">There are no courses yet.</p>
+      )
     }
   </main>
+  <script>
+    import "../../scripts/learn-bookshelf/index.js";
+  </script>
 </Learn>
