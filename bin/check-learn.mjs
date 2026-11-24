@@ -8,11 +8,12 @@
 //
 // With no directory it checks the folders named by PORTFOLIO_LEARN_CONTENT_DIRS
 // or PORTFOLIO_LEARN_CONTENT_DIR, or else the sample lectures in this
-// repository. `pnpm build` and `pnpm check` run it on the sample lectures,
-// which must all be `public`: the repository is public, so a members, friends
-// or local lecture committed there fails the build. Several folders are
-// checked together, as the server merges them. Every visibility is rendered
-// and checked, so a private lecture is held to the same contract.
+// repository. Whatever is named, the sample lectures in this repository are
+// always checked as well, and must all be `public`: the repository is public,
+// so a members, friends or local lecture committed there fails the build, and
+// no environment variable can skip that. Several folders are checked
+// together, as the server merges them. Every visibility is rendered and
+// checked, so a private lecture is held to the same contract.
 //
 // `--course <slug>` (repeatable) reports only those courses. The other
 // courses are still read, because a lecture's `prerequisites` may name a
@@ -21,7 +22,8 @@
 // How it works: each file is built on its own, so one bad file never hides
 // the rest. The files that built are then loaded together as a catalog, which
 // is what finds the faults between files (prerequisites, clashing orders).
-import { basename, delimiter, resolve, sep } from "node:path";
+import { existsSync } from "node:fs";
+import { basename, delimiter, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadCatalog } from "../src/lib/learn/catalog.ts";
 import { readContentDirs } from "../src/lib/learn/disk.ts";
@@ -69,6 +71,7 @@ for (const slug of only) {
 /** @type {{ course: string, file: string, kind: "error" | "warning", text: string }[]} */
 const problems = [];
 const add = (course, file, kind, text) => problems.push({ course, file, kind, text });
+for (const text of content.problems ?? []) add("", "", "error", text);
 
 /** `NN-slug.md` to `slug`, the name other lectures use in `prerequisites`. */
 const slugOfFile = (name) => /^\d{2}-(.*)\.md$/.exec(name)?.[1];
@@ -151,10 +154,12 @@ async function loadTogether(courses, repository) {
   }
 }
 
-const inSample = (source) => source.dir.startsWith(sample + sep);
-const onlySample = dirs.every((dir) => dir === sample);
-await loadTogether(good, onlySample);
-if (!onlySample && dirs.includes(sample)) await loadTogether(good.filter(inSample), true);
+// The folders asked for are checked as they are. Whatever they are, the
+// sample lectures in this repository are checked too, and held to being
+// public: the repository is public, so the variable that names a private
+// folder must not be a way to skip that.
+await loadTogether(good, false);
+if (existsSync(sample)) await loadTogether(readContentDirs([sample]).courses, true);
 
 // Report.
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;

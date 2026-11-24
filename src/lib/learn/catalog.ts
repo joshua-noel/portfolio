@@ -1,4 +1,4 @@
-import { canRead } from "../access.ts";
+import { canRead, parseRole } from "../access.ts";
 import {
   buildLecture,
   LectureError,
@@ -30,6 +30,8 @@ export interface CourseSource {
 
 export interface Content {
   courses: CourseSource[];
+  /** Folders or files the reader of the disk could not read, as text for the owner. */
+  problems?: string[];
 }
 
 export interface Course {
@@ -59,6 +61,11 @@ export interface Catalog {
   warnings: string[];
   /** Lectures and courses of visibility `local` that were left out. */
   localIgnored: number;
+  /**
+   * Files that could not be loaded, in `lenient` mode, as text for the owner.
+   * `forViewer` empties it for everyone but an admin.
+   */
+  problems: string[];
 }
 
 export interface LoadOptions {
@@ -73,6 +80,12 @@ export interface LoadOptions {
    * committed.
    */
   repository?: boolean;
+  /**
+   * The server's mode: a file that cannot be loaded is left out and described
+   * in `Catalog.problems`, and everything else still loads. Strict (the
+   * default, for the checker and tests) throws at the first bad file.
+   */
+  lenient?: boolean;
 }
 
 /**
@@ -85,22 +98,32 @@ export async function loadCatalog(
   content: Content,
   options: LoadOptions,
 ): Promise<Catalog> {
-  const { allowLocal, repository = false } = options;
+  const { allowLocal, repository = false, lenient = false } = options;
   const issues: string[] = [];
+  // Files that could not be loaded, when `lenient`: reported, never served.
+  const problems: string[] = [...(content.problems ?? [])];
   const courses: Course[] = [];
   let localIgnored = 0;
+
+  /** Strict: the first bad file stops the load. Lenient: it is set aside and described. */
+  const reject = (path: string, why: string[]): void => {
+    if (!lenient) throw new LectureError(path, why);
+    problems.push(new LectureError(path, why).message);
+  };
 
   for (const source of content.courses) {
     let split;
     try {
       split = splitFrontmatter(source.course.raw);
     } catch (error) {
-      throw new LectureError(source.course.path, [
-        error instanceof Error ? error.message : String(error),
-      ]);
+      reject(source.course.path, [error instanceof Error ? error.message : String(error)]);
+      continue;
     }
-    const { front, issues: problems } = readCourse(split.data, source.slug);
-    if (!front) throw new LectureError(source.course.path, problems);
+    const { front, issues: frontIssues } = readCourse(split.data, source.slug);
+    if (!front) {
+      reject(source.course.path, frontIssues);
+      continue;
+    }
 
     if (repository && front.visibility !== "public") {
       issues.push(
@@ -113,16 +136,25 @@ export async function loadCatalog(
     }
 
     const lectures: Lecture[] = [];
+    let leftOut = 0;
     for (const file of source.lectures) {
-      const lecture = await buildLecture(
-        file,
-        front.slug,
-        source.diagrams,
-        source.media,
-        {
+      let lecture: Lecture;
+      try {
+        lecture = await buildLecture(file, front.slug, source.diagrams, source.media, {
           shows: (visibility) => visibility !== "local" || allowLocal,
-        },
-      );
+        });
+      } catch (error) {
+        if (!lenient) throw error;
+        // Anything a lecture's own build throws (a bad formula as well as a bad
+        // front matter) costs that lecture alone.
+        reject(
+          file.path,
+          error instanceof LectureError
+            ? error.issues
+            : [error instanceof Error ? error.message : String(error)],
+        );
+        continue;
+      }
       if (repository && lecture.front.visibility !== "public") {
         issues.push(
           `${front.slug}/${lecture.slug}: a "${lecture.front.visibility}" lecture must not be committed; this repository is public`,
@@ -130,11 +162,19 @@ export async function loadCatalog(
       }
       if (lecture.front.visibility === "local" && !allowLocal) {
         localIgnored += 1;
+        leftOut += 1;
         continue;
       }
       lectures.push(lecture);
     }
     lectures.sort((a, b) => a.front.order - b.front.order);
+    // A lecture left out as `local` must not leave a hole in the numbers a
+    // reader sees: that hole would say a lecture is there that they cannot have.
+    if (leftOut > 0) {
+      lectures.forEach((lecture, index) => {
+        lecture.front.order = index + 1;
+      });
+    }
 
     const slugs = lectures.map((lecture) => lecture.slug);
     for (const slug of new Set(slugs.filter((slug, i) => slugs.indexOf(slug) !== i))) {
@@ -145,7 +185,14 @@ export async function loadCatalog(
       issues.push(`${front.slug}: two lectures have order ${order}`);
     }
 
-    const introHtml = await new Renderer().render(split.body, "waterline");
+    let introHtml: string;
+    try {
+      introHtml = await new Renderer().render(split.body, "waterline");
+    } catch (error) {
+      if (!lenient) throw error;
+      reject(source.course.path, [error instanceof Error ? error.message : String(error)]);
+      continue;
+    }
     courses.push({ front, dir: source.dir, introHtml, locked: false, lectures });
   }
 
@@ -180,12 +227,17 @@ export async function loadCatalog(
       }
     }
   }
-  if (issues.length > 0) throw new LectureError("courses", [...new Set(issues)]);
-  return assemble(courses, localIgnored);
+  if (issues.length > 0) {
+    // Between files: a clash of names or orders. Lenient, everything that did
+    // load is still served, and the clash is told to the owner.
+    if (!lenient) throw new LectureError("courses", [...new Set(issues)]);
+    problems.push(new LectureError("courses", [...new Set(issues)]).message);
+  }
+  return assemble(courses, localIgnored, problems);
 }
 
 /** Shelves, flat lists and warnings from courses in any order. */
-function assemble(courses: Course[], localIgnored: number): Catalog {
+function assemble(courses: Course[], localIgnored: number, problems: string[]): Catalog {
   const shelves = SHELVES.map((shelf) => ({
     id: shelf.id as string,
     title: shelf.title as string,
@@ -207,6 +259,7 @@ function assemble(courses: Course[], localIgnored: number): Catalog {
       ),
     ),
     localIgnored,
+    problems,
   };
 }
 
@@ -216,7 +269,7 @@ function assemble(courses: Course[], localIgnored: number): Catalog {
  * field is empty, so no template can print what it was never given.
  */
 function lockedLecture(lecture: Lecture): Lecture {
-  const { course, order, slug, title, promise, visibility, placeholder } = lecture.front;
+  const { course, order, slug, title, promise, visibility } = lecture.front;
   return {
     course,
     slug,
@@ -228,7 +281,8 @@ function lockedLecture(lecture: Lecture): Lecture {
       title,
       promise,
       visibility,
-      placeholder,
+      // Not the lecture's own flag: it would say a draft stands behind the lock.
+      placeholder: false,
       video: false,
       minutes: { tip: 0, waterline: 0, deep: 0, abyss: 0 },
       objectives: [],
@@ -251,26 +305,45 @@ function lockedLecture(lecture: Lecture): Lecture {
  * but those this reader may not open are stubs. `role` is the reader's role,
  * or undefined for a visitor. A course the reader may not open locks all of
  * its lectures, whatever their own visibility: the stricter of the two wins.
+ *
+ * Without `allowLocal` there is no `local` content at all, not even as a stub:
+ * the loader already leaves it out on a server, and here a catalog that was
+ * loaded with it (the owner's dev server) loses it for any request that is not
+ * the owner's own.
  */
 export function forViewer(catalog: Catalog, role: unknown, allowLocal: boolean): Catalog {
-  const courses = catalog.courses.map((course): Course => {
-    const open = canRead(course.front.visibility, role, allowLocal);
-    const lectures = course.lectures.map((lecture) =>
-      open && canRead(lecture.front.visibility, role, allowLocal)
-        ? lecture
-        : lockedLecture(lecture),
-    );
-    if (open) return { ...course, lectures };
-    const { slug, title, shelf, promise, visibility, order, cover } = course.front;
-    return {
-      front: { slug, title, shelf, promise, visibility, order, cover },
-      dir: "",
-      introHtml: "",
-      locked: true,
-      lectures,
-    };
-  });
-  return assemble(courses, catalog.localIgnored);
+  const courses = catalog.courses
+    .filter((course) => allowLocal || course.front.visibility !== "local")
+    .map((course): Course => {
+      let { lectures } = course;
+      if (!allowLocal && lectures.some((l) => l.front.visibility === "local")) {
+        // And no gap in the numbers where one was.
+        lectures = lectures
+          .filter((l) => l.front.visibility !== "local")
+          .map((l, index) => ({ ...l, front: { ...l.front, order: index + 1 } }));
+      }
+      const open = canRead(course.front.visibility, role, allowLocal);
+      lectures = lectures.map((lecture) =>
+        open && canRead(lecture.front.visibility, role, allowLocal)
+          ? lecture
+          : lockedLecture(lecture),
+      );
+      if (open) return { ...course, lectures };
+      const { slug, title, shelf, promise, visibility, order, cover } = course.front;
+      return {
+        front: { slug, title, shelf, promise, visibility, order, cover },
+        dir: "",
+        introHtml: "",
+        locked: true,
+        lectures,
+      };
+    });
+  // What went wrong with the files is for the owner (the admin) only.
+  return assemble(
+    courses,
+    catalog.localIgnored,
+    parseRole(role) === "admin" ? catalog.problems : [],
+  );
 }
 
 export function findCourse(

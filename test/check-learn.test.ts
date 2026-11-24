@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -67,5 +67,50 @@ test("a course with no errors exits 0 even when another course, not selected, ha
     assert.match(result.text, /^beta: 0 lectures, 0 errors, 0 warnings$/m);
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+/**
+ * A throwaway copy of the checker and the sample lectures, inside the
+ * repository's own `.data/` so its imports still find node_modules. The
+ * committed `content/learn` is never touched.
+ */
+function checkerCopy(): { root: string; script: string; sample: string } {
+  const base = fileURLToPath(new URL("../", import.meta.url));
+  mkdirSync(join(base, ".data"), { recursive: true });
+  const root = mkdtempSync(join(base, ".data", "check-copy-"));
+  for (const dir of ["bin", "src/lib", "content/learn"]) {
+    cpSync(join(base, dir), join(root, dir), { recursive: true });
+  }
+  return { root, script: join(root, "bin", "check-learn.mjs"), sample: join(root, "content", "learn") };
+}
+
+test("the in-repo public-only check runs even when a content folder is named in the environment", () => {
+  const copy = checkerCopy();
+  const other = mkdtempSync(join(tmpdir(), "check-learn-"));
+  try {
+    mkdirSync(join(other, "mine"));
+    writeFileSync(
+      join(other, "mine", "course.md"),
+      `---\nslug: mine\ntitle: mine\nshelf: systems\npromise: A private course, outside the repository.\nvisibility: members\norder: 9\ncover: { color: "#3a3f4b", accent: "#9aa3b5", motif: "grid" }\n---\n\nIntro.\n`,
+    );
+    const env = { ...process.env, PORTFOLIO_LEARN_CONTENT_DIRS: other };
+    const check = (): { status: number | null; text: string } => {
+      const result = spawnSync(process.execPath, [copy.script], { encoding: "utf8", env });
+      return { status: result.status, text: result.stdout + result.stderr };
+    };
+
+    // A members course outside the repository is fine, and the sample passes.
+    const clean = check();
+    assert.equal(clean.status, 0, clean.text);
+
+    // The same course inside the repository's content folder is not, whatever the variable says.
+    cpSync(join(other, "mine"), join(copy.sample, "mine"), { recursive: true });
+    const leaked = check();
+    assert.equal(leaked.status, 1, leaked.text);
+    assert.match(leaked.text, /a "members" course must not be committed/);
+  } finally {
+    rmSync(copy.root, { recursive: true, force: true });
+    rmSync(other, { recursive: true, force: true });
   }
 });

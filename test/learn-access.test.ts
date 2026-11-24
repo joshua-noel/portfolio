@@ -172,6 +172,51 @@ test("a locked stub carries nothing but its place, title, promise and visibility
   }
 });
 
+test("a locked stub does not give away that a local lecture exists", async () => {
+  // Lectures 1 (public), 2 (local), 3 (members), 4 (friends) in one course.
+  const library = visibilityLibrary().slice(0, 1);
+  const lectures = library[0]!.lectures;
+  lectures.push(
+    { order: 2, slug: "l-notes", title: "Notes", visibility: "local", secret: SECRET.local },
+    { order: 3, slug: "l-mem", title: "Mem", visibility: "members", secret: SECRET.members },
+    { order: 4, slug: "l-fr", title: "Fr", visibility: "friends", secret: SECRET.friends },
+  );
+  const full = await load(library);
+  const view = forViewer(full, undefined, false);
+  const course = findCourse(view, "c-public")!;
+  // The numbers a reader sees run 1, 2, 3 with no gap where the local one was.
+  assert.deepEqual(
+    course.lectures.map((l) => [l.slug, l.front.order]),
+    [
+      ["l-public", 1],
+      ["l-mem", 2],
+      ["l-fr", 3],
+    ],
+  );
+  // The same for a reader who may open everything.
+  const admin = findCourse(forViewer(full, "admin", false), "c-public")!;
+  assert.deepEqual(
+    admin.lectures.map((l) => l.front.order),
+    [1, 2, 3],
+  );
+  // The stub says it is locked, and for whom, and has no flag of the lecture behind it.
+  const stub = findLecture(course, "l-mem")!;
+  assert.equal(stub.locked, true);
+  assert.equal(stub.front.visibility, "members");
+  assert.equal(stub.front.placeholder, false, "the placeholder flag is not shown");
+  // Nothing about the local lecture is anywhere in the visitor's catalog.
+  const everything = JSON.stringify(view);
+  for (const leak of ["l-notes", "Notes", SECRET.local, '"local"']) {
+    assert.ok(!everything.includes(leak), `${leak} in the visitor's catalog`);
+  }
+  // With the owner's switch on, the real numbers are back.
+  const own = findCourse(await load(library, true), "c-public")!;
+  assert.deepEqual(
+    own.lectures.map((l) => l.front.order),
+    [1, 2, 3, 4],
+  );
+});
+
 test("the stricter of course and lecture wins", async () => {
   const library = visibilityLibrary().slice(0, 1);
   library[0]!.visibility = "friends";
@@ -277,4 +322,88 @@ test("the repository may hold public content only", async () => {
     ),
     /"local" course must not be committed/,
   );
+});
+
+test("one broken lecture file costs that lecture, not the catalog", async () => {
+  const library = visibilityLibrary().slice(0, 2); // c-public and c-members
+  const good = sources(library);
+  const brokenLecture = {
+    path: "c-public/02-broken.md",
+    name: "02-broken.md",
+    raw: "no front matter here\n",
+  };
+  good[0]!.lectures.push(brokenLecture);
+  // A course whose own file is broken, and a lecture whose formula does not parse.
+  good[1]!.course.raw = "---\nslug: [unclosed\n---\n";
+  const badMath = {
+    path: "c-public/03-math.md",
+    name: "03-math.md",
+    raw: good[0]!.lectures[0]!.raw
+      .replace("slug: l-public", "slug: math")
+      .replace("order: 1", "order: 3")
+      .replace("Body ", "Bad $\\frac{1}{$ formula "),
+  };
+  good[0]!.lectures.push(badMath);
+
+  // Strict, as the checker and the tests use it: the first bad file stops everything.
+  await assert.rejects(loadCatalog({ courses: good }, { allowLocal: false }));
+
+  // Lenient, as the server uses it: what is valid loads, and each bad file is named.
+  const catalog = await loadCatalog(
+    { courses: good, problems: ["/gone: cannot be read: ENOENT"] },
+    { allowLocal: false, lenient: true },
+  );
+  assert.deepEqual(
+    catalog.courses.map((c) => c.front.slug),
+    ["c-public"],
+  );
+  assert.deepEqual(
+    findCourse(catalog, "c-public")!.lectures.map((l) => l.slug),
+    ["l-public"],
+  );
+  const text = catalog.problems.join("\n");
+  assert.match(text, /\/gone: cannot be read/);
+  assert.match(text, /c-public[\\/]02-broken\.md/);
+  assert.match(text, /c-members[\\/]course\.md/);
+  assert.match(text, /c-public[\\/]03-math\.md/);
+  assert.equal(catalog.problems.length, 4);
+
+  // The public lecture still reads, for a visitor; only an admin is told what is wrong.
+  const visitor = forViewer(catalog, undefined, false);
+  assert.equal(findLecture(findCourse(visitor, "c-public")!, "l-public")!.locked, false);
+  assert.deepEqual(visitor.problems, []);
+  assert.deepEqual(forViewer(catalog, "friend", false).problems, []);
+  assert.equal(forViewer(catalog, "admin", false).problems.length, 4);
+});
+
+test("a catalog loaded with local content shows none of it to a request that is not the owner's", async () => {
+  const library = visibilityLibrary();
+  library[0]!.lectures.push(
+    { order: 2, slug: "l-notes", title: "Notes", visibility: "local", secret: SECRET.local },
+    { order: 3, slug: "l-after", title: "After", visibility: "members", secret: SECRET.members },
+  );
+  const full = await load(library, true); // the owner's dev server
+  const own = forViewer(full, undefined, true);
+  assert.ok(findCourse(own, "c-local"));
+  assert.deepEqual(
+    findCourse(own, "c-public")!.lectures.map((l) => l.slug),
+    ["l-public", "l-notes", "l-after"],
+  );
+  // The same catalog, for a request through a tunnel: as if it were never loaded.
+  for (const role of [undefined, "member", "friend", "admin"]) {
+    const view = forViewer(full, role, false);
+    assert.equal(findCourse(view, "c-local"), undefined);
+    const course = findCourse(view, "c-public")!;
+    assert.deepEqual(
+      course.lectures.map((l) => [l.slug, l.front.order]),
+      [
+        ["l-public", 1],
+        ["l-after", 2],
+      ],
+    );
+    const everything = JSON.stringify(view);
+    for (const leak of ["l-notes", "Notes", SECRET.local, "c-local"]) {
+      assert.ok(!everything.includes(leak), `${leak} for ${role}`);
+    }
+  }
 });

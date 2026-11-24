@@ -141,6 +141,22 @@ button {
   top: 0.5rem;
 }
 
+/* For the admin only: lecture files that could not be loaded and were left out. */
+.load-notice {
+  margin: 0;
+  padding: 0.75rem 1.25rem;
+  background: var(--surface);
+  border-bottom: 2px solid var(--accent);
+  color: var(--fg);
+  font-size: 0.9rem;
+}
+.load-notice pre {
+  margin: 0.5rem 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
