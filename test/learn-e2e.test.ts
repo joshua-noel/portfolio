@@ -162,7 +162,7 @@ test("every role against every visibility, on every kind of route", async () => 
         const media = await server.request(
           "learn",
           "GET",
-          `/media/c-${v}/01-l-${v}.${ext}`,
+          `/media/c-${v}/l-${v}.${ext}`,
           { cookie },
         );
         assert.equal(media.status, open ? 200 : 404, `${where}: ${ext}`);
@@ -256,11 +256,11 @@ test("no error page leaks: unknown lecture, unknown course, bad media names, tra
     "/c-local",
     "/c-local/l-local",
     "/media/c-public/..%2Fcourse.md",
-    "/media/c-public/01-l-public.md",
+    "/media/c-public/l-public.md",
     "/media/c-public/course.md",
-    "/media/c-public/01-l-public.mp4.exe",
+    "/media/c-public/l-public.mp4.exe",
     "/media/..%2F..%2Fpackage.json/x",
-    "/media/c-members/01-l-members.mp4",
+    "/media/c-members/l-members.mp4",
   ]) {
     const res = await server.request("learn", "GET", path, { cookie: sessions.visitor });
     assert.ok([404, 403].includes(res.status), `${path}: ${res.status}`);
@@ -274,7 +274,7 @@ test("no error page leaks: unknown lecture, unknown course, bad media names, tra
   const forbidden = await server.request(
     "learn",
     "GET",
-    "/media/c-public/01-l-public.mp4",
+    "/media/c-public/l-public.mp4",
     { headers: { range: "bytes=2-4" } },
   );
   assert.equal(forbidden.status, 206);
@@ -287,7 +287,7 @@ test("a local lecture is not served by a server, and the switch for it is the ow
     for (const path of [
       "/c-local/l-local",
       "/c-local",
-      "/media/c-local/01-l-local.mp4",
+      "/media/c-local/l-local.mp4",
       `/search.json?q=${SECRET.local}`,
     ]) {
       const res = await server.request("learn", "GET", path, { cookie });
@@ -883,9 +883,9 @@ test("every kind of response on the lecture host carries the same headers", asyn
     ["sign-out redirect", "POST", "/signout", { origin: LEARN }],
     ["search json", "GET", "/search.json?q=idea"],
     ["search page", "GET", "/search?q=idea"],
-    ["media 200", "GET", "/media/c-public/01-l-public.mp4"],
-    ["media 206", "GET", "/media/c-public/01-l-public.mp4", { headers: { range: "bytes=0-3" } }],
-    ["media 404", "GET", "/media/c-friends/01-l-friends.mp4"],
+    ["media 200", "GET", "/media/c-public/l-public.mp4"],
+    ["media 206", "GET", "/media/c-public/l-public.mp4", { headers: { range: "bytes=0-3" } }],
+    ["media 404", "GET", "/media/c-friends/l-friends.mp4"],
     ["media bad name", "GET", "/media/c-public/..%2f..%2fcourse.md"],
     ["HEAD page", "HEAD", "/c-public/l-public"],
     ["HEAD locked", "HEAD", "/c-friends/l-friends"],
@@ -970,9 +970,9 @@ test("encoded and doubled slashes reach the same checks, not a way round them", 
     "/c-public/../c-members/l-members",
     "/c-public/%2e%2e/c-members/l-members",
     "/C-members/l-members",
-    "/media/c-members/01-l-members.mp4",
-    "//media/c-members/01-l-members.mp4",
-    "/media/c-members/01-l-members.mp4/",
+    "/media/c-members/l-members.mp4",
+    "//media/c-members/l-members.mp4",
+    "/media/c-members/l-members.mp4/",
     "/media/c-members/%30%31-l-members.mp4",
     "/media/c-members/..%2f01-l-members.mp4",
     "/media/c-public/..%2fc-members%2f01-l-members.mp4",
@@ -1000,7 +1000,7 @@ test("encoded and doubled slashes reach the same checks, not a way round them", 
     "//c-local/l-local",
     "/c-local//l-local",
     "/%63-local/%6c-local",
-    "/media/c-local/01-l-local.mp4",
+    "/media/c-local/l-local.mp4",
     "/media/c-local/%30%31-l-local.mp4",
   ]) {
     for (const cookieHeader of [undefined, cookie]) {
@@ -1019,9 +1019,9 @@ test("HEAD answers like GET without a body, and gives nothing GET would not", as
     ["/c-members/l-members", sessions.member, 200],
     ["/c-friends/l-friends", sessions.member, 403],
     ["/c-local/l-local", sessions.admin, 404],
-    ["/media/c-members/01-l-members.mp4", undefined, 404],
-    ["/media/c-members/01-l-members.mp4", sessions.member, 200],
-    ["/media/c-local/01-l-local.mp4", sessions.admin, 404],
+    ["/media/c-members/l-members.mp4", undefined, 404],
+    ["/media/c-members/l-members.mp4", sessions.member, 200],
+    ["/media/c-local/l-local.mp4", sessions.admin, 404],
     ["/search.json?q=" + SECRET.members, undefined, 200],
   ];
   for (const [path, cookie, status] of cases) {
@@ -1209,14 +1209,13 @@ test("one broken file does not take the lecture host down: the rest is served, t
     assert.equal((await broken.request("learn", "GET", "/c-public/l-public")).status, 200);
     assert.equal((await broken.request("learn", "GET", "/c-members/l-members")).status, 403);
 
-    // Visitors are told nothing; the admin gets a notice naming each file left out.
+    // Visitors are told nothing; the admin gets a count, and the detail stays in the log.
     const visitor = await broken.request("learn", "GET", "/c-public");
     assert.doesNotMatch(visitor.text, /load-notice|04-broken|could not be loaded/);
     const notice = await broken.request("learn", "GET", "/c-public", { cookie: admin });
     assert.match(notice.text, /class="load-notice"/);
-    assert.match(notice.text, /04-broken\.md/);
-    assert.match(notice.text, /03-evil-diagram\.md/);
-    assert.match(notice.text, /c-gone/);
+    assert.match(notice.text, /\b\d+ files? (was|were) left out; see the server log/);
+    assert.doesNotMatch(notice.text, /04-broken|03-evil-diagram|c-gone|<pre>/);
     // A member is not the admin.
     broken.user(["add", "mem2", "--role", "member"], { password: PASSWORD });
     const m = await broken.request("learn", "POST", "/signin", {
