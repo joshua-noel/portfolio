@@ -74,14 +74,19 @@ in
       '';
     };
 
-    learnContentDir = lib.mkOption {
-      type = lib.types.nullOr lib.types.path;
-      default = null;
-      example = "/var/lib/portfolio/learn";
+    learnContentDirs = lib.mkOption {
+      type = lib.types.listOf lib.types.path;
+      default = [ ];
+      example = [ "/var/lib/portfolio/learn" ];
       description = ''
-        Folder of courses, laid out as `learn-content/CONTRACT.md` says, read
-        at run time and reloaded when a file in it changes. When null the
-        service serves the sample lectures that ship in the package.
+        Folders of courses, laid out as `learn-content/CONTRACT.md` says,
+        merged and read at run time (and reloaded when a file changes). This
+        is where `members` and `friends` lectures live: the repository is
+        public, so they are never part of the package. When empty the
+        service serves the public sample lectures that ship in the package.
+
+        `local` lectures are never served; the setting that allows them on
+        the owner's own machine is not offered here.
       '';
     };
 
@@ -182,9 +187,7 @@ in
         PORTFOLIO_LEARN_URL = cfg.learnUrl;
         # Empty means "the sample lectures in the package": bin/serve.mjs reads
         # a blank value as unset.
-        PORTFOLIO_LEARN_CONTENT_DIR = lib.optionalString (cfg.learnContentDir != null) (
-          toString cfg.learnContentDir
-        );
+        PORTFOLIO_LEARN_CONTENT_DIRS = lib.concatMapStringsSep ":" toString cfg.learnContentDirs;
         PORTFOLIO_ADMIN_USERNAME = cfg.adminUsername;
         PORTFOLIO_TRUSTED_PROXIES = lib.concatStringsSep "," cfg.trustedProxies;
         # %d is the credentials directory systemd populates from

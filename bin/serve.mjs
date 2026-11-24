@@ -56,7 +56,7 @@ if (cfg("PORTFOLIO_LEARN_ALLOW_LOCAL") === "1") {
 }
 
 // The sample lectures that ship in the package, unless a folder is named.
-if (cfg("PORTFOLIO_LEARN_CONTENT_DIR") === undefined) {
+if (cfg("PORTFOLIO_LEARN_CONTENT_DIRS") === undefined && cfg("PORTFOLIO_LEARN_CONTENT_DIR") === undefined) {
   process.env.PORTFOLIO_LEARN_CONTENT_DIR = fileURLToPath(
     new URL("../content/learn", import.meta.url),
   );

@@ -25,6 +25,11 @@ import {
  * is the only place that can prove the middleware, the routes and the loader
  * agree, so every rule the owner was promised is asserted here.
  */
+// The Nix build runs the unit tests in a sandbox that has just built the
+// site; building it again here would only repeat that, and the VM test is the
+// end-to-end check there.
+if (process.env.PORTFOLIO_SKIP_E2E) process.exit(0);
+
 const LEARN = "https://learn.test";
 const BLOG = "https://blog.test";
 const PASSWORD = "correct horse battery";

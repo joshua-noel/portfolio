@@ -42,7 +42,7 @@ The lecture site reads courses from a folder, laid out as the lecture contract (
     diagrams/NN-<name>.svg
 ```
 
-`PORTFOLIO_LEARN_CONTENT_DIR` names the folder. It is read at run time and reloaded within a second of a file changing, so a lecture can be edited without a restart. When it is not set, the site serves the sample lectures in `content/learn/`, which ship in the package; `just dev` does this. In NixOS, `services.portfolio.learnContentDir`.
+`PORTFOLIO_LEARN_CONTENT_DIRS` (or `PORTFOLIO_LEARN_CONTENT_DIR` for one folder) names where. It is read at run time and reloaded within a second of a file changing, so a lecture can be edited without a restart. When neither is set, the site serves the sample lectures in `content/learn/`, which ship in the package.
 
 Each lecture is four `#` sections, Tip, Waterline, Deep and Abyss, and the site shows them as four depths. Every layer is in the page and `<html data-depth>` picks which are shown, so `?depth=deep` works without JavaScript and the switch in the browser only changes that attribute and the URL. At Deep and Abyss the layers add to the Waterline, and Check yourself and References stay last. The reader's last choice is remembered in `localStorage`. The elements:
 
@@ -61,9 +61,51 @@ A diagram uses colours only through `currentColor`, `var(--fg)`, `--muted`, `--b
 
 ### Who may read what
 
-`visibility` is `public`, `members`, `friends` or `local`, on the course and on each lecture. For now the server shows `public` only: anything else is listed with a lock icon, and its body is neither rendered nor kept in memory nor searchable. Opening more to a signed-in reader means deciding the audience per request from the session and keeping a catalog per audience (`AUDIENCE` in `src/lib/learn/content.ts`, and `loadCatalog` already takes it). The Sign in link goes to the admin login until readers have accounts.
+`visibility` is `public`, `members`, `friends` or `local`, on the course and on each lecture; the stricter of the two wins. One function, `canRead` in `src/lib/access.ts`, decides, and everything that serves lecture content (pages, search, the sitemap, video and captions) gets its catalog from `getCatalogFor(role)`, in which what a reader may not open is a stub: title and promise, nothing else.
 
-The sample folder in this repository is public, so the check refuses anything in it that is not `public`. Private content lives in another folder, on the server (for example `services.portfolio.learnContentDir = "/var/lib/portfolio/learn"`, filled by `rsync` or a private repository pulled there) and on the author's machine (`local`, with `PORTFOLIO_LEARN_CONTENT_DIR` pointing at it); it never enters this repository.
+| reader  | reads                                        |
+| ------- | -------------------------------------------- |
+| visitor | `public`                                     |
+| member  | `public`, `members`                          |
+| friend  | `public`, `members`, `friends`               |
+| admin   | everything above                             |
+| anyone  | never `local`, which a server does not serve |
+
+Locked courses and lectures stay listed with a lock icon. Opened, they show a short page: what it is and "Sign in to read" (for `members`, also that membership is not open yet). Roles and visibilities this code does not know read as no access.
+
+`local` is for the owner's own machine. A server leaves `local` content out entirely and logs how much. `PORTFOLIO_LEARN_ALLOW_LOCAL=1` serves it to everyone who can connect, logs a loud warning, and is refused unless the server listens on loopback; the NixOS module has no option for it.
+
+### Accounts
+
+There is no sign-up and no payment. The environment admin (`PORTFOLIO_ADMIN_USERNAME` and its hash) is the bootstrap account: it keeps the blog's admin and can also sign in on the lecture host, as admin. Every other account is made by the owner, with a command on the machine that holds the database:
+
+```
+node bin/user.mjs add <username> --role friend|member|admin
+node bin/user.mjs list
+node bin/user.mjs set-role <username> --role friend|member|admin
+node bin/user.mjs set-password <username>
+node bin/user.mjs disable <username>      # also: enable
+```
+
+The password is read from a hidden prompt (asked twice) or from standard input, never from an argument. Disabling an account, or changing its password, deletes its sessions at once. The server makes and migrates the database, so start it once first. Locally, `$env:PORTFOLIO_STATE_DIR = ".data"` points the command at the dev database; on the server it is `portfolio-user` (in the package), run as the service's user with `PORTFOLIO_STATE_DIR=/var/lib/portfolio`.
+
+Accounts sign in on the lecture host at `/signin`. The session cookie, `learn_session`, is host-only, HttpOnly, SameSite=Lax and Secure behind TLS, and is a different cookie, in a different scope of the `sessions` table, from the blog admin's: a friend's or member's session is worthless on the admin and its API, and an admin session from the blog is not a lecture session. (Accounts with the `admin` role read everything on the lecture host but do not get the blog's admin: that stays with the environment admin.) Sign-in is throttled by address and by name, answers every failure alike, runs one key derivation whatever the name, rotates the session, checks `Origin`, and only follows a `next` that is a path on the lecture host.
+
+### Where private lectures live
+
+This repository is public, so `members` and `friends` content comes from outside it: `PORTFOLIO_LEARN_CONTENT_DIRS` names several folders (separated like `PATH`: `;` on Windows, `:` elsewhere), merged, read at run time, never copied into the build output (a test greps `dist` for a canary placed in a members lecture). In NixOS, `services.portfolio.learnContentDirs`. The sample folder here may hold `public` only, and the check fails if it finds anything else.
+
+## Running it on Windows (no `just`, no bash)
+
+To see the whole local library, in PowerShell:
+
+```powershell
+cd C:\Users\kwinch\Projects\portfolio
+$env:PORTFOLIO_LEARN_CONTENT_DIRS = "C:\Users\kwinch\Projects\Resume\study\learn-content"
+pnpm learn:dev
+```
+
+Then open `http://learn.localhost:4321`. Add `$env:PORTFOLIO_LEARN_ALLOW_LOCAL = "1"` before the last line to also see `local` lectures (your own machine only). The first run makes a throwaway admin, `admin` / `dev`, in `.data/`, which also signs in on the lecture host. `pnpm learn:check <dir>` checks a folder against the contract, and `pnpm test` runs the tests (the end-to-end one builds the site, so it takes a while).
 
 ## Development
 

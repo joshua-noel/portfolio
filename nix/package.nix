@@ -63,7 +63,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   doCheck = true;
   checkPhase = ''
     runHook preCheck
-    node --test 'test/*.test.ts'
+    PORTFOLIO_SKIP_E2E=1 node --test 'test/*.test.ts'
     runHook postCheck
   '';
 
@@ -79,6 +79,8 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
     makeWrapper ${nodejs}/bin/node $out/bin/portfolio \
       --add-flags $out/lib/portfolio/bin/serve.mjs
+    makeWrapper ${nodejs}/bin/node $out/bin/portfolio-user \
+      --add-flags $out/lib/portfolio/bin/user.mjs
     makeWrapper ${nodejs}/bin/node $out/bin/portfolio-hash-password \
       --add-flags $out/lib/portfolio/bin/hash-password.mjs
 
