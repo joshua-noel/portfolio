@@ -184,7 +184,9 @@ export async function start(options: {
         ...opts.headers,
       };
       const req = httpRequest(
-        { host: "127.0.0.1", port, method, path, headers },
+        // A new connection each time: Node reuses idle sockets, and under load a server
+        // that has just closed one makes the next request fail with ECONNRESET.
+        { host: "127.0.0.1", port, method, path, headers, agent: false },
         (res) => {
           const chunks: Buffer[] = [];
           res.on("data", (chunk) => chunks.push(chunk));
