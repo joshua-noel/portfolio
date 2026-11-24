@@ -8,6 +8,7 @@ import {
 } from "./blocks.ts";
 import { DEPTHS, type Depth } from "./depth.ts";
 import { Renderer, type Facts, type Heading } from "./render.ts";
+import { sanitizeSvg } from "./svg.ts";
 
 /**
  * One lecture: its front matter, its four depths rendered to HTML, and every
@@ -387,19 +388,17 @@ const COLOUR_PROPERTY =
 export function checkDiagram(id: string, source: string): string[] {
   const issues: string[] = [];
   const bad = (message: string): number => issues.push(`diagram ${id}: ${message}`);
-  const root = /<svg\b[^>]*>/.exec(source)?.[0] ?? "";
-  if ((source.match(/<svg[\s>]/g) ?? []).length !== 1)
-    bad("must contain exactly one <svg>");
-  if (!/\sviewBox="/.test(root)) bad("the <svg> needs a viewBox");
-  if (/\s(?:width|height)="/.test(root))
+  const root = /<svg\b[^>]*>/i.exec(source)?.[0] ?? "";
+  if (!/\sviewBox="/i.test(root)) bad("the <svg> needs a viewBox");
+  if (/\s(?:width|height)="/i.test(root))
     bad("the <svg> has a viewBox only, no width or height");
-  if (!/<title[\s>]/.test(source)) bad("needs a <title> for screen readers");
-  if (!/<desc[\s>]/.test(source)) bad("needs a <desc> for screen readers");
-  if (/<image[\s>]/.test(source)) bad("embedded images are not allowed; draw it");
-  if (/<(?:script|style|foreignObject)[\s>]/.test(source))
+  if (!/<title[\s>]/i.test(source)) bad("needs a <title> for screen readers");
+  if (!/<desc[\s>]/i.test(source)) bad("needs a <desc> for screen readers");
+  if (/<image[\s>]/i.test(source)) bad("embedded images are not allowed; draw it");
+  if (/<(?:script|style|foreignObject)[\s>]/i.test(source))
     bad("no <script>, <style> or <foreignObject>");
-  if (/\s(?:xlink:)?href="(?!#)/.test(source)) bad("no external links");
-  if (/@font-face|font-family\s*[:=]\s*"?[^;"]*url\(/.test(source))
+  if (/\s(?:xlink:)?href\s*=\s*(?!["']?#)/i.test(source)) bad("no external links");
+  if (/@font-face|font-family\s*[:=]\s*"?[^;"]*url\(/i.test(source))
     bad("no embedded fonts");
   for (const [, property, raw] of source.matchAll(COLOUR_PROPERTY)) {
     const value = raw!.trim();
@@ -410,6 +409,10 @@ export function checkDiagram(id: string, source: string): string[] {
       break;
     }
   }
+  // The real check: the file is parsed as a browser would and every element
+  // and attribute must be on the list (src/lib/learn/svg.ts). The lint above
+  // only words the usual mistakes helpfully.
+  for (const issue of sanitizeSvg(source).issues) bad(issue);
   return issues;
 }
 
@@ -555,7 +558,9 @@ export async function buildLecture(
     }
     issues.push(...checkDiagram(block.id, source));
     const caption = await renderer.renderInline(block.caption, layer);
-    return figureHtml(block.id, source, caption);
+    // What is inlined is the sanitiser's output, never the file's own text.
+    // With any issue the lecture fails to build, so the empty string goes nowhere.
+    return figureHtml(block.id, sanitizeSvg(source).html, caption);
   };
 
   const question = async (

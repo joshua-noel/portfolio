@@ -11,7 +11,7 @@
     "build": "node ./bin/check-learn.mjs && astro build",
     "start": "node ./bin/serve.mjs",
     "check": "node ./bin/check-learn.mjs && astro check",
-    "test": "node --test \"test/*.test.ts\"",
+    "test": "node --test --test-concurrency=1 \"test/*.test.ts\"",
     "learn:dev": "node ./bin/learn-dev.mjs",
     "learn:check": "node ./bin/check-learn.mjs"
   },
@@ -26,6 +26,7 @@
     "astro": "^7.2.4",
     "github-slugger": "^2.0.0",
     "katex": "^0.18.4",
+    "parse5": "7.3.0",
     "rehype-raw": "^7.0.0",
     "rehype-stringify": "^10.0.1",
     "remark-gfm": "^4.0.1",

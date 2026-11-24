@@ -10,6 +10,7 @@ import GithubSlugger from "github-slugger";
 import katex from "katex";
 import { visit, SKIP } from "unist-util-visit";
 import type { Depth } from "./depth.ts";
+import { sanitize } from "./sanitize.ts";
 
 /**
  * Markdown to HTML for lectures. Everything slow happens here, once, when the
@@ -126,8 +127,14 @@ export class Renderer {
     .use(() => (tree: unknown) => this.inspect(tree as HNode))
     .use(() => (tree: unknown) => this.cite(tree as HNode))
     .use(() => (tree: unknown) => smarten(tree as HNode))
-    .use(() => (tree: unknown) => renderMath(tree as HNode))
+    // Raw HTML is parsed first, and cut down to the small set a lecture may
+    // use (sanitize.ts) before KaTeX adds its own markup, which is trusted
+    // and needs a second parse. The second use is a distinct plugin function:
+    // unified would merge a repeated plugin into the first.
     .use(rehypeRaw)
+    .use(() => (tree: unknown) => sanitize(tree as HNode))
+    .use(() => (tree: unknown) => renderMath(tree as HNode))
+    .use(() => rehypeRaw())
     .use(rehypeShiki, {
       // CSS variables, not baked colours, so code follows the theme toggle.
       // The -default dark theme because plain github-dark greys comments
@@ -138,7 +145,7 @@ export class Renderer {
       fallbackLanguage: "text",
     })
     .use(() => (tree: unknown) => wrapTables(tree as HNode))
-    .use(rehypeStringify, { allowDangerousHtml: true });
+    .use(rehypeStringify);
 
   /** Renders a chunk of Markdown written for `layer`. */
   async render(markdown: string, layer: Depth): Promise<string> {
