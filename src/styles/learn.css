@@ -29,13 +29,15 @@
   --d-deep: #b7a4ff;
   --d-abyss: #f0b45f;
 
-  /* Diagram hues: queries, keys, values, and two neutrals for everything else. */
+  /* Diagram hues. Each course gives them a meaning in its course.md. Two
+     courses use the sixth for failing, hostile or wasted things, so it is a
+     rose, never a green that would read as "fine". */
   --c1: #e08a6c;
   --c2: #6fd0c4;
   --c3: #b7a4ff;
   --c4: #8fb2ff;
   --c5: #f0b45f;
-  --c6: #7fd6a0;
+  --c6: #ff7096;
 
   --topbar: 3.5rem;
   --font-ui:
@@ -72,7 +74,7 @@
   --c3: #5638c0;
   --c4: #2450b4;
   --c5: #85500a;
-  --c6: #1b7a46;
+  --c6: #b4235a;
 }
 
 *,

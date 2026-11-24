@@ -56,14 +56,19 @@ const ADMIN_CSP = [
 //   base-uri 'none', object-src 'none', form-action 'self'
 //                             no <base> to redirect relative links, no plugins,
 //                             and the only forms are this site's own sign-in.
+// The dev server (never the built one: `import.meta.env.DEV` is fixed when the
+// site is built) injects its stylesheets as <style> elements and talks to the
+// page over a websocket, so there, and only there, the policy allows both.
+// Without this `pnpm learn:dev` shows unstyled pages.
 const LEARN_CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self'",
+  import.meta.env.DEV ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'",
   "style-src-attr 'unsafe-inline'",
   "img-src 'self' data:",
   "media-src 'self'",
   "font-src 'self' data:",
+  ...(import.meta.env.DEV ? ["connect-src 'self' ws:"] : []),
   "frame-ancestors 'none'",
   "base-uri 'none'",
   "object-src 'none'",
