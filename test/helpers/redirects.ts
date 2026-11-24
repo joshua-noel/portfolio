@@ -1,0 +1,106 @@
+/**
+ * Values for `next` that must never take a reader off the lecture host, and
+ * a few that are fine. The first group is the review's open redirect and its
+ * relatives; the rest are every way found to spell "another host" or to
+ * smuggle a second slash past a check that only looks at the start.
+ */
+export const HOSTILE_NEXT: string[] = [
+  // The reported ones: dot segments that resolve to //host.
+  "/..//evil.test",
+  "/x/../..//evil.test",
+  "/./\\evil.test",
+  "/..//evil.test/phish",
+  "/a/b/../../..//evil.test",
+  "/.//evil.test",
+  "/./..//evil.test",
+  "/../..//evil.test",
+  "/a/..//evil.test",
+  // Encoded dot segments, in every case and mixed with plain ones.
+  "/%2e%2e//evil.test",
+  "/%2E%2E//evil.test",
+  "/%2e./%2f/evil.test",
+  "/.%2e//evil.test",
+  "/%2e%2e/%2e%2e//evil.test",
+  "/x/%2e%2e//evil.test",
+  "/%2e//evil.test",
+  "/%2e%2e%2f/evil.test",
+  // Backslashes: browsers treat them as slashes.
+  "/\\evil.test",
+  "\\\\evil.test",
+  "/\\/evil.test",
+  "/x/..\\/evil.test",
+  "/..\\evil.test",
+  "/.\\.\\evil.test",
+  "/%5cevil.test",
+  "/x\\y",
+  // Tab, newline and other control characters: the URL parser drops them.
+  "/\t/evil.test",
+  "/\n/evil.test",
+  "/\r/evil.test",
+  "/\t/\t/evil.test",
+  "/.\t./\t/evil.test",
+  "/..\n//evil.test",
+  "/\u0000/evil.test",
+  "/\u001f/evil.test",
+  "/\u007f/evil.test",
+  "/%09/evil.test",
+  "/%0a/evil.test",
+  "/%0d/evil.test",
+  // Plain absolute and protocol-relative forms.
+  "//evil.test",
+  "//evil.test/path",
+  "///evil.test",
+  "////evil.test",
+  "https://evil.test/",
+  "http://evil.test/",
+  "HTTPS://EVIL.TEST/",
+  "https:evil.test",
+  "https:/evil.test",
+  "https:\\\\evil.test",
+  "//\\evil.test",
+  "/\\\\evil.test",
+  "//%2e%2e/evil.test",
+  "javascript:alert(1)",
+  "JaVaScRiPt:alert(1)",
+  "java\tscript:alert(1)",
+  "data:text/html,<script>alert(1)</script>",
+  "vbscript:x",
+  "evil.test",
+  "@evil.test",
+  "/@evil.test",
+  "/.@evil.test",
+  "//@evil.test",
+  "?next=//evil.test",
+  "#//evil.test",
+  " //evil.test",
+  "\t//evil.test",
+  "/\u2028/evil.test",
+  "/\uff0f/evil.test",
+  "/ /evil.test",
+  // Not off-site, but not where a sign-in or sign-out may land either.
+  "/signin",
+  "/signin?next=/x",
+  "/signout",
+  "/signin/",
+  "/SIGNIN",
+  "/..//signin",
+  "/x/../signin",
+  "/%73ignin",
+  "/x/../signout?next=/y",
+  // The size limit: 413 on the form, "/" for the helper.
+  "/" + "a".repeat(5000),
+];
+
+/** Fine as they are, and what comes out of them. */
+export const GOOD_NEXT: [string, string][] = [
+  ["/", "/"],
+  ["/a/b", "/a/b"],
+  ["/a/b?depth=deep", "/a/b?depth=deep"],
+  ["/how-language-models-work/attention?x=1#frag", "/how-language-models-work/attention?x=1"],
+  // Dot segments that stay on the site come back resolved, not as typed.
+  ["/a/../b", "/b"],
+  ["/a/./b", "/a/b"],
+  ["/a/%2e%2e/b", "/b"],
+  ["/c-public/l-public/../l-other", "/c-public/l-other"],
+  ["/a/b/../../c?x=1", "/c?x=1"],
+];

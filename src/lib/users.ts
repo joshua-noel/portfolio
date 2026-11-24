@@ -89,17 +89,31 @@ export async function authenticate(
   return { username: user.username, role, userId: user.id };
 }
 
+/** Any origin will do for resolving; none of it is ever returned. */
+const DUMMY_ORIGIN = "http://next.invalid";
+
 /**
  * Where to go after signing in or out: a path on this host and nothing else.
- * Resolved the way the browser will, which is what catches `//evil.example`,
- * `/\evil.example` and `https:…`; the sign-in and sign-out pages themselves
- * are refused so a sign-in cannot bounce.
+ *
+ * The value is resolved the way a browser will, against a fixed dummy origin,
+ * and what is returned is the *resolved* path and query, never the input: a
+ * dot segment (`/..//evil.test`, `/%2e%2e//evil.test`) resolves to a path
+ * that starts `//`, which a browser reads as another host, so the result is
+ * checked, not just the input. Control characters (the URL parser drops tabs
+ * and newlines) and backslashes (browsers read them as slashes) are refused
+ * outright, and so are the sign-in and sign-out pages themselves, so a
+ * sign-in cannot bounce.
  */
-export function safeNext(value: unknown, base: URL): string {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//"))
+export function safeNext(value: unknown): string {
+  if (typeof value !== "string" || value.length > 2048) return "/";
+  if (/[\\\u0000-\u001f\u007f]/.test(value)) return "/";
+  if (!value.startsWith("/") || value.startsWith("//")) return "/";
+  const url = URL.parse(value, DUMMY_ORIGIN);
+  if (!url || url.origin !== DUMMY_ORIGIN) return "/";
+  const { pathname, search } = url;
+  if (!/^\/(?![/\\])/.test(pathname) || /[\\\u0000-\u001f\u007f]/.test(pathname + search)) {
     return "/";
-  const url = URL.parse(value, base);
-  if (!url || url.origin !== base.origin) return "/";
-  if (/^\/sign(in|out)(\/|$)/.test(url.pathname)) return "/";
-  return url.pathname + url.search;
+  }
+  if (/^\/sign(in|out)(\/|$)/i.test(pathname)) return "/";
+  return pathname + search;
 }
