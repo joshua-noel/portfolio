@@ -66,13 +66,17 @@ export default function init(figure) {
 
     const lines = dists.map(
       (d) =>
-        `At T = ${fmtT(d.T)} floor leads with ${pct(d.top)}, the table is about as wide as ${d.choices < 1.5 ? "one" : count(d.choices)} equally likely ` +
-        `${d.choices < 1.5 ? "choice" : "choices"}, and 90% of the mass is in ${count(d.nucleus)} ${d.nucleus === 1 ? "token" : "tokens"}.`,
+        `At T = ${fmtT(d.T)}, 90% of the probability is in ${count(d.nucleus)} ${d.nucleus === 1 ? "token" : "tokens"}.`,
     );
+    const wide = (d) => (d.choices < 1.5 ? "1" : count(d.choices));
     ui.say(
-      `The lecture's run of GPT-2 small after "The cat sat on the": every logit divided by T, then softmax. The eight tokens shown hold ` +
-        `${dists.map((d) => `${(d.shown * 100).toFixed(0)}%`).join(", ")} of the mass in the three panels; the other tokens share the rest. ${lines.join(" ")}` +
-        (scale < SCALE ? " Bars are drawn at a smaller scale so the longest fits; read the percentages." : ""),
+      `At T = ${dists.map((d) => fmtT(d.T)).join(", ")}, "floor" leads with ${dists.map((d) => pct(d.top)).join(", ")}. ` +
+        `The table is as wide as ${dists.map(wide).join(", ")} equally likely choices.`,
+      [
+        'The data is the lecture\'s run of GPT-2 small after "The cat sat on the": every logit divided by T, then softmax.',
+        `${lines.join(" ")} The eight tokens shown hold ${dists.map((d) => `${(d.shown * 100).toFixed(0)}%`).join(", ")} of the probability in the three panels, and the other tokens share the rest.`,
+        scale < SCALE ? "Bars are drawn at a smaller scale so the longest fits; read the percentages." : "",
+      ],
     );
   }
   ui.start();

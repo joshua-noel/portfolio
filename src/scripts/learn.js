@@ -86,6 +86,7 @@ function setDepth(depth) {
   history.replaceState(history.state, "", url);
   carryDepth(depth);
 
+  fitMath(); // the new depth shows other formulas; measure them before the scroll is put back
   if (anchor && before !== undefined && anchor.offsetParent !== null) {
     window.scrollBy({
       top: anchor.getBoundingClientRect().top - before,
@@ -95,6 +96,76 @@ function setDepth(depth) {
     window.scrollTo({ top: 0, behavior: "instant" });
   }
   spy();
+}
+
+// ---------------------------------------------------------------- wide maths
+
+/** The width of the line a formula sits in. */
+function room(formula) {
+  const box = formula.parentElement?.closest("p, li, summary, dd, dt, blockquote, h2, h3, h4, div");
+  if (!box) return Infinity;
+  const style = getComputedStyle(box);
+  return box.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+}
+
+/**
+ * Marks the inline formulas that are wider than their line, so the style gives
+ * them a box that scrolls (see `.wide-math`), and does not touch the others:
+ * a box with an overflow sits on its bottom edge, not on the baseline. Boxes
+ * that scroll (a wide formula, code, a table, a display formula, a diagram) can
+ * be reached from the keyboard, or their far end could not be read.
+ */
+function fitMath() {
+  for (const formula of document.querySelectorAll(
+    ".prose .nobr, .prose .katex:not(.nobr .katex)",
+  )) {
+    if (formula.closest("td, th, .math-block")) continue; // these scroll in their own box
+    let wide;
+    if (formula.classList.contains("wide-math")) {
+      wide = formula.scrollWidth > formula.clientWidth + 1;
+    } else {
+      const space = room(formula);
+      wide = [...formula.getClientRects()].some((rect) => rect.width > space + 1);
+    }
+    formula.classList.toggle("wide-math", wide);
+    if (wide) {
+      formula.tabIndex = 0;
+      formula.setAttribute("role", "group");
+      formula.setAttribute("aria-label", "Formula, scrolls sideways");
+    } else if (formula.getAttribute("role") === "group") {
+      formula.removeAttribute("tabindex");
+      formula.removeAttribute("role");
+      formula.removeAttribute("aria-label");
+    }
+  }
+  for (const box of document.querySelectorAll(
+    ".prose pre, .table-wrap, .math-block, .diagram-body",
+  )) {
+    const scrolls = box.scrollWidth > box.clientWidth + 1;
+    if (scrolls && !box.hasAttribute("tabindex")) {
+      box.tabIndex = 0;
+      box.dataset.scrolls = "";
+    } else if (!scrolls && box.hasAttribute("data-scrolls")) {
+      box.removeAttribute("tabindex");
+      delete box.dataset.scrolls;
+    }
+  }
+}
+
+if (document.querySelector(".prose")) {
+  let queued = false;
+  const refit = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      fitMath();
+    });
+  };
+  addEventListener("resize", refit);
+  // The maths fonts arrive after the text, and are wider than the fallback.
+  document.fonts?.ready.then(refit);
+  fitMath();
 }
 
 if (lecture) {

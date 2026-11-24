@@ -114,11 +114,12 @@ export default function init(figure) {
     const p = plain(batch), s = spec(batch, alpha, gamma);
     const r = s / p;
     ui.say(
-      `At batch ${batch}, plain decoding delivers ${thousands(p)} tokens per second and speculation ${thousands(s)}, a ratio of ${r.toFixed(2)}: ` +
-        `${r >= 1 ? "speculation is faster" : "speculation is slower than plain decoding"}. ` +
-        `With acceptance ${alpha.toFixed(2)} and ${gamma} proposal${gamma === 1 ? "" : "s"}, a round yields ${tokensPerRound(alpha, gamma).toFixed(2)} tokens per request; the ratio is ${ratios[0].toFixed(2)} at batch 1 and ${ratios[MAX_BATCH - 1].toFixed(2)} at batch ${MAX_BATCH}. ` +
-        `${first === null ? "In this model speculation never falls below plain decoding up to batch 399." : `In this model speculation first loses at batch ${first}.`} ` +
-        `This is the lecture writer's own cost model, not a measurement: each pass takes the larger of the weight-read time (8 ms for the target, 0.5 ms for the draft) and the arithmetic time (0.0533 ms per token for the target, a sixteenth of that for the draft), every request has the same acceptance rate at every batch size, and cache reads are left out.`,
+      `At batch ${batch}, speculation delivers ${thousands(s)} tokens per second against ${thousands(p)} for plain decoding: ${r >= 1 ? `${r.toFixed(2)} times as fast` : `only ${r.toFixed(2)} times as fast, so it loses`}. ` +
+        `${first === null ? "In this model it never loses up to batch 399." : `In this model it first loses at batch ${first}.`}`,
+      [
+        `With acceptance ${alpha.toFixed(2)} and ${gamma} proposal${gamma === 1 ? "" : "s"}, a round yields ${tokensPerRound(alpha, gamma).toFixed(2)} tokens per request. The ratio is ${ratios[0].toFixed(2)} at batch 1 and ${ratios[MAX_BATCH - 1].toFixed(2)} at batch ${MAX_BATCH}.`,
+        "This is the lecture writer's own cost model, not a measurement. Each pass takes the larger of the weight-read time (8 ms for the target, 0.5 ms for the draft) and the arithmetic time (0.0533 ms per token for the target, a sixteenth of that for the draft). Every request has the same acceptance rate at every batch size, and cache reads are left out.",
+      ],
     );
   }
   ui.start();

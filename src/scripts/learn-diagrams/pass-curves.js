@@ -104,18 +104,23 @@ export default function init(figure) {
     redraw(svg, shapes);
 
     const at1 = rows[0].at, trials = `${k} trial${k === 1 ? "" : "s"}`;
-    let text;
     if (tasks) {
-      text = `The lecture's ten tasks, ten trials each (passes per task ${COUNTS.join(", ")}), scored with its estimators: pass@1 = ${pct(at1, 1)}; ` +
-        `pass@${k} = ${pct(here.at, 1)} (at least one of ${trials} passes); pass^${k} = ${pct(here.hat, 1)} (all ${k} pass); ` +
-        `pass^10 = ${pct(last.hat, 1)}. The per-trial slider is not used here. ` +
-        `For comparison, independent trials at p = ${pct(at1, 0)} would give pass^${k} = ${pct(at1 ** k, 1)} (not worked in the lecture).`;
+      ui.say(
+        `In the lecture's ten tasks, at least one of ${trials} passes ${pct(here.at, 1)} of the time, and all ${k} pass ${pct(here.hat, 1)} of the time.`,
+        [
+          `The ten tasks have ten trials each, with passes per task ${COUNTS.join(", ")}, scored with the lecture's own estimators. pass@1 is ${pct(at1, 1)}, and at k = 10 pass^10 is ${pct(last.hat, 1)}. The per-trial slider is not used here.`,
+          `For comparison, independent trials at p = ${pct(at1, 0)} would give pass^${k} = ${pct(at1 ** k, 1)}. The lecture does not work that case.`,
+        ],
+      );
     } else {
-      text = `Per-trial success p = ${pct(p)}, trials independent: pass@1 = ${pct(p, 1)}; ` +
-        `pass@${k} = 1 − (1 − p)^${k} = ${pct(here.at, 1)} (at least one of ${trials} succeeds); ` +
-        `pass^${k} = p^${k} = ${pct(here.hat, 1)} (all ${k} succeed). At k = 10: pass@10 = ${pct(last.at, 1)}, pass^10 = ${pct(last.hat, 1)}.`;
+      ui.say(
+        `With a ${pct(p)} success rate per trial, at least one of ${trials} succeeds ${pct(here.at, 1)} of the time, and all ${k} succeed ${pct(here.hat, 1)} of the time.`,
+        [
+          `The trials are independent, so pass@${k} = 1 − (1 − p)^${k} = ${pct(here.at, 1)} (at least one succeeds) and pass^${k} = p^${k} = ${pct(here.hat, 1)} (all succeed). At k = 1 both equal p = ${pct(p, 1)}.`,
+          `At k = 10: pass@10 = ${pct(last.at, 1)} and pass^10 = ${pct(last.hat, 1)}.`,
+        ],
+      );
     }
-    ui.say(text);
   }
   ui.start();
 }

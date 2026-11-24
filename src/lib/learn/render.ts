@@ -374,3 +374,40 @@ function wrapTables(tree: HNode): void {
     return SKIP;
   });
 }
+
+/** TeX commands whose braces hold words, not maths. */
+const TEXT_COMMANDS =
+  /\\(?:text|textrm|textbf|textit|textsf|texttt|mbox|hbox|mathrm|mathit|mathbf|mathsf|mathtt|operatorname|mathrm)\s*\{[^{}]*\}/g;
+
+/** Little words that are never maths when they stand bare: "$202,000 at $" is a price and prose, not a formula. */
+const STOP_WORD = /(?<![A-Za-z\\])(?:at|per|for|and|the|of|is|are|was|to|in|with|from|that|this)(?![A-Za-z])/;
+
+/**
+ * Inline maths that has swallowed prose: a bare money amount ($2.50) pairs with
+ * the next dollar sign, and everything between them becomes one formula. A
+ * formula holding a run of three or more ordinary words (letters only, four or
+ * more each, outside text commands) is that mistake. Returns one message per
+ * formula, with the line of the file it starts on.
+ */
+export function suspectMaths(markdown: string, firstLine: number): string[] {
+  const tree = unified().use(remarkParse).use(remarkGfm).use(remarkMath).parse(markdown);
+  const found: string[] = [];
+  visit(tree as never, "inlineMath", (node: HNode) => {
+    const source = String(node.value ?? "");
+    const bare = source
+      .replace(TEXT_COMMANDS, " ")
+      .replace(/\\[A-Za-z]+/g, " ")
+      .replace(/\\./g, " ");
+    const run =
+      /[A-Za-z]{4,}(?:[\s.,;:!?'"()/-]+[A-Za-z]{4,}){2,}/.exec(bare) ?? STOP_WORD.exec(bare);
+    if (!run) return;
+    const line = (node as unknown as { position?: { start: { line: number } } }).position
+      ?.start.line;
+    const shown = source.length > 60 ? `${source.slice(0, 60)}…` : source;
+    found.push(
+      `line ${firstLine + (line ?? 1) - 1}: inline maths holds ordinary words ("${run[0]}"): ` +
+        `$${shown}$. A dollar amount needs \\$ (write \\$2.50), or the text between two dollar signs becomes one formula`,
+    );
+  });
+  return found;
+}

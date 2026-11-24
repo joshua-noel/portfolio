@@ -19,6 +19,7 @@ if (!course) Astro.response.status = 404;
       title={`${course.front.title} · Learn · Joshua Noel`}
       description={course.front.promise}
       canonical={`${learnUrl}/${course.front.slug}`}
+      alert={course.front.alert}
       current={{ course: course.front.slug }}
     >
       <main class="lecture" id="main">

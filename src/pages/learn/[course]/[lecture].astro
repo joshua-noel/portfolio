@@ -52,6 +52,7 @@ const prerequisites = lecture
       title={`${lecture.front.title} · Learn · Joshua Noel`}
       description={lecture.front.promise}
       canonical={`${learnUrl}${lectureUrl(lecture)}`}
+      alert={course.front.alert}
       current={{ course: course.front.slug, lecture: lecture.slug }}
       depth={depth}
       linkDepth={asked}
@@ -221,6 +222,7 @@ const prerequisites = lecture
   ) : course && lecture ? (
     <Learn
       title={`${lecture.front.title} · Locked · Learn`}
+      alert={course.front.alert}
       current={{ course: course.front.slug, lecture: lecture.slug }}
       noindex
     >

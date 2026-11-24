@@ -7,7 +7,7 @@ import {
   type Section,
 } from "./blocks.ts";
 import { DEPTHS, type Depth } from "./depth.ts";
-import { Renderer, type Facts, type Heading } from "./render.ts";
+import { Renderer, suspectMaths, type Facts, type Heading } from "./render.ts";
 import { sanitizeSvg } from "./svg.ts";
 
 /**
@@ -53,6 +53,10 @@ export interface Cover {
   motif: string;
 }
 
+/** The six diagram hues, as the stylesheet names them. */
+export const HUES = ["c1", "c2", "c3", "c4", "c5", "c6"] as const;
+export type Hue = (typeof HUES)[number];
+
 export interface CourseFront {
   slug: string;
   title: string;
@@ -62,6 +66,8 @@ export interface CourseFront {
   /** Position on its shelf. */
   order: number;
   cover: Cover;
+  /** The one hue this course uses for hostile, failing or wasted things; its pages draw it as the alert rose. */
+  alert?: Hue;
 }
 
 export interface LectureFront {
@@ -262,6 +268,12 @@ export function readCourse(
     "shelf",
     SHELVES.map((s) => s.id),
   );
+  const asked = r.data.alert;
+  let alert: Hue | undefined;
+  if (asked !== undefined) {
+    if (HUES.includes(asked as Hue)) alert = asked as Hue;
+    else r.issues.push(`course.md front matter: "alert" must be one of ${HUES.join(", ")}`);
+  }
   const front: CourseFront = {
     slug,
     title: r.text("title"),
@@ -270,6 +282,7 @@ export function readCourse(
     visibility: r.oneOf("visibility", VISIBILITIES),
     order: r.int("order"),
     cover: { color, accent, motif },
+    ...(alert ? { alert } : {}),
   };
   return r.issues.length > 0 ? { issues: r.issues } : { front, issues: [] };
 }
@@ -609,6 +622,7 @@ export async function buildLecture(
   parts.tail.push(referencesHtml(front));
   issues.push(...renderer.facts.issues);
   checkStructure(front, renderer.facts, counts, issues);
+  issues.push(...suspectMaths(split.body, split.bodyLine));
   if (issues.length > 0) fail(...issues);
 
   lecture.segments = [

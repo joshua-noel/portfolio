@@ -97,10 +97,12 @@ export default function init(figure) {
         `the wait is ${times(one.stall / p.stall)} times shorter, and the prompt is done after ${ms(p.total)}, ${later} percent later.`;
     });
     ui.say(
-      `A ${thousands(prompt)}-token prompt arrives while ${decoders} users are decoding. ` +
-        `As one pass it takes ${ms(one.stall)}, and the decoding users wait that long for their next token. ` +
-        `${parts.join(" ")} ` +
-        `Model from Lecture 1: a pass takes the larger of 8 ms and 0.0533 ms per token, with cache reads and attention arithmetic left out.`,
+      `As one pass, a ${thousands(prompt)}-token prompt makes the ${decoders} decoding users wait ${ms(one.stall)} for their next token. ` +
+        `With a budget of ${thousands(rows[1].budget)} they wait ${ms(rows[1].plan.stall)}, and with ${thousands(rows[2].budget)}, ${ms(rows[2].plan.stall)}.`,
+      [
+        `The users wait as long as the longest pass, because every pass carries one token for each of them. ${parts.join(" ")}`,
+        "Model from Lecture 1: a pass takes the larger of 8 ms (reading the weights) and 0.0533 ms per token. Cache reads and the arithmetic of attention are left out.",
+      ],
     );
   }
   ui.start();

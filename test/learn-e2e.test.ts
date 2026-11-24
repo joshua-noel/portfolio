@@ -871,8 +871,33 @@ test(
         assert.ok((await page.evaluate<number>(yaw)) > 0.99, `${where}: flat at rest`);
 
         // Hover pulls it out and turns its cover to the reader.
+        // What the page saw, kept so that a timeout below says what happened to the first hover.
+        await page.evaluate(`window.__seen = [];
+          for (const type of ['pointerover', 'pointerout', 'pointermove'])
+            document.addEventListener(type, (e) => window.__seen.push(type + ':' + (e.target.closest?.('li')?.dataset.slug ?? e.target.tagName) + '@' + Math.round(e.clientX) + ',' + Math.round(e.clientY)), true);
+          document.readyState`);
+        const explain = `JSON.stringify({
+          seen: window.__seen,
+          ready: document.readyState,
+          pulled: [...document.querySelectorAll('.book.is-pulled')].map((b) => b.dataset.slug),
+          sides: [...document.querySelectorAll('.book')].map((b) => b.dataset.slug + ':' + (b.dataset.side ?? '')),
+          hit: (() => { const r = document.querySelector('li[data-slug="c-public"] .hit').getBoundingClientRect(); return [r.left, r.top, r.width, r.height, scrollY, innerWidth, innerHeight]; })(),
+          transform: getComputedStyle(document.querySelector('li[data-slug="c-public"] .vol')).transform,
+          running: document.getAnimations().map((a) => a.playState + ':' + (a.transitionProperty ?? '')),
+          stylesheets: [...document.styleSheets].length,
+          focus: document.activeElement.tagName,
+        })`;
         await page.hover('li[data-slug="c-public"] .hit');
-        await page.waitFor(`${yaw} < 0.5`, `${where}: the book turns`);
+        // First what the page decides (the book is marked as pulled), which does not
+        // depend on how fast the browser can draw; then the turn itself, which a machine
+        // starved of CPU can take many seconds to draw.
+        await page.waitFor(
+          "document.querySelector('li[data-slug=\"c-public\"]').classList.contains('is-pulled')",
+          `${where}: the book is pulled`,
+          15000,
+          explain,
+        );
+        await page.waitFor(`${yaw} < 0.5`, `${where}: the book turns`, 30000, explain);
         // The books beside it step aside, and the one it turns is solid: pages show.
         assert.equal(
           await page.evaluate("document.querySelector('li[data-slug=\"c-members\"]').dataset.side"),
@@ -883,6 +908,19 @@ test(
           await page.evaluate("document.querySelector('li[data-slug=\"c-public\"]').dataset.side ?? ''"),
           "",
         );
+        // A book that stepped aside is where the pointer can find it: nothing
+        // (the next shelf included) lies over it. This used to depend on timing.
+        await page.settle();
+        for (const slug of ["c-members", "c-friends"]) {
+          assert.equal(
+            await page.evaluate(`(() => {
+              const r = document.querySelector('li[data-slug="${slug}"] .hit').getBoundingClientRect();
+              return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('li')?.dataset.slug;
+            })()`),
+            slug,
+            `${where}: ${slug} is not covered once it has stepped aside`,
+          );
+        }
         await page.moveAway();
         await page.waitFor(`${yaw} > 0.99`, `${where}: the book goes back`);
 

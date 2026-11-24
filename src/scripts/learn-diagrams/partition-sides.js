@@ -126,29 +126,45 @@ export default function init(figure) {
     shapes.push(label(360, 365, note, { size: 14, anchor: "middle", fill: "var(--muted)" }));
     redraw(svg, shapes);
 
-    ui.say(sentence(p, seat));
+    const [result, explanation] = sentence(p, seat);
+    ui.say(result, explanation);
   }
   ui.start();
 }
 
+/** The result in a sentence or two, and the reasoning behind it. */
 function sentence(p, seat) {
   const { n, w } = p;
   const rule = p.rule === "majority" ? `a majority quorum (W = ${w})` : `W = ${w}`;
-  const side = (s, name) => {
+  const because = (s, name) => {
     const kind = s.isMajority ? "a majority" : "a minority";
     return s.commits
       ? `The ${name} side has ${s.size} of ${n} replicas, ${kind}, and at least W = ${w}, so it can commit writes.`
       : `The ${name} side has ${s.size} of ${n} replicas, ${kind}, fewer than W = ${w}, so it must refuse writes.`;
   };
-  const out = [`${n} replicas with ${rule}.`];
   if (!p.cut) {
-    out.push(`Every replica is on one side, so there is no partition. That side holds all ${n} and commits.`);
-    return out.join(" ");
+    return [
+      `All ${n} replicas are on one side, so there is no partition and every write commits.`,
+      `${n} replicas with ${rule}: a write counts when ${w} of them have it, and one side holds all ${n}.`,
+    ];
   }
-  out.push(side(p.left, "left"), side(p.right, "right"));
-  if (p.both) out.push("Both sides accept writes, so when the link heals the system holds two conflicting histories.");
-  else if (p.neither) out.push("No side can commit, so every write is refused until the link heals. This follows from the rule; the lecture works only 3 replicas split 2 and 1.");
+  const verdict = (s) => (s.commits ? "can commit writes" : "must refuse them");
+  let outcome;
+  if (p.both) outcome = "Both sides accept writes, so the system ends up with two conflicting histories.";
+  else if (p.neither) outcome = "Neither side can commit, so every write is refused.";
+  else outcome = seat.refused ? `Of 100 buy attempts, ${seat.refused} get a refusal.` : "Of 100 buy attempts, none is refused.";
   const refusedText = seat.refused ? `${seat.refused} of 100 last-seat attempts get a refusal` : "no last-seat attempt is refused";
-  out.push(`With ${seat.toLeft} of 100 buy attempts reaching the left side and ${seat.toRight} the right: ${refusedText}${seat.heldTwice ? ", and both sides accept a hold on the same seat, so one seat is held twice" : ""}.`);
-  return out.join(" ");
+  return [
+    `The left side has ${p.left.size} of ${n} replicas and ${verdict(p.left)}; the right side has ${p.right.size} and ${verdict(p.right)}. ${outcome}`,
+    [
+      `${n} replicas with ${rule}. A side can commit a write only if it holds at least W replicas.`,
+      `${because(p.left, "left")} ${because(p.right, "right")}`,
+      p.both
+        ? "When the link heals, the two histories conflict."
+        : p.neither
+          ? "Every write is refused until the link heals. This follows from the rule; the lecture works only 3 replicas split 2 and 1."
+          : "",
+      `With ${seat.toLeft} of 100 buy attempts reaching the left side and ${seat.toRight} the right: ${refusedText}${seat.heldTwice ? ", and both sides accept a hold on the same seat, so one seat is held twice" : ""}.`,
+    ],
+  ];
 }

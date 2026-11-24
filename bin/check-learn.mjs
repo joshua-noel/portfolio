@@ -27,6 +27,7 @@ import { basename, delimiter, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadCatalog } from "../src/lib/learn/catalog.ts";
 import { readContentDirs } from "../src/lib/learn/disk.ts";
+import { interactiveProblems } from "../src/lib/learn/interactive.ts";
 import {
   buildLecture,
   LectureError,
@@ -92,6 +93,11 @@ for (const source of content.courses) {
         ? error.issues
         : [error instanceof Error ? error.message : String(error)];
     for (const text of issues) add(source.slug, "course.md", "error", text);
+  }
+
+  // Interactive diagrams: each module the site has for this course must be declared.
+  for (const text of interactiveProblems(source.slug, source.diagrams, resolve(source.dir) === resolve(sample) || resolve(source.dir).startsWith(resolve(sample)))) {
+    add(source.slug, "diagrams", "error", text);
   }
 
   const lectures = [];

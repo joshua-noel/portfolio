@@ -2,7 +2,7 @@
 // Part A: one pair of numbers rotated by position times 0.1 radian, both vectors
 // starting as (1, 0). `ropeScore` rotates each vector as the lecture's rotate()
 // does and takes the dot product. Drag a vector, or use the sliders.
-import { label, panel, svgEl } from "./controls.js";
+import { arrowhead, label, panel, svgEl } from "./controls.js";
 
 export const FREQ = 0.1; // radian per position, the lecture's example
 export const MAX_POS = 30; // keeps both arrows in the upper half of the circle
@@ -45,7 +45,7 @@ export default function init(figure) {
   const lock = ui.toggle({ label: "Move query and key of a circle together", checked: false });
   const box = get.a0.closest(".dg-controls");
   const hint = Object.assign(document.createElement("p"), { className: "dg-readout" });
-  hint.textContent = "Drag a coloured arrow, or use the sliders. One pair of numbers, 0.1 radian per position, query and key both start as (1, 0).";
+  hint.textContent = "Drag a colored arrow, or use the sliders. One pair of numbers, 0.1 radian per position, query and key both start as (1, 0).";
   svg.before(hint);
 
   // With "together" on, moving one slider moves its partner by the same step, so
@@ -80,7 +80,7 @@ export default function init(figure) {
   function draw() {
     const p = pos();
     for (const id of Object.keys(get)) last[id] = Number(get[id].value);
-    const shapes = [];
+    const shapes = [arrowhead("rope-ah-0", "var(--c1)"), arrowhead("rope-ah-1", "var(--c2)")];
     const scores = [];
     ["a", "b"].forEach((side, i) => {
       const cx = CX[i];
@@ -94,7 +94,7 @@ export default function init(figure) {
       // The higher tip carries its label above it, the other below, so they do not collide.
       const qAbove = qTip[1] <= kTip[1];
       const arrow = (id, name, pos2, point, colour, above, angle) => {
-        shapes.push(svgEl("line", { x1: cx, y1: CY, x2: point[0].toFixed(3), y2: point[1].toFixed(3), stroke: colour, "stroke-width": 3, "marker-end": "url(#ah)" }));
+        shapes.push(svgEl("line", { x1: cx, y1: CY, x2: point[0].toFixed(3), y2: point[1].toFixed(3), stroke: colour, "stroke-width": 3, "marker-end": `url(#rope-ah-${id[1]})` }));
         const left = Math.cos(angle) < -0.01;
         shapes.push(label(point[0] + (left ? -8 : 8), point[1] + (above ? -6 : 14), `${name} at ${pos2}`, {
           size: 14, anchor: left ? "end" : "start", fill: colour, weight: 600,
@@ -129,14 +129,19 @@ export default function init(figure) {
     }
     grabs.before(...shapes);
 
-    const part = (name, [m, n], r) =>
-      `${name}: the query at position ${m} is turned ${m} × 0.1 = ${f1(r.qAngle)} rad and the key at position ${n} is turned ${f1(r.kAngle)} rad, ` +
-      `so they are ${f1(r.between)} rad apart and the dot product of the two unit vectors is cos ${f1(r.between)} = ${f3(r.dot)}.`;
+    const gap = (pair) => Math.abs(pair[0] - pair[1]);
     ui.say(
-      `${part("Left circle", p.a, scores[0])} ${part("Right circle", p.b, scores[1])} ` +
-        (same
-          ? `Both pairs are ${Math.abs(p.a[0] - p.a[1])} positions apart, so the angle between and the score are the same.`
-          : `The pairs are ${Math.abs(p.a[0] - p.a[1])} and ${Math.abs(p.b[0] - p.b[1])} positions apart, so the scores differ.`),
+      `Left circle: the pair is ${gap(p.a)} positions apart, so the dot product is cos ${f1(scores[0].between)} = ${f3(scores[0].dot)}. ` +
+        `Right circle: ${gap(p.b)} positions apart, cos ${f1(scores[1].between)} = ${f3(scores[1].dot)}.`,
+      [
+        ...[["Left circle", p.a, scores[0]], ["Right circle", p.b, scores[1]]].map(
+          ([name, [m, n], r]) =>
+            `${name}: the query at position ${m} is turned ${m} × 0.1 = ${f1(r.qAngle)} rad and the key at position ${n} is turned ${f1(r.kAngle)} rad, so they are ${f1(r.between)} rad apart and the dot product of the two unit vectors is cos ${f1(r.between)} = ${f3(r.dot)}.`,
+        ),
+        same
+          ? `Both pairs are ${gap(p.a)} positions apart, so the angle between them and the score are the same.`
+          : `The pairs are ${gap(p.a)} and ${gap(p.b)} positions apart, so the scores differ.`,
+      ],
     );
   }
 

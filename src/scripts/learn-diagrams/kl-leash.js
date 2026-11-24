@@ -89,14 +89,16 @@ export default function init(figure) {
     const refWin = REF.indexOf(Math.max(...REF));
     const [e0, k0] = [REF.reduce((a, x, i) => a + x * REWARDS[i], 0), 0];
     ui.say(
-      `Lecture example: four answers with rewards ${REWARDS.map(signed).join(", ")} and a starting policy of ${REF.map((x) => pct(x)).join(", ")}. ` +
-        `With β = ${beta}, the tuned policy is ${p.map((x, i) => `${pct(x)} on answer ${i + 1}`).join(", ")}. ` +
-        `${win === refWin ? `Answer ${win + 1} is still the most likely, as at the start.` : `Answer ${win + 1} is now the most likely (answer ${refWin + 1} at the start).`} ` +
-        `Expected reward ${fixed2(expected)} (${fixed2(e0)} at the start), KL from the start ${fixed2(kl)} (${fixed2(k0)} at the start). ` +
-        (WORKED.includes(beta)
+      `With β = ${beta}, answer ${win + 1} is the most likely, at ${pct(p[win])}${win === refWin ? ", as at the start" : ` (answer ${refWin + 1} at the start)`}. ` +
+        `The expected reward is ${fixed2(expected)}, against ${fixed2(e0)} at the start.`,
+      [
+        `The lecture's example: four answers with rewards ${REWARDS.map(signed).join(", ")} and a starting policy of ${REF.map((x) => pct(x)).join(", ")}.`,
+        `With β = ${beta}, the tuned policy is ${p.map((x, i) => `${pct(x)} on answer ${i + 1}`).join(", ")}. Its KL from the start is ${fixed2(kl)} (${fixed2(k0)} at the start).`,
+        WORKED.includes(beta)
           ? "The lecture works this value of β."
-          : "The lecture works β = 10, 2, 0.5 and 0.1; this value uses the same formula and is not worked there.") +
-        (others.checked ? ` The lighter and darker bars stay at β = ${DEFAULTS.lighter} and β = ${DEFAULTS.darker}.` : ""),
+          : "The lecture works β = 10, 2, 0.5 and 0.1; this value uses the same formula and is not worked there.",
+        others.checked ? `The lighter and darker bars stay at β = ${DEFAULTS.lighter} and β = ${DEFAULTS.darker}.` : "",
+      ],
     );
   }
   ui.start();
