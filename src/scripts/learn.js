@@ -400,7 +400,9 @@ if (input && results) {
 
 // An interactive diagram is plain SVG that works as a picture; its module,
 // in ./learn-diagrams/<name>.js, is fetched only when the figure is near.
-const diagrams = import.meta.glob("./learn-diagrams/*.js");
+// `controls.js` is the modules' shared helper, not a diagram: leave it out, so
+// `data-interactive="controls"` finds nothing instead of throwing.
+const diagrams = import.meta.glob(["./learn-diagrams/*.js", "!./learn-diagrams/controls.js"]);
 const figures = document.querySelectorAll("figure[data-interactive]");
 
 if (figures.length > 0) {

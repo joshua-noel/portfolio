@@ -26,10 +26,13 @@ export function readContentDirs(roots: readonly string[]): Content {
  * Size limits, so one huge file cannot stall the process that serves every
  * host while it is parsed and rendered (a 52 MB lecture held the event loop
  * for minutes). Set from the real content, whose largest lecture is 40 KB and
- * largest diagram 43 KB, with a wide margin; a file over its limit is not
- * read, and the log line says which and by how much.
+ * largest diagram 43 KB, with a margin; a file over its limit is not
+ * read, and the log line says which and by how much. The lecture limit is
+ * the tight one: rendering runs on the main thread, and a lecture of one long
+ * paragraph of inline maths held every host for 31 s at 512 KiB and about
+ * 90 s at 1 MiB, against 1.7 s at 128 KiB (measured in the second sweep).
  */
-export const MAX_LECTURE_BYTES = 1024 * 1024;
+export const MAX_LECTURE_BYTES = 128 * 1024;
 export const MAX_DIAGRAM_BYTES = 512 * 1024;
 export const MAX_COURSE_BYTES = 256 * 1024;
 

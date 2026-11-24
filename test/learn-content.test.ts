@@ -193,6 +193,6 @@ test("a file over its size limit is not read, and the log line says so", () => {
   assert.match(text, /02-big\.md.*over the .*limit/is);
   assert.match(text, /02-big\.svg.*over the .*limit/is);
   assert.match(text, /beta.*course\.md.*over the .*limit/is);
-  // The limits are generous for real content (the largest real lecture is 40 KB, diagram 43 KB).
-  assert.ok(MAX_LECTURE_BYTES >= 40_000 * 10 && MAX_DIAGRAM_BYTES >= 43_000 * 10);
+  // Room for real content to grow (the largest real lecture is 40 KB, diagram 43 KB).
+  assert.ok(MAX_LECTURE_BYTES >= 40_000 * 3 && MAX_DIAGRAM_BYTES >= 43_000 * 10);
 });
