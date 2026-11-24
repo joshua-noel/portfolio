@@ -736,7 +736,8 @@ html[data-depth="deep"] [data-layer="abyss"] {
 }
 .prose p,
 .prose li {
-  max-width: 70ch;
+  /* About 68 characters a line in the serif body face (70ch measured 76). */
+  max-width: 64ch;
   text-wrap: pretty;
 }
 .prose .seg > * + * {
@@ -1741,17 +1742,85 @@ html[data-depth="tip"] .toc ol {
   }
 }
 
+/* A lecture prints on white in the light colors, whatever theme is on screen,
+   without the navigation or the controls, and with its links written out. */
 @media print {
+  :root,
+  :root[data-theme] {
+    color-scheme: light;
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --bg-sunken: #f2f0ea;
+    --line: rgba(28, 27, 31, 0.13);
+    --border: rgba(28, 27, 31, 0.34);
+    --fg: #1c1b1f;
+    --muted: #4d4c55;
+    --text-3: #62616b;
+    --accent: #b0431f;
+    --code-bg: #ffffff;
+    --d-tip: #0b6f64;
+    --d-waterline: #2450b4;
+    --d-deep: #5638c0;
+    --d-abyss: #85500a;
+    --c1: #b0431f;
+    --c2: #0b6f64;
+    --c3: #6a2fc0;
+    --c4: #1c63b8;
+    --c5: #85500a;
+    --c6: #33751b;
+    --alert: #b4235a;
+  }
+  :root[data-alert="c1"] {
+    --c1: var(--alert);
+  }
+  :root[data-alert="c2"] {
+    --c2: var(--alert);
+  }
+  :root[data-alert="c3"] {
+    --c3: var(--alert);
+  }
+  :root[data-alert="c4"] {
+    --c4: var(--alert);
+  }
+  :root[data-alert="c5"] {
+    --c5: var(--alert);
+  }
+  :root[data-alert="c6"] {
+    --c6: var(--alert);
+  }
+  body {
+    background: #fff;
+  }
+  .prose .shiki,
+  .prose .shiki span {
+    color: var(--shiki-light);
+  }
   .topbar,
   .sidenav,
   .toc,
   .depth,
+  .depth-switch,
+  .pager,
   .lecture-end,
-  .scrim {
+  .scrim,
+  .skip,
+  .dg-controls,
+  .dg-more {
     display: none !important;
   }
   .shell {
     display: block;
+  }
+  .prose a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+  .prose pre,
+  .prose figure,
+  .prose .table-wrap,
+  .prose details {
+    break-inside: avoid;
   }
 }
 
