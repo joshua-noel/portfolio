@@ -179,18 +179,23 @@ if (shelf) {
     }
   });
 
-  // The pointer: a mouse pulls a book out; a finger only opens it.
+  // The pointer: a mouse pulls a book out; a finger only opens it. A book that
+  // has stepped aside to make room is not pulled in its turn: it would slide
+  // out from under the pointer, and the click aimed at it would land on a gap.
+  // It stays where it is, under the pointer, until it is pressed, or until the
+  // pointer leaves the books altogether.
   shelf.addEventListener("pointerover", (event) => {
     if (event.pointerType === "touch" || open) return;
     const book = event.target.closest?.("[data-book]");
-    if (!book || !event.target.closest(".hit") || pulled === book) return;
+    if (!book || !event.target.closest(".hit") || pulled === book || book.dataset.side) return;
     pulled = book;
     layout();
   });
   shelf.addEventListener("pointerout", (event) => {
-    const book = event.target.closest?.("[data-book]");
-    if (!book || book.contains(event.relatedTarget)) return;
-    if (pulled === book && focused !== book) {
+    const to = event.relatedTarget instanceof Element ? event.relatedTarget : null;
+    if (to?.closest("[data-book]")) return; // the book it moves onto decides
+    if (!event.target.closest?.("[data-book]")) return;
+    if (pulled && pulled !== focused) {
       pulled = undefined;
       layout();
     }
@@ -348,9 +353,25 @@ if (shelf) {
     if (returnFocus) hitOf(book).focus();
   }
 
-  shelf.addEventListener("click", (event) => {
+  // A book may slide while it is pressed (its neighbours step aside as the
+  // pointer arrives). Press and release then land on different elements, and the
+  // browser sends the click to their common parent, not to the book. A click
+  // that ends close to where it began still belongs to the book that was pressed.
+  let pressed;
+  shelf.addEventListener("pointerdown", (event) => {
     const hit = event.target instanceof Element && event.target.closest(".hit");
+    pressed = hit ? { hit, x: event.clientX, y: event.clientY } : undefined;
+  });
+  /** The click events already acted on, so the click-away rule below skips them. */
+  const handled = new WeakSet();
+  shelf.addEventListener("click", (event) => {
+    let hit = event.target instanceof Element && event.target.closest(".hit");
+    if (!hit && pressed && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) < 24) {
+      hit = pressed.hit;
+    }
+    pressed = undefined;
     if (!hit) return;
+    handled.add(event);
     const book = hit.closest("[data-book]");
     if (open === book) closeBook(false);
     else openBook(book);
@@ -369,7 +390,7 @@ if (shelf) {
   });
   // Clicking away closes it; clicking a book, the panel or a pill does not.
   document.addEventListener("click", (event) => {
-    if (!open || !(event.target instanceof Element)) return;
+    if (!open || handled.has(event) || !(event.target instanceof Element)) return;
     if (!event.target.closest("[data-panel], .hit, [data-filters], .topbar"))
       closeBook(false);
   });

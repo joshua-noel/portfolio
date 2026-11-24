@@ -883,6 +883,19 @@ test(
           await page.evaluate("document.querySelector('li[data-slug=\"c-public\"]').dataset.side ?? ''"),
           "",
         );
+        // A book that stepped aside is where the pointer can find it: nothing
+        // (the next shelf included) lies over it. This used to depend on timing.
+        await page.settle();
+        for (const slug of ["c-members", "c-friends"]) {
+          assert.equal(
+            await page.evaluate(`(() => {
+              const r = document.querySelector('li[data-slug="${slug}"] .hit').getBoundingClientRect();
+              return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('li')?.dataset.slug;
+            })()`),
+            slug,
+            `${where}: ${slug} is not covered once it has stepped aside`,
+          );
+        }
         await page.moveAway();
         await page.waitFor(`${yaw} > 0.99`, `${where}: the book goes back`);
 

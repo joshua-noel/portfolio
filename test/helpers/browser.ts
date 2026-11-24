@@ -234,7 +234,31 @@ export class Page {
     return this.evaluate<string[]>("window.__violations ?? []");
   }
 
+  /**
+   * Waits until the page holds still: no transition or animation that will end
+   * is running, and the page has not scrolled for a moment. A pointer aimed at
+   * something that is still sliding or scrolling lands where it was, not where it is.
+   */
+  async settle(timeout = 8000): Promise<void> {
+    const deadline = Date.now() + timeout;
+    let lastY = Number.NaN;
+    let still = 0;
+    while (Date.now() < deadline) {
+      const state = await this.evaluate<{ moving: number; y: number }>(`(() => ({
+        moving: document.getAnimations().filter((a) => a.playState === "running" &&
+          a.effect?.getComputedTiming().iterations !== Infinity).length,
+        y: scrollY,
+      }))()`);
+      still = state.moving === 0 && state.y === lastY ? still + 1 : 0;
+      if (still >= 3) return;
+      lastY = state.y;
+      await sleep(50);
+    }
+    throw new Error("the page did not hold still");
+  }
+
   private async centre(selector: string): Promise<{ x: number; y: number }> {
+    await this.settle();
     const box = await this.evaluate<{ x: number; y: number } | null>(`(() => {
       const el = document.querySelector(${JSON.stringify(selector)});
       if (!el) return null;

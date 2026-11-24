@@ -859,10 +859,15 @@
   .js .hit {
     transition: perspective-origin 0.42s cubic-bezier(0.22, 0.9, 0.28, 1);
   }
+  /* A neighbour can step aside into the next shelf's box. That shelf comes
+     later in the page, so without a z-index of its own the book would be
+     covered by it, and a click aimed at the book would land on the shelf. */
   .js .book[data-side="before"] {
+    z-index: 1;
     transform: translateX(calc(var(--part) * -1));
   }
   .js .book[data-side="after"] {
+    z-index: 1;
     transform: translateX(var(--part));
   }
   .js .book.is-pulled {
