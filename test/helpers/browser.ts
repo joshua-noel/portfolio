@@ -219,14 +219,19 @@ export class Page {
     return result.result.value;
   }
 
-  /** Polls `expression` until it is truthy. */
-  async waitFor(expression: string, what: string, timeout = 8000): Promise<void> {
+  /**
+   * Polls `expression` until it is truthy. On a timeout, `explain` (an
+   * expression whose value is a string) is evaluated and added to the error, so
+   * a run that fails under load says what the page was doing.
+   */
+  async waitFor(expression: string, what: string, timeout = 8000, explain?: string): Promise<void> {
     const deadline = Date.now() + timeout;
     while (Date.now() < deadline) {
       if (await this.evaluate<boolean>(`Boolean(${expression})`)) return;
       await sleep(50);
     }
-    throw new Error(`timed out waiting for ${what}`);
+    const detail = explain ? `\n${await this.evaluate<string>(explain).catch((e) => String(e))}` : "";
+    throw new Error(`timed out waiting for ${what}${detail}`);
   }
 
   /** The Content-Security-Policy violations the page has reported, as the browser saw them. */

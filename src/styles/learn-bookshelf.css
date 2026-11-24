@@ -840,15 +840,17 @@
    .is-open, and data-side="before" or "after" on the others. */
 @media (prefers-reduced-motion: no-preference) {
   .js .book {
-    /* Slid out and turned a little past square, centred where it stood. */
+    /* Slid out and turned a little past square, centred where it stood, and
+       lifted so that its lower edge clears the board: the name of the shelf is
+       lettered on the board, and stays readable. */
     --out: translate3d(
         calc((var(--b-d) * 0.985 + var(--t) * 1.17) * -0.5),
-        -0.55rem,
+        -3.2rem,
         5.5rem
       )
       rotateX(-5deg) rotateY(-100deg);
     /* Opened: nearer, and almost square to the reader. */
-    --open: translate3d(calc((var(--b-d) * 0.995 + var(--t) * 1.1) * -0.5), -0.8rem, 8rem)
+    --open: translate3d(calc((var(--b-d) * 0.995 + var(--t) * 1.1) * -0.5), -4rem, 8rem)
       rotateX(-4deg) rotateY(-96deg);
     transition: transform 0.42s cubic-bezier(0.22, 0.9, 0.28, 1);
   }
@@ -878,7 +880,7 @@
   }
   .js .book.is-pulled .hit,
   .js .book.is-open .hit {
-    perspective-origin: calc(100% + var(--b-d) * 1.6) -60%;
+    perspective-origin: calc(100% + var(--b-d) * 1.6) -30%;
   }
   .js .book.is-open {
     z-index: 5;
@@ -953,7 +955,8 @@
     --plank: 2.7rem;
     display: flex;
     align-items: flex-end;
-    width: fit-content;
+    width: 100%;
+    justify-content: center;
     max-width: 100%;
     margin-top: 2.25rem;
     /* Room at both ends for the books to slide when one is pulled out. */
