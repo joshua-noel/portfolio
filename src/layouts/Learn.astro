@@ -1,5 +1,6 @@
 ---
 import "katex/dist/katex.min.css";
+import initScript from "../scripts/learn-init.js?url";
 import "../styles/learn.css";
 import LearnNav from "../components/learn/LearnNav.astro";
 import LearnTopbar from "../components/learn/LearnTopbar.astro";
@@ -40,7 +41,7 @@ const here = Astro.locals.here ?? {
   search: Astro.url.search,
 };
 const viewer = Astro.locals.viewer;
-const catalog = await getCatalogFor(viewer?.role);
+const catalog = await getCatalogFor(viewer?.role, Astro.locals.allowLocal);
 const query = linkDepth ? `?depth=${linkDepth}` : "";
 ---
 
@@ -51,24 +52,9 @@ const query = linkDepth ? `?depth=${linkDepth}` : "";
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
     <!-- Before first paint, so there is no flash: the theme, and the depth the
-         reader last chose when the URL does not name one. -->
-    <script is:inline>
-      (function () {
-        var root = document.documentElement;
-        root.classList.add("js");
-        try {
-          var theme = localStorage.getItem("learn-theme");
-          if (theme === "light" || theme === "dark") root.dataset.theme = theme;
-          if (root.dataset.depth) {
-            var asked = /[?&]depth=(tip|waterline|deep|abyss)(?:&|$)/.exec(
-              location.search,
-            );
-            var depth = asked ? asked[1] : localStorage.getItem("learn-depth");
-            if (/^(tip|waterline|deep|abyss)$/.test(depth)) root.dataset.depth = depth;
-          }
-        } catch (error) {}
-      })();
-    </script>
+         reader last chose when the URL does not name one. A file, because the
+         Content-Security-Policy allows no inline script. -->
+    <script is:inline src={initScript}></script>
     <title>{title}</title>
     <meta name="description" content={description} />
     {canonical && <link rel="canonical" href={canonical} />}
@@ -88,6 +74,18 @@ const query = linkDepth ? `?depth=${linkDepth}` : "";
       viewer={viewer}
       next={here.pathname + here.search}
     />
+    {
+      catalog.problems.length > 0 && (
+        <details class="load-notice" open>
+          <summary>
+            {catalog.problems.length} problem{catalog.problems.length === 1 ? "" : "s"} in
+            the lecture files: what could not be loaded is left out, and everything else is
+            still served.
+          </summary>
+          <pre>{catalog.problems.join("\n\n")}</pre>
+        </details>
+      )
+    }
     <div class:list={["shell", layout === "plain" && "plain"]}>
       {
         layout === "reading" && (

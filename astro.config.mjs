@@ -22,8 +22,13 @@ export default defineConfig({
   // clientAddress from the client-chosen X-Forwarded-For. The reserved
   // .invalid name matches nothing, so the Host header and the socket peer
   // stand; the hostnames are runtime configuration the middleware checks.
+  //
+  // checkOrigin is off because src/middleware.ts does the same check itself:
+  // Astro's runs before any middleware, so its 403 could not carry the
+  // lecture host's security headers.
   security: {
     allowedDomains: [{ protocol: "https", hostname: "forwarded-host.invalid" }],
+    checkOrigin: false,
   },
   // Both hostnames are served by this one process; canonical URLs are built
   // from PORTFOLIO_SITE_URL / PORTFOLIO_BLOG_URL at runtime instead.

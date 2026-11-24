@@ -8,7 +8,7 @@ import { minutesAt } from "../../../lib/learn/lecture.ts";
 import { whyLocked } from "../../../lib/access.ts";
 
 const { learnUrl } = getConfig();
-const catalog = await getCatalogFor(Astro.locals.viewer?.role);
+const catalog = await getCatalogFor(Astro.locals.viewer?.role, Astro.locals.allowLocal);
 const course = findCourse(catalog, Astro.params.course);
 if (!course) Astro.response.status = 404;
 ---

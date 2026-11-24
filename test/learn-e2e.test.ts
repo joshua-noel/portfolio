@@ -1,9 +1,17 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { hashPassword } from "../src/lib/password.ts";
 import {
   ROOT,
   OWNER,
@@ -13,8 +21,10 @@ import {
   type Server,
 } from "./helpers/server.ts";
 import {
+  DIAGRAM,
   SECRET,
   VISIBILITIES,
+  lectureMarkdown,
   visibilityLibrary,
   writeLibrary,
   type Visibility,
@@ -33,13 +43,14 @@ if (process.env.PORTFOLIO_SKIP_E2E) process.exit(0);
 const LEARN = "https://learn.test";
 const BLOG = "https://blog.test";
 const PASSWORD = "correct horse battery";
+// The test server answers as https (X-Forwarded-Proto), so the cookie has the __Host- name.
+const COOKIE = "__Host-learn_session";
 
 const library = mkdtempSync(join(tmpdir(), "portfolio-library-"));
 writeLibrary(library, visibilityLibrary());
 
 let out: string;
 let server: Server;
-let server2: Server;
 
 /** Cookie for each kind of reader. */
 const sessions: Record<string, string> = {};
@@ -70,7 +81,7 @@ async function signInAs(
     headers: { ...freshIp(), ...extra },
   });
   const pair =
-    res.cookies.find((c) => c.startsWith("learn_session="))?.split(";")[0] ?? "";
+    res.cookies.find((c) => c.startsWith(COOKIE + "="))?.split(";")[0] ?? "";
   return { cookie: pair, res };
 }
 
@@ -92,12 +103,6 @@ before(async () => {
       .status,
     0,
   );
-  // A second server on the owner's-own-machine switch, for the local lecture.
-  server2 = await start({
-    out,
-    contentDirs: [library],
-    env: { PORTFOLIO_LEARN_ALLOW_LOCAL: "1" },
-  });
 
   sessions.visitor = "";
   for (const [role, name] of Object.entries(ACCOUNTS))
@@ -106,7 +111,6 @@ before(async () => {
 
 after(async () => {
   await server?.stop();
-  await server2?.stop();
 });
 
 test("every role against every visibility, on every kind of route", async () => {
@@ -294,33 +298,56 @@ test("a local lecture is not served by a server, and the switch for it is the ow
       if (!path.startsWith("/search")) assert.equal(res.status, 404, path);
     }
   }
-  // On, on the owner's own loopback instance: served, and it said so loudly.
-  const res = await server2.request("learn", "GET", "/c-local/l-local");
-  assert.equal(res.status, 200);
-  assert.ok(res.text.includes(SECRET.local));
-  assert.match(server2.stderr(), /PORTFOLIO_LEARN_ALLOW_LOCAL=1/);
-  // And a server that could be reached by others refuses to start with it.
-  const refused = spawnSync(process.execPath, [join(ROOT, "bin", "serve.mjs")], {
-    env: {
-      ...process.env,
-      PORTFOLIO_SITE_URL: "http://a",
-      PORTFOLIO_BLOG_URL: "http://b",
-      PORTFOLIO_LEARN_URL: "http://c",
-      PORTFOLIO_ADMIN_PASSWORD_HASH: "x",
+  // The switch is the owner's own machine's, under the dev server, and no
+  // setting makes the built server serve it. Each of these is a server somebody
+  // might run: behind a same-host proxy on a real hostname (every request then
+  // arrives from loopback with no forwarded headers), with a localhost URL, and
+  // started directly the way the review described. None may serve a local lecture.
+  const refusals: Record<string, string>[] = [
+    { PORTFOLIO_LEARN_ALLOW_LOCAL: "1" },
+    {
       PORTFOLIO_LEARN_ALLOW_LOCAL: "1",
-      PORTFOLIO_HOST: "0.0.0.0",
+      PORTFOLIO_LEARN_URL: "http://learn.localhost:4321",
     },
-    encoding: "utf8",
-  });
-  assert.equal(refused.status, 78);
-  assert.match(refused.stderr, /refuses to run on 0\.0\.0\.0/);
+    { PORTFOLIO_LEARN_ALLOW_LOCAL: "1", HOST: "127.0.0.1", PORTFOLIO_HOST: "127.0.0.1" },
+  ];
+  for (const env of refusals) {
+    const refusing = await start({ out, contentDirs: [library], env, anyAnswer: true });
+    try {
+      for (const path of ["/c-local/l-local", "/", "/healthz"]) {
+        const res = await refusing.request("learn", "GET", path);
+        assert.ok(!res.text.includes(SECRET.local), `${path} with ${JSON.stringify(env)}`);
+        assert.notEqual(res.status, 200, `${path} with ${JSON.stringify(env)}`);
+      }
+      assert.match(refusing.stderr(), /PORTFOLIO_LEARN_ALLOW_LOCAL=1 serves local lectures/);
+    } finally {
+      await refusing.stop();
+    }
+  }
+  // The launcher refuses outright, whatever it would listen on.
+  for (const host of ["0.0.0.0", "127.0.0.1"]) {
+    const refused = spawnSync(process.execPath, [join(ROOT, "bin", "serve.mjs")], {
+      env: {
+        ...process.env,
+        PORTFOLIO_SITE_URL: "http://a",
+        PORTFOLIO_BLOG_URL: "http://b",
+        PORTFOLIO_LEARN_URL: "http://learn.localhost",
+        PORTFOLIO_ADMIN_PASSWORD_HASH: "x",
+        PORTFOLIO_LEARN_ALLOW_LOCAL: "1",
+        PORTFOLIO_HOST: host,
+      },
+      encoding: "utf8",
+    });
+    assert.equal(refused.status, 78, host);
+    assert.match(refused.stderr, /refused by the production server/);
+  }
 });
 
 test("the cookie belongs to the lecture host, and is HttpOnly, Secure and SameSite=Lax", async () => {
   const { res, cookie } = await signInAs(ACCOUNTS.friend, PASSWORD);
   assert.equal(res.status, 303);
-  assert.ok(cookie.startsWith("learn_session="));
-  const header = res.cookies.find((c) => c.startsWith("learn_session="))!;
+  assert.ok(cookie.startsWith(`${COOKIE}=`));
+  const header = res.cookies.find((c) => c.startsWith(`${COOKIE}=`))!;
   assert.match(header, /; HttpOnly/i);
   assert.match(header, /; Secure/i);
   assert.match(header, /; SameSite=Lax/i);
@@ -333,10 +360,45 @@ test("the cookie belongs to the lecture host, and is HttpOnly, Secure and SameSi
   );
 });
 
+test("a cookie planted under the plain name is not a session on https (cookie tossing)", async () => {
+  const token = sessions.admin!.split("=")[1]!;
+  // The right token, in the cookie a script on another host could set with Domain=.
+  const planted = await server.request("learn", "GET", "/c-friends/l-friends", {
+    cookie: `learn_session=${token}`,
+  });
+  assert.equal(planted.status, 403);
+  assert.ok(!planted.text.includes(SECRET.friends));
+  // The same token under the __Host- name is the session it is.
+  const real = await server.request("learn", "GET", "/c-friends/l-friends", {
+    cookie: `${COOKIE}=${token}`,
+  });
+  assert.equal(real.status, 200);
+  // On plain http (local development) the plain name is the one, and the other is not.
+  const http = { "x-forwarded-proto": "http" };
+  assert.equal(
+    (
+      await server.request("learn", "GET", "/c-friends/l-friends", {
+        cookie: `learn_session=${token}`,
+        headers: http,
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await server.request("learn", "GET", "/c-friends/l-friends", {
+        cookie: `${COOKIE}=${token}`,
+        headers: http,
+      })
+    ).status,
+    403,
+  );
+});
+
 test("a friend or member session is worthless on the blog's admin and API", async () => {
   for (const role of ["member", "friend", "admin"]) {
     const token = sessions[role]!.split("=")[1]!;
-    for (const name of ["portfolio_session", "learn_session"]) {
+    for (const name of ["portfolio_session", COOKIE, "learn_session"]) {
       const cookie = `${name}=${token}`;
       const admin = await server.request("blog", "GET", "/admin", { cookie });
       assert.equal(admin.status, 303, `${role} ${name}: admin page`);
@@ -472,9 +534,12 @@ test("signing out deletes the session on the server, so a copied cookie is dead 
   });
   assert.equal(out.status, 303);
   assert.match(
-    out.cookies.find((c) => c.startsWith("learn_session="))!,
-    /learn_session=;|Max-Age=0|Expires=Thu, 01 Jan 1970/i,
+    out.cookies.find((c) => c.startsWith(`${COOKIE}=`))!,
+    /Max-Age=0|Expires=Thu, 01 Jan 1970/i,
   );
+  // Both names are cleared, and the __Host- one is still Secure, or a browser would ignore the clearing.
+  assert.match(out.cookies.find((c) => c.startsWith(`${COOKIE}=`))!, /; Secure/i);
+  assert.ok(out.cookies.some((c) => c.startsWith("learn_session=")), "the plain name is cleared too");
   assert.equal(
     (await server.request("learn", "GET", "/c-members/l-members", { cookie })).status,
     403,
@@ -580,7 +645,7 @@ test("sign-in rotates the session: the cookie sent with it is dead afterwards", 
     headers: freshIp(),
   });
   const fresh = rotated.cookies
-    .find((c) => c.startsWith("learn_session="))!
+    .find((c) => c.startsWith(`${COOKIE}=`))!
     .split(";")[0]!;
   assert.notEqual(fresh, first.cookie);
   assert.equal(
@@ -610,7 +675,7 @@ test("sign-in rotates the session: the cookie sent with it is dead afterwards", 
   assert.equal(
     (
       await server.request("learn", "GET", "/c-members/l-members", {
-        cookie: "learn_session=attacker-chosen",
+        cookie: `${COOKIE}=attacker-chosen`,
       })
     ).status,
     403,
@@ -716,6 +781,17 @@ test("the user command: what it accepts and refuses", () => {
     }).stderr,
     /environment admin's name/,
   );
+  // The owner's shell does not have the service's variable: the default name is refused too.
+  const unset = u(["add", "admin", "--role", "friend"], PASSWORD, {
+    PORTFOLIO_ADMIN_USERNAME: "",
+  });
+  assert.equal(unset.status, 1);
+  assert.match(unset.stderr, /environment admin's name/);
+  assert.match(
+    u(["add", "ADMIN", "--role", "friend"], PASSWORD, { PORTFOLIO_ADMIN_USERNAME: "" })
+      .stderr,
+    /environment admin's name/,
+  );
   assert.match(u(["disable", "nobody"]).stderr, /no account called "nobody"/);
   assert.equal(u(["frobnicate"]).status, 2);
   const list = u(["list"]);
@@ -759,4 +835,444 @@ test("the build output holds no non-public text, and no lecture at all", () => {
     [],
     "the library was configured at build time; none of it may be in the output",
   );
+});
+
+// ---------------------------------------------------------------------------
+// Headers on every response of the lecture host
+
+const LEARN_CSP =
+  "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; " +
+  "img-src 'self' data:; media-src 'self'; font-src 'self' data:; frame-ancestors 'none'; " +
+  "base-uri 'none'; object-src 'none'; form-action 'self'";
+
+function assertSealed(res: Response, where: string): void {
+  const h = (name: string): string => String(res.headers[name] ?? "");
+  assert.equal(h("x-content-type-options"), "nosniff", `${where}: nosniff`);
+  assert.equal(h("content-security-policy"), LEARN_CSP, `${where}: CSP`);
+  assert.equal(h("x-frame-options"), "DENY", `${where}: framing`);
+  assert.match(h("vary"), /(^|,\s*)Cookie(\s*,|$)/i, `${where}: Vary`);
+  // A page is private; public media says its own (public, max-age) and is the same for everyone.
+  assert.match(h("cache-control"), /private|no-store|^public, max-age=\d+$/, `${where}: cache-control`);
+  assert.match(h("referrer-policy"), /strict-origin/, `${where}: referrer`);
+  assert.match(h("strict-transport-security"), /max-age=/, `${where}: HSTS on https`);
+}
+
+test("every kind of response on the lecture host carries the same headers", async () => {
+  const cookie = sessions.friend;
+  const kinds: [string, string, string, Parameters<Server["request"]>[3]?][] = [
+    ["page 200", "GET", "/c-public/l-public"],
+    ["home", "GET", "/"],
+    ["course", "GET", "/c-public"],
+    ["locked page 403", "GET", "/c-friends/l-friends"],
+    ["unknown lecture 404", "GET", "/c-public/nope"],
+    ["local lecture 404", "GET", "/c-local/l-local", { cookie }],
+    ["unknown path 404", "GET", "/no/such/page/at/all"],
+    ["api 404", "GET", "/api/posts"],
+    ["api POST 404", "POST", "/api/login", { origin: LEARN }],
+    ["bad origin 403", "POST", "/signin", { form: { username: "a", password: "b" } }],
+    ["bad origin on sign-out", "POST", "/signout", { origin: "https://evil.test" }],
+    ["/learn prefix 301", "GET", "/learn/c-public/l-public"],
+    ["/admin redirect 301", "GET", "/admin"],
+    ["/blog prefix 301", "GET", "/blog/x"],
+    ["sign-in form", "GET", "/signin"],
+    ["sign-in redirect 303", "POST", "/signin", {
+      form: { username: "nobody", password: "x", next: "/" },
+      origin: LEARN,
+      headers: freshIp(),
+    }],
+    ["sign-out redirect", "POST", "/signout", { origin: LEARN }],
+    ["search json", "GET", "/search.json?q=idea"],
+    ["search page", "GET", "/search?q=idea"],
+    ["media 200", "GET", "/media/c-public/01-l-public.mp4"],
+    ["media 206", "GET", "/media/c-public/01-l-public.mp4", { headers: { range: "bytes=0-3" } }],
+    ["media 404", "GET", "/media/c-friends/01-l-friends.mp4"],
+    ["media bad name", "GET", "/media/c-public/..%2f..%2fcourse.md"],
+    ["HEAD page", "HEAD", "/c-public/l-public"],
+    ["HEAD locked", "HEAD", "/c-friends/l-friends"],
+    ["with an unknown cookie", "GET", "/", { cookie: `${COOKIE}=junk` }],
+  ];
+  for (const [label, method, path, options] of kinds) {
+    const res = await server.request("learn", method, path, options);
+    assertSealed(res, `${label} (${res.status})`);
+  }
+  // The main site and the blog do not get the lecture host's policy.
+  const site = await server.request("site", "GET", "/healthz");
+  assert.equal(site.headers["content-security-policy"], undefined);
+  assert.equal(site.headers["x-content-type-options"], "nosniff");
+  const blog = await server.request("blog", "GET", "/");
+  assert.equal(blog.headers["content-security-policy"], undefined);
+});
+
+test("a crash on the lecture host is a bare 500 with the same headers", async () => {
+  // A database that cannot be opened: the first request with a session cookie fails inside the middleware.
+  const broken = mkdtempSync(join(tmpdir(), "portfolio-dbdir-"));
+  const crashing = await start({
+    out,
+    contentDirs: [library],
+    env: { PORTFOLIO_DB_PATH: broken },
+    anyAnswer: true,
+  });
+  try {
+    const res = await crashing.request("learn", "GET", "/c-public/l-public", {
+      cookie: `${COOKIE}=whatever`,
+    });
+    assert.equal(res.status, 500);
+    assertSealed(res, "500");
+    assert.equal(res.text, "Internal Server Error", "nothing of the failure is shown");
+    assert.ok(!/at |sqlite|unable to open/i.test(res.text));
+  } finally {
+    await crashing.stop();
+  }
+});
+
+test("hosts that are not exactly the lecture host get the main site, never lecture pages", async () => {
+  const cookie = sessions.admin;
+  for (const host of [
+    "LEARN.TEST",
+    "Learn.Test",
+    "learn.test.",
+    "learn.test:443",
+    "learn.test:80",
+    "learn.test:4321",
+    "learn.test%2f",
+    "learn.test.evil.test",
+    "xlearn.test",
+  ]) {
+    for (const path of ["/c-public/l-public", "/c-members/l-members", "/signin"]) {
+      const res = await server.request("learn", "GET", path, { cookie, headers: { host } });
+      assert.ok(!res.text.includes(SECRET.public), `${host} ${path}: lecture text`);
+      assert.ok(!res.text.includes(SECRET.members), `${host} ${path}: lecture text`);
+      assert.equal(res.headers["content-security-policy"], undefined, `${host} ${path}: not the lecture host`);
+      // (A host Astro cannot parse gets the main site's home page, which holds no lecture.)
+      assert.ok([200, 301, 400, 404].includes(res.status), `${host} ${path}: ${res.status}`);
+    }
+  }
+  // A forwarded host does not make a request the lecture host's.
+  for (const name of ["x-forwarded-host", "forwarded"]) {
+    const res = await server.request("site", "GET", "/c-public/l-public", {
+      headers: { [name]: name === "forwarded" ? "host=learn.test" : "learn.test" },
+    });
+    assert.ok(!res.text.includes(SECRET.public), name);
+    assert.equal(res.status, 404, name);
+  }
+});
+
+test("encoded and doubled slashes reach the same checks, not a way round them", async () => {
+  const visitor = [
+    "//c-members/l-members",
+    "/c-members//l-members",
+    "/%63-members/l-members",
+    "/c-members/%6c-members",
+    "/c-members/l-members/",
+    "/c-members/l-members?x=1#y",
+    "/c-members/l-members%00",
+    "/c-members/./l-members",
+    "/c-public/../c-members/l-members",
+    "/c-public/%2e%2e/c-members/l-members",
+    "/C-members/l-members",
+    "/media/c-members/01-l-members.mp4",
+    "//media/c-members/01-l-members.mp4",
+    "/media/c-members/01-l-members.mp4/",
+    "/media/c-members/%30%31-l-members.mp4",
+    "/media/c-members/..%2f01-l-members.mp4",
+    "/media/c-public/..%2fc-members%2f01-l-members.mp4",
+    "/media/c-public/%2e%2e/c-members/01-l-members.mp4",
+    "/search.json?q=" + SECRET.members,
+    "//search.json?q=" + SECRET.members,
+  ];
+  for (const path of visitor) {
+    const res = await server.request("learn", "GET", path);
+    assert.ok(!res.text.includes(SECRET.members), `${path}: members canary for a visitor`);
+    assert.ok([200, 301, 308, 400, 403, 404].includes(res.status), `${path}: ${res.status}`);
+    if (res.status === 200) assertSealed(res, path);
+  }
+  // Nothing reaches the API, the admin or a local lecture by spelling it differently.
+  const cookie = sessions.admin;
+  for (const path of [
+    "/%61pi/posts",
+    "//api/posts",
+    "/api//posts",
+    "/%2561pi/posts",
+    "/%61dmin",
+    "//admin",
+    "/c-local/l-local",
+    "/c%2dlocal/l-local",
+    "//c-local/l-local",
+    "/c-local//l-local",
+    "/%63-local/%6c-local",
+    "/media/c-local/01-l-local.mp4",
+    "/media/c-local/%30%31-l-local.mp4",
+  ]) {
+    for (const cookieHeader of [undefined, cookie]) {
+      const res = await server.request("learn", "GET", path, { cookie: cookieHeader });
+      assert.ok(!res.text.includes(SECRET.local), `${path}: local canary`);
+      assert.ok(!/<title>Admin|admin-shell/i.test(res.text), `${path}: admin page`);
+      assert.ok([301, 308, 400, 403, 404].includes(res.status), `${path}: ${res.status}`);
+    }
+  }
+});
+
+test("HEAD answers like GET without a body, and gives nothing GET would not", async () => {
+  const cases: [string, string | undefined, number][] = [
+    ["/c-public/l-public", undefined, 200],
+    ["/c-members/l-members", undefined, 403],
+    ["/c-members/l-members", sessions.member, 200],
+    ["/c-friends/l-friends", sessions.member, 403],
+    ["/c-local/l-local", sessions.admin, 404],
+    ["/media/c-members/01-l-members.mp4", undefined, 404],
+    ["/media/c-members/01-l-members.mp4", sessions.member, 200],
+    ["/media/c-local/01-l-local.mp4", sessions.admin, 404],
+    ["/search.json?q=" + SECRET.members, undefined, 200],
+  ];
+  for (const [path, cookie, status] of cases) {
+    const get = await server.request("learn", "GET", path, { cookie });
+    const head = await server.request("learn", "HEAD", path, { cookie });
+    assert.equal(get.status, status, `GET ${path}`);
+    assert.equal(head.status, status, `HEAD ${path}`);
+    assert.equal(head.text, "", `HEAD ${path}: no body`);
+    assertSealed(head, `HEAD ${path}`);
+    for (const secret of Object.values(SECRET)) {
+      assert.ok(!JSON.stringify(head.headers).includes(secret), `HEAD ${path}: ${secret}`);
+    }
+  }
+  // Other methods are not a way in either.
+  for (const method of ["OPTIONS", "PUT", "DELETE", "PATCH"]) {
+    const res = await server.request("learn", method, "/c-members/l-members", {
+      origin: LEARN,
+    });
+    assert.ok(!res.text.includes(SECRET.members), method);
+    assert.notEqual(res.status, 200, method);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Throttling and the client address
+
+const wrong = (ip: string, name = "nobody") =>
+  server.request("learn", "POST", "/signin", {
+    form: { username: name, password: "wrong", next: "/" },
+    origin: LEARN,
+    headers: { "x-forwarded-for": ip },
+  });
+
+const signInFrom = (ip: string, name: string, password = PASSWORD) =>
+  server.request("learn", "POST", "/signin", {
+    form: { username: name, password, next: "/" },
+    origin: LEARN,
+    headers: { "x-forwarded-for": ip },
+  });
+
+test("failures from other addresses cannot lock a user out: a correct password from a clean address is never refused", async () => {
+  server.user(["add", "victim", "--role", "friend"], { password: PASSWORD });
+  for (const name of ["victim", OWNER.username]) {
+    // An attacker with many addresses, five wrong passwords each.
+    for (let a = 1; a <= 12; a++) {
+      for (let i = 0; i < 5; i++) await wrong(`203.0.113.${a}`, name);
+    }
+    const attacker = await signInFrom("203.0.113.1", name, name === "victim" ? PASSWORD : OWNER.password);
+    assert.match(String(attacker.headers.location), /locked/, `${name}: the attacker's own address`);
+    const owner = await signInFrom("198.51.100.250", name, name === "victim" ? PASSWORD : OWNER.password);
+    assert.ok(owner.cookies.some((c) => c.startsWith(`${COOKIE}=`)), `${name}: signed in from a clean address`);
+    assert.doesNotMatch(String(owner.headers.location), /locked|failed/);
+  }
+});
+
+test("an IPv6 client is throttled as a /64, not as one of 2^64 addresses", async () => {
+  for (let i = 1; i <= 5; i++) await wrong(`2001:db8:aaaa:bbbb:${i}::${i}`);
+  // Another address of the same /64: locked, though it never failed.
+  const same = await signInFrom("2001:db8:aaaa:bbbb:ffff:ffff:ffff:ffff", ACCOUNTS.friend);
+  assert.match(String(same.headers.location), /locked/);
+  // A neighbouring /64 is a different client.
+  const other = await signInFrom("2001:db8:aaaa:cccc::1", ACCOUNTS.friend);
+  assert.ok(other.cookies.some((c) => c.startsWith(`${COOKIE}=`)));
+});
+
+test("how many proxy hops are trusted is a setting: two hops read the second entry from the right, zero ignores the header", async () => {
+  const two = await start({ out, contentDirs: [library], env: { PORTFOLIO_TRUSTED_PROXY_HOPS: "2" } });
+  const zero = await start({ out, contentDirs: [library], env: { PORTFOLIO_TRUSTED_PROXY_HOPS: "0" } });
+  try {
+    const attempt = (s: Server, forwarded: string) =>
+      s.request("learn", "POST", "/signin", {
+        form: { username: "nobody", password: "wrong", next: "/" },
+        origin: LEARN,
+        headers: { "x-forwarded-for": forwarded },
+      });
+    // Two hops: the client is the second from the right. Whatever the client puts at the left is its own forgery.
+    for (let i = 0; i < 5; i++) await attempt(two, `10.9.9.${i}, 203.0.113.5, 192.0.2.1`);
+    const locked = await attempt(two, "10.7.7.7, 203.0.113.5, 192.0.2.1");
+    assert.match(String(locked.headers.location), /locked/, "same client, rotating forgeries");
+    const other = await attempt(two, "10.7.7.7, 203.0.113.6, 192.0.2.1");
+    assert.match(String(other.headers.location), /failed/, "another client behind the same proxies");
+    // Zero hops: the header means nothing, so rotating it does not help, and nobody is locked by it either.
+    for (let i = 0; i < 5; i++) await attempt(zero, `198.51.100.${i}`);
+    const shared = await attempt(zero, "198.51.100.200");
+    assert.match(String(shared.headers.location), /locked/, "all of it came from the one peer");
+  } finally {
+    await two.stop();
+    await zero.stop();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Content that is not to be trusted, and content that is broken
+
+const library2 = mkdtempSync(join(tmpdir(), "portfolio-library2-"));
+const HOSTILE_HTML =
+  '<script>window.pwned=1</script><img src="x" onerror="window.pwned=2">' +
+  '<a href="javascript:window.pwned=3">click</a><iframe src="https://evil.test"></iframe>' +
+  '<p style="position:fixed;inset:0" onclick="window.pwned=4">overlay</p>' +
+  "<details open ontoggle=\"window.pwned=5\"><summary>Fine</summary>kept</details>";
+
+function hostileLibrary(): void {
+  writeLibrary(library2, visibilityLibrary().slice(0, 2));
+  const dir = join(library2, "c-public");
+  const lecture = (order: number, slug: string, secret: string): string =>
+    lectureMarkdown("c-public", { order, slug, title: `Lecture ${slug}`, visibility: "public", secret });
+  // Raw HTML that tries everything, in a lecture that is otherwise valid.
+  writeFileSync(
+    join(dir, "02-hostile.md"),
+    lecture(2, "hostile", "CANARYHOSTILEQQ").replace("Body ", `${HOSTILE_HTML}\n\nBody `),
+  );
+  writeFileSync(join(dir, "02-hostile.mp4"), "VIDEO");
+  // A diagram with a script in it: the lecture is left out, the rest is served.
+  mkdirSync(join(dir, "diagrams"), { recursive: true });
+  writeFileSync(
+    join(dir, "diagrams", "02-evil.svg"),
+    DIAGRAM.replace("</svg>", "<script>window.pwned=6</script></svg>").replace("<svg ", '<svg onload="window.pwned=7" '),
+  );
+  writeFileSync(
+    join(dir, "03-evil-diagram.md"),
+    lecture(3, "evil-diagram", "CANARYEVILQQ").replace("![[diagram: 01-d", "![[diagram: 02-evil"),
+  );
+  // A file that is not a lecture at all.
+  writeFileSync(join(dir, "04-broken.md"), "this is not a lecture\n");
+  // A course whose own file is broken.
+  mkdirSync(join(library2, "c-gone"), { recursive: true });
+  writeFileSync(join(library2, "c-gone", "course.md"), "---\nslug: [\n---\n");
+}
+
+test("hostile HTML in a lecture is made harmless, and a hostile diagram is refused at load", async () => {
+  hostileLibrary();
+  const hostile = await start({ out, contentDirs: [library2] });
+  try {
+    const page = await hostile.request("learn", "GET", "/c-public/hostile");
+    assert.equal(page.status, 200);
+    assertSealed(page, "hostile lecture");
+    for (const pattern of [
+      /<script>/i,
+      /<script(?![^>]*\bsrc="\/_astro\/)/i,
+      /onerror/i,
+      /onclick/i,
+      /ontoggle/i,
+      /javascript:/i,
+      /<iframe/i,
+      /evil\.test/,
+      /position:fixed/,
+      /pwned=/,
+    ]) {
+      assert.doesNotMatch(page.text, pattern, String(pattern));
+    }
+    // What was legitimate in it is kept.
+    assert.match(page.text, /<details open="">?<summary>Fine<\/summary>kept<\/details>|<details open><summary>Fine<\/summary>kept<\/details>/);
+    assert.ok(page.text.includes("CANARYHOSTILEQQ"));
+
+    // The lecture with the hostile diagram is not served, and its text is nowhere.
+    const evil = await hostile.request("learn", "GET", "/c-public/evil-diagram");
+    assert.equal(evil.status, 404);
+    assert.ok(!evil.text.includes("CANARYEVILQQ"));
+    const everything = (await hostile.request("learn", "GET", "/c-public")).text;
+    assert.ok(!everything.includes("evil-diagram"));
+    assert.ok(!everything.includes("window.pwned"));
+  } finally {
+    await hostile.stop();
+  }
+});
+
+test("one broken file does not take the lecture host down: the rest is served, the log says what was left out, only the admin is told", async () => {
+  hostileLibrary();
+  const broken = await start({ out, contentDirs: [library2] });
+  try {
+    broken.user(["add", "root2", "--role", "admin"], { password: PASSWORD });
+    const login = await broken.request("learn", "POST", "/signin", {
+      form: { username: "root2", password: PASSWORD, next: "/" },
+      origin: LEARN,
+      headers: freshIp(),
+    });
+    const admin = login.cookies.find((c) => c.startsWith(`${COOKIE}=`))!.split(";")[0]!;
+
+    // Public lectures keep working, and so do the other pages.
+    for (const path of ["/", "/c-public", "/c-public/l-public", "/c-members", "/signin", "/search.json?q=idea", "/sitemap.xml"]) {
+      const res = await broken.request("learn", "GET", path);
+      assert.ok(res.status === 200 || res.status === 404, `${path}: ${res.status}`);
+      assert.notEqual(res.status, 500, path);
+    }
+    assert.equal((await broken.request("learn", "GET", "/c-public/l-public")).status, 200);
+    assert.equal((await broken.request("learn", "GET", "/c-members/l-members")).status, 403);
+
+    // Visitors are told nothing; the admin gets a notice naming each file left out.
+    const visitor = await broken.request("learn", "GET", "/c-public");
+    assert.doesNotMatch(visitor.text, /load-notice|04-broken|could not be loaded/);
+    const notice = await broken.request("learn", "GET", "/c-public", { cookie: admin });
+    assert.match(notice.text, /class="load-notice"/);
+    assert.match(notice.text, /04-broken\.md/);
+    assert.match(notice.text, /03-evil-diagram\.md/);
+    assert.match(notice.text, /c-gone/);
+    // A member is not the admin.
+    broken.user(["add", "mem2", "--role", "member"], { password: PASSWORD });
+    const m = await broken.request("learn", "POST", "/signin", {
+      form: { username: "mem2", password: PASSWORD, next: "/" },
+      origin: LEARN,
+      headers: freshIp(),
+    });
+    const member = m.cookies.find((c) => c.startsWith(`${COOKIE}=`))!.split(";")[0]!;
+    assert.doesNotMatch(
+      (await broken.request("learn", "GET", "/c-public", { cookie: member })).text,
+      /load-notice|04-broken/,
+    );
+
+    // Each bad file is logged, loudly.
+    const log = broken.stderr();
+    assert.match(log, /LEFT OUT/);
+    assert.match(log, /04-broken\.md/);
+    assert.match(log, /03-evil-diagram\.md/);
+    assert.match(log, /c-gone/);
+  } finally {
+    await broken.stop();
+  }
+});
+
+test("changing the environment admin's password ends its sessions", async () => {
+  const first = await start({ out, contentDirs: [library] });
+  const cookies: { learn: string; admin: string } = { learn: "", admin: "" };
+  try {
+    const learn = await first.request("learn", "POST", "/signin", {
+      form: { username: OWNER.username, password: OWNER.password, next: "/" },
+      origin: LEARN,
+      headers: freshIp(),
+    });
+    cookies.learn = learn.cookies.find((c) => c.startsWith(`${COOKIE}=`))!.split(";")[0]!;
+    const blog = await first.request("blog", "POST", "/api/login", {
+      form: { username: OWNER.username, password: OWNER.password, next: "/admin" },
+      origin: BLOG,
+      headers: freshIp(),
+    });
+    cookies.admin = blog.cookies.find((c) => c.startsWith("portfolio_session="))!.split(";")[0]!;
+    assert.equal((await first.request("learn", "GET", "/c-friends/l-friends", { cookie: cookies.learn })).status, 200);
+    assert.equal((await first.request("blog", "GET", "/admin", { cookie: cookies.admin })).status, 200);
+
+    // The same database, the same password: still signed in after a restart.
+    await first.stop();
+    const same = await start({ out, contentDirs: [library], stateDir: first.stateDir, env: {
+      PORTFOLIO_ADMIN_PASSWORD_HASH: hashPassword(OWNER.password),
+    } });
+    try {
+      // A new hash of the same words has a new salt: that counts as a new password too.
+      assert.equal((await same.request("learn", "GET", "/c-friends/l-friends", { cookie: cookies.learn })).status, 403);
+      assert.equal((await same.request("blog", "GET", "/admin", { cookie: cookies.admin })).status, 303);
+    } finally {
+      await same.stop();
+    }
+  } finally {
+    await first.stop();
+  }
 });

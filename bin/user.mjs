@@ -20,7 +20,7 @@
 import { randomBytes, scryptSync } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createInterface } from "node:readline";
+import { readPassword } from "./prompt.mjs";
 import { DatabaseSync } from "node:sqlite";
 
 const ROLES = ["admin", "friend", "member"];
@@ -99,7 +99,9 @@ function username(value) {
       `"${value ?? ""}" is not a username: 2 to 32 of a-z, 0-9, . _ - , starting with a letter or digit`,
     );
   }
-  if (name === env("PORTFOLIO_ADMIN_USERNAME")?.toLowerCase()) {
+  // The server's default when the variable is unset, which it usually is in
+  // the owner's shell: the service's environment is not this one.
+  if (name === (env("PORTFOLIO_ADMIN_USERNAME") ?? "admin").toLowerCase()) {
     fail(
       `"${name}" is the environment admin's name; it signs in from its settings, not from an account`,
     );
@@ -112,33 +114,13 @@ function role(value) {
   return value;
 }
 
-async function readPassword(confirm) {
-  if (!process.stdin.isTTY) {
-    const chunks = [];
-    for await (const chunk of process.stdin) chunks.push(chunk);
-    const first = Buffer.concat(chunks).toString("utf8").split(/\r?\n/)[0];
-    return first;
-  }
-  const ask = async (prompt) => {
-    const rl = createInterface({
-      input: process.stdin,
-      output: process.stderr,
-      terminal: true,
-    });
-    process.stderr.write(prompt);
-    rl.output.write = () => {}; // suppress echo
-    const answer = await new Promise((resolve) => rl.question("", resolve));
-    rl.close();
-    process.stderr.write("\n");
-    return answer;
-  };
-  const first = await ask("Password: ");
-  if (confirm && (await ask("Again: ")) !== first) fail("the two passwords differ");
-  return first;
-}
-
 async function newPassword() {
-  const password = await readPassword(true);
+  let password;
+  try {
+    password = await readPassword({ confirm: true });
+  } catch (error) {
+    fail(error.message);
+  }
   if (password.length < 10) fail("use at least 10 characters");
   if (password.length > 1024) fail("at most 1024 characters");
   return hashPassword(password);

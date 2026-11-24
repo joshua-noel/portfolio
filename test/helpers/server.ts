@@ -51,7 +51,7 @@ export function build(env: Record<string, string>): string {
   return out;
 }
 
-const freePort = (): Promise<number> =>
+export const freePort = (): Promise<number> =>
   new Promise((resolve, reject) => {
     const probe = createServer();
     probe.listen(0, "127.0.0.1", () => {
@@ -98,9 +98,13 @@ export async function start(options: {
   out: string;
   contentDirs: string[];
   env?: Record<string, string>;
+  /** Reuse a state directory (the database and its sessions) from an earlier server. */
+  stateDir?: string;
+  /** Ready on any answer, even a 500: for a server that is meant to refuse its configuration. */
+  anyAnswer?: boolean;
 }): Promise<Server> {
   const port = await freePort();
-  const stateDir = mkdtempSync(join(tmpdir(), "portfolio-state-"));
+  const stateDir = options.stateDir ?? mkdtempSync(join(tmpdir(), "portfolio-state-"));
   mkdirSync(stateDir, { recursive: true });
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
@@ -119,6 +123,16 @@ export async function start(options: {
     ...options.env,
   };
   delete env.PORTFOLIO_LEARN_CONTENT_DIR;
+  // The owner's own shell may have these set; a test server has what the test gives it.
+  for (const name of [
+    "PORTFOLIO_LEARN_ALLOW_LOCAL",
+    "PORTFOLIO_TRUSTED_PROXIES",
+    "PORTFOLIO_TRUSTED_PROXY_HOPS",
+    "PORTFOLIO_HOST",
+    "PORTFOLIO_DB_PATH",
+  ]) {
+    if (options.env?.[name] === undefined) delete env[name];
+  }
 
   let stderr = "";
   const child: ChildProcess = spawn(
@@ -179,7 +193,7 @@ export async function start(options: {
     if (exited) throw new Error(`server exited early:\n${stderr}`);
     try {
       const res = await send("site", "GET", "/healthz");
-      if (res.status === 200) break;
+      if (res.status === 200 || options.anyAnswer) break;
     } catch {
       // not listening yet
     }
@@ -187,7 +201,7 @@ export async function start(options: {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   // The database is made when it is first used: use it, so tools can find it.
-  await send("blog", "GET", "/");
+  if (!options.anyAnswer) await send("blog", "GET", "/");
 
   return {
     port,

@@ -73,7 +73,7 @@ A diagram uses colours only through `currentColor`, `var(--fg)`, `--muted`, `--b
 
 Locked courses and lectures stay listed with a lock icon. Opened, they show a short page: what it is and "Sign in to read" (for `members`, also that membership is not open yet). Roles and visibilities this code does not know read as no access.
 
-`local` is for the owner's own machine. A server leaves `local` content out entirely and logs how much. `PORTFOLIO_LEARN_ALLOW_LOCAL=1` serves it to everyone who can connect, logs a loud warning, and is refused unless the server listens on loopback; the NixOS module has no option for it.
+`local` is for the owner's own machine. A server leaves `local` content out entirely, without a stub or a gap in the lecture numbers, and logs how much. `PORTFOLIO_LEARN_ALLOW_LOCAL=1` is honoured only under the dev server (`pnpm learn:dev`), and only when `PORTFOLIO_LEARN_URL` is itself a `localhost` or `*.localhost` address; otherwise the configuration is refused, so the built server (`dist/server/entry.mjs`, `bin/serve.mjs`) never serves `local` whatever the environment says, behind a proxy or not, and the NixOS module has no option for it. Even then each request is checked: the socket peer must be loopback and the request must carry none of `X-Forwarded-*`, `Forwarded`, `Via`, `X-Real-IP`, so a tunnel that adds a header gets no `local` content, not even a stub. (A tunnel that forwards raw TCP to the dev server looks like loopback and cannot be told apart: do not expose the dev server.)
 
 ### Accounts
 
@@ -89,11 +89,19 @@ node bin/user.mjs disable <username>      # also: enable
 
 The password is read from a hidden prompt (asked twice) or from standard input, never from an argument. Disabling an account, or changing its password, deletes its sessions at once. The server makes and migrates the database, so start it once first. Locally, `$env:PORTFOLIO_STATE_DIR = ".data"` points the command at the dev database; on the server it is `portfolio-user` (in the package), run as the service's user with `PORTFOLIO_STATE_DIR=/var/lib/portfolio`.
 
-Accounts sign in on the lecture host at `/signin`. The session cookie, `learn_session`, is host-only, HttpOnly, SameSite=Lax and Secure behind TLS, and is a different cookie, in a different scope of the `sessions` table, from the blog admin's: a friend's or member's session is worthless on the admin and its API, and an admin session from the blog is not a lecture session. (Accounts with the `admin` role read everything on the lecture host but do not get the blog's admin: that stays with the environment admin.) Sign-in is throttled by address and by name, answers every failure alike, runs one key derivation whatever the name, rotates the session, checks `Origin`, and only follows a `next` that is a path on the lecture host.
+Accounts sign in on the lecture host at `/signin`. The session cookie is host-only, HttpOnly, SameSite=Lax, and named `__Host-learn_session` on https (a browser then refuses a `Domain=` cookie of that name planted from the blog or the main site; the server reads no other name on https) and `learn_session` on plain http for local development; sign-out clears both, and is a different cookie, in a different scope of the `sessions` table, from the blog admin's: a friend's or member's session is worthless on the admin and its API, and an admin session from the blog is not a lecture session. (Accounts with the `admin` role read everything on the lecture host but do not get the blog's admin: that stays with the environment admin.) Changing the environment admin's password ends all of its sessions (each stores a fingerprint of the hash it was made with). Sign-in is throttled by address (five failures lock that address for 15 minutes) and by name *at that address*; there is deliberately no counter on the name alone, because one that locks would let anyone lock the owner out from anywhere. It answers every failure alike, runs one key derivation whatever the name, rotates the session, checks `Origin`, and only follows a `next` that is a path on the lecture host.
 
 ### Where private lectures live
 
 This repository is public, so `members` and `friends` content comes from outside it: `PORTFOLIO_LEARN_CONTENT_DIRS` names several folders (separated like `PATH`: `;` on Windows, `:` elsewhere), merged, read at run time, never copied into the build output (a test greps `dist` for a canary placed in a members lecture). In NixOS, `services.portfolio.learnContentDirs`. The sample folder here may hold `public` only, and the check fails if it finds anything else.
+
+### What a lecture may contain
+
+Lecture files come from outside this repository, so what they say is not trusted. Raw HTML in Markdown is cut down to an allow-list (`src/lib/learn/sanitize.ts`): `details`, `summary`, basic inline formatting, tables, lists, links (relative, `#fragment`, `http`, `https`, `mailto`) and images; scripts, event handlers, `javascript:` URLs, frames, forms, `style` and the rest are removed. KaTeX's output is added afterwards and is trusted. A diagram is parsed as a browser would parse it and every element and attribute must be on a list (`src/lib/learn/svg.ts`): no `script`, `style`, `foreignObject`, animation (`set`, `animate`), `image`, event handlers or external references, and `href` only to a `#id` in the same diagram. A diagram that fails is a load error, and what is inlined is the parser's own output, not the file's text.
+
+Every response on the lecture host carries a Content-Security-Policy, `X-Frame-Options: DENY`, `nosniff`, `Vary: Cookie` and `Cache-Control: private, no-store` (public media says its own), including 404s, 403s, redirects and 500s; one function in `src/middleware.ts` sets them. The policy is `default-src 'self'`; `script-src 'self'` (no inline script: the theme script is `src/scripts/learn-init.js`); `style-src 'self'`; `style-src-attr 'unsafe-inline'`; `img-src 'self' data:`; `media-src 'self'`; `font-src 'self' data:`; `frame-ancestors 'none'`; `base-uri 'none'`; `object-src 'none'`; `form-action 'self'`. The one relaxation is `style` attributes, which KaTeX output, the diagrams and the course cards need; an attribute cannot run code, and nothing an author writes keeps a `style`.
+
+One broken lecture or course file does not take the lecture host down: the server loads what is valid, logs each file it left out, and shows the admin (only) a notice at the top of each page. `pnpm check` and the checker are strict and fail on the first problem as before.
 
 ## Running it on Windows (no `just`, no bash)
 
@@ -105,7 +113,7 @@ $env:PORTFOLIO_LEARN_CONTENT_DIRS = "C:\Users\kwinch\Projects\Resume\study\learn
 pnpm learn:dev
 ```
 
-Then open `http://learn.localhost:4321`. Add `$env:PORTFOLIO_LEARN_ALLOW_LOCAL = "1"` before the last line to also see `local` lectures (your own machine only). The first run makes a throwaway admin, `admin` / `dev`, in `.data/`, which also signs in on the lecture host. `pnpm learn:check <dir>` checks a folder against the contract, and `pnpm test` runs the tests (the end-to-end one builds the site, so it takes a while).
+Then open `http://learn.localhost:4321`. Add `$env:PORTFOLIO_LEARN_ALLOW_LOCAL = "1"` before the last line to also see `local` lectures (your own machine only: the dev server and a `localhost` address, nothing else). The first run makes a throwaway admin, `admin` / `dev`, in `.data/`, which also signs in on the lecture host. `pnpm learn:check <dir>` checks a folder against the contract, and `pnpm test` runs the tests (the end-to-end one builds the site, so it takes a while).
 
 ## Development
 
@@ -143,14 +151,31 @@ the value, which is how secrets arrive from sops or systemd's
 | `PORTFOLIO_PORT`                | `4321`               |                       |
 | `PORTFOLIO_STATE_DIR`           | `/var/lib/portfolio` | database and uploads  |
 | `PORTFOLIO_TRUSTED_PROXIES`     | —                    | see below             |
+| `PORTFOLIO_TRUSTED_PROXY_HOPS`  | `1`                  | see below             |
 
 Missing required values are reported by name and the process exits 78 before
 opening a socket.
 
-Login throttling keys on the socket peer. When the peer is loopback, or one
-of the comma-separated addresses in `PORTFOLIO_TRUSTED_PROXIES`, it keys on
-the last `X-Forwarded-For` entry instead. Set it when the reverse proxy runs
-on another machine, or every visitor shares the proxy's lockout.
+Login throttling keys on the client address, and an IPv6 client on its /64
+(one person usually holds a whole /64). Which address that is depends on the
+proxies in front of the process, so it is a setting, not a guess:
+
+| `PORTFOLIO_TRUSTED_PROXY_HOPS` | meaning |
+| ------------------------------- | ------- |
+| `1` (default)                   | one proxy appends the address it saw to `X-Forwarded-For`; the last entry is the client |
+| `2`, `3`…                       | that many proxies in a chain, each appending; the entry that many places from the right is the client, and entries to its left (the client's own forgeries) are ignored |
+| `0`                             | forwarded headers are ignored; the socket peer is the client |
+
+Forwarded headers are believed only when the peer is loopback or one of the
+comma-separated addresses in `PORTFOLIO_TRUSTED_PROXIES`; a header with fewer
+entries than hops is ignored. **The owner must confirm the production
+chain.** The example in this README, Caddy on the same machine, is one hop.
+If a bot check or CDN sits in front of Caddy, count it too: with one hop too
+few, every visitor shares one address and five failures lock sign-in for all;
+with one too many, the rightmost entry the client could forge is trusted and
+the per-address limit can be bypassed. Check what the app really receives
+before relying on it, for example with `curl -H 'X-Forwarded-For: 6.6.6.6'`
+through the whole chain and a log of the header at the app.
 
 There is one admin account and no user table. Generate its password hash
 with:
