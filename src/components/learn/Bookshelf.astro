@@ -36,7 +36,7 @@ const bookStyle = (book: Book): string =>
       pills.map((pill) => (
         <button
           type="button"
-          class="pill"
+          class="filter-option"
           aria-pressed={pill.key === "all" ? "true" : "false"}
           data-filter={pill.key}
         >

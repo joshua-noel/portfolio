@@ -1,27 +1,27 @@
 /* ============================================================
    Learn: the lecture site.
-   Standalone: it shares the main site's look (warm coral on near-black,
-   square corners) but none of its stylesheet, so the two cannot disturb
-   each other. Dark by default; `data-theme="light"` on <html> flips every
-   token. No webfonts: system fonts only. test/learn-contrast.test.ts holds
-   the text colours to WCAG AA (4.5:1) in both themes.
+   A bare documentation look: near-black and soft off-white in the dark
+   theme, the inverse in the light one, two or three greys, ONE muted link
+   colour (--accent), hairline dividers. Colour appears only inside
+   diagrams, code, book covers and videos. System fonts only; no downloads.
+   The rules this follows are in docs/learn-style.md. test/learn-contrast.test.ts
+   holds the text colours to WCAG AA (4.5:1) in both themes.
    ============================================================ */
 
 :root {
   color-scheme: dark;
-  --bg: #0c0d10;
-  --surface: #14151a;
-  --bg-sunken: #101116;
-  --line: rgba(236, 235, 232, 0.13);
-  --border: rgba(236, 235, 232, 0.3);
-  --fg: #ecebe8;
-  --muted: #bab9c1;
-  --text-3: #9b9aa6;
-  --accent: #e08a6c;
-  --on-accent: #0c0d10;
-  --focus: #e08a6c;
-  --code-bg: #0d1117;
-  --success: #77dddd;
+  --bg: #1b1a1f;
+  --surface: #222127;
+  --bg-sunken: #161618;
+  --line: rgba(255, 255, 255, 0.09);
+  --border: rgba(255, 255, 255, 0.24);
+  --fg: #f0efed;
+  --muted: #a9a8ae;
+  --text-3: #8c8b93;
+  --accent: #a5a8f6;
+  --on-accent: #14131a;
+  --focus: #a5a8f6;
+  --code-bg: #151418;
 
   /* Diagram hues. Each course gives them a meaning in its course.md. The sixth
      is a green; a course that uses one hue for failing, hostile or wasted
@@ -36,8 +36,13 @@
   --alert: #ff7096;
 
   --topbar: 3.5rem;
+  --rail-l: clamp(14rem, 13vw, 18rem);
+  --rail-r: clamp(13rem, 11vw, 16rem);
+  --measure: 35rem;
+  --radius: 4px;
   --font-ui:
     system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* The serif is for the book covers on the landing page and nothing else. */
   --font-text:
     "Iowan Old Style", "Charter", "Sitka Text", "Palatino Linotype", Cambria, Georgia,
     "Times New Roman", serif;
@@ -46,19 +51,18 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #fbfaf7;
-  --surface: #ffffff;
-  --bg-sunken: #f2f0ea;
-  --line: rgba(28, 27, 31, 0.13);
-  --border: rgba(28, 27, 31, 0.34);
-  --fg: #1c1b1f;
-  --muted: #4d4c55;
-  --text-3: #62616b;
-  --accent: #b0431f;
+  --bg: #ffffff;
+  --surface: #f5f5f7;
+  --bg-sunken: #f1f1f4;
+  --line: rgba(27, 26, 31, 0.1);
+  --border: rgba(27, 26, 31, 0.3);
+  --fg: #1b1a1f;
+  --muted: #55545c;
+  --text-3: #66656e;
+  --accent: #4547c7;
   --on-accent: #ffffff;
-  --focus: #b0431f;
-  --code-bg: #ffffff;
-  --success: #0b6f6f;
+  --focus: #4547c7;
+  --code-bg: #f6f6f8;
 
   --c1: #b0431f;
   --c2: #0b6f64;
@@ -96,13 +100,22 @@
 html {
   font-size: 100%;
   scroll-padding-top: calc(var(--topbar) + 1rem);
+  scrollbar-gutter: stable;
   -webkit-text-size-adjust: 100%;
 }
-
+@media (min-width: 1800px) {
+  html {
+    font-size: 106.25%;
+  }
+}
+@media (min-width: 2300px) {
+  html {
+    font-size: 112.5%;
+  }
+}
 html.js {
   scroll-behavior: smooth;
 }
-
 @media (prefers-reduced-motion: reduce) {
   html.js {
     scroll-behavior: auto;
@@ -113,6 +126,10 @@ html.js {
 }
 
 body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   background: var(--bg);
   color: var(--fg);
@@ -120,18 +137,15 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  min-height: 100vh;
 }
 
 a {
   color: var(--accent);
 }
-
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
-
 button {
   font: inherit;
   color: inherit;
@@ -144,10 +158,10 @@ button {
   top: -4rem;
   z-index: 50;
   padding: 0.5rem 0.9rem;
-  background: var(--accent);
-  color: var(--on-accent);
-  text-decoration: none;
-  font-weight: 600;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 .skip:focus {
   top: 0.5rem;
@@ -156,11 +170,11 @@ button {
 /* For the admin only: lecture files that could not be loaded and were left out. */
 .load-notice {
   margin: 0;
-  padding: 0.75rem 1.25rem;
-  background: var(--surface);
-  border-bottom: 2px solid var(--accent);
+  padding: 0.6rem 1.5rem;
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border);
   color: var(--fg);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 .load-notice pre {
   margin: 0.5rem 0 0;
@@ -178,41 +192,35 @@ button {
   white-space: nowrap;
 }
 
-/* ---------- Top bar ---------- */
+/* ---------- Top bar: across the whole window ---------- */
 
 .topbar {
   position: sticky;
   top: 0;
   z-index: 30;
   height: var(--topbar);
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding-inline: clamp(0.75rem, 2vw, 1.5rem);
+  gap: 1.25rem;
+  padding-inline: 1.5rem;
   background: var(--bg);
   border-bottom: 1px solid var(--line);
 }
-
 .brand {
   display: flex;
   align-items: baseline;
-  gap: 0.6rem;
+  gap: 0.5rem;
   white-space: nowrap;
-  text-decoration: none;
-  color: var(--fg);
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-weight: 600;
 }
 .brand a {
+  color: var(--fg);
   text-decoration: none;
-}
-.brand .home {
-  color: inherit;
 }
 .brand .site {
   color: var(--muted);
-  font-weight: 500;
-  font-size: 0.9rem;
+  font-weight: 400;
 }
 .brand .site:hover {
   color: var(--fg);
@@ -220,50 +228,47 @@ button {
 .brand .slash {
   color: var(--text-3);
 }
-
+.topbar .spacer {
+  flex: 1;
+}
 .parts-nav {
   display: flex;
-  gap: 1.1rem;
-  margin-left: 0.75rem;
+  gap: 1.5rem;
   min-width: 0;
   overflow: hidden;
 }
 .parts-nav a {
-  color: var(--muted);
+  color: var(--fg);
   text-decoration: none;
-  font-size: 0.92rem;
+  font-size: 0.875rem;
   white-space: nowrap;
   padding-block: 0.4rem;
 }
 .parts-nav a:hover {
-  color: var(--fg);
-}
-
-.topbar .spacer {
-  flex: 1;
+  color: var(--accent);
 }
 
 .search {
   position: relative;
-  width: min(18rem, 34vw);
+  width: min(18rem, 30vw);
 }
 .search input {
   width: 100%;
   height: 2.25rem;
-  padding: 0 0.75rem 0 2rem;
+  padding: 0 2rem 0 2.1rem;
   font: inherit;
-  font-size: 0.92rem;
+  font-size: 0.875rem;
   color: var(--fg);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.4rem;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
 }
 .search input::placeholder {
   color: var(--text-3);
 }
 .search .icon {
   position: absolute;
-  left: 0.6rem;
+  left: 0.65rem;
   top: 50%;
   translate: 0 -50%;
   width: 1rem;
@@ -273,66 +278,60 @@ button {
 }
 .search kbd {
   position: absolute;
-  right: 0.5rem;
+  right: 0.6rem;
   top: 50%;
   translate: 0 -50%;
-  font: 0.72rem var(--font-mono);
+  font: 0.75rem var(--font-mono);
   color: var(--text-3);
-  border: 1px solid var(--border);
-  border-radius: 0.25rem;
-  padding: 0 0.3rem;
   pointer-events: none;
 }
 .search input:focus ~ kbd,
 .search input:not(:placeholder-shown) ~ kbd {
   display: none;
 }
-
 .search-results {
   position: absolute;
   top: calc(100% + 0.4rem);
-  right: 0;
-  width: min(26rem, calc(100vw - 1.5rem));
+  left: 0;
+  width: min(28rem, calc(100vw - 1.5rem));
   max-height: 70vh;
   overflow: auto;
   margin: 0;
-  padding: 0.35rem;
+  padding: 0.25rem;
   list-style: none;
-  background: var(--surface);
+  background: var(--bg-sunken);
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius);
 }
 .search-results[hidden] {
   display: none;
 }
 .search-results a {
   display: block;
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.35rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius);
   color: var(--fg);
   text-decoration: none;
 }
 .search-results a:hover,
 .search-results a[aria-selected="true"] {
-  background: var(--bg-sunken);
+  background: var(--surface);
 }
 .search-results .hit-title {
   display: block;
-  font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 .search-results .hit-snippet {
   display: block;
-  margin-top: 0.15rem;
+  margin-top: 0.1rem;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.8125rem;
   line-height: 1.4;
 }
 .search-results .none {
-  padding: 0.7rem;
+  padding: 0.65rem;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 
 .icon-button {
@@ -343,13 +342,11 @@ button {
   padding: 0;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 0.4rem;
+  border-radius: var(--radius);
   color: var(--muted);
 }
 .icon-button:hover {
   color: var(--fg);
-  background: var(--surface);
-  border-color: var(--line);
 }
 .icon-button svg {
   width: 1.15rem;
@@ -358,7 +355,6 @@ button {
 .nav-toggle {
   display: none;
 }
-
 /* The toggle shows the theme it would switch to. */
 .theme-toggle .sun {
   display: none;
@@ -371,8 +367,8 @@ button {
 }
 
 .signin {
-  color: var(--text-3);
-  font-size: 0.85rem;
+  color: var(--muted);
+  font-size: 0.875rem;
   text-decoration: none;
   padding: 0.4rem 0.2rem;
   white-space: nowrap;
@@ -380,14 +376,13 @@ button {
 button.signin {
   background: none;
   border: 0;
-  cursor: pointer;
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
 }
 .who {
   display: flex;
   align-items: baseline;
-  gap: 0.6rem;
+  gap: 0.75rem;
   margin: 0;
 }
 .who-name {
@@ -396,26 +391,30 @@ button.signin {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
 }
 .signin:hover {
   color: var(--fg);
-  text-decoration: underline;
 }
 
-/* ---------- Shell: sidebar, lecture, on this page ---------- */
+/* ---------- Shell: left rail, centre, right rail ---------- */
 
 .shell {
+  flex: 1 0 auto;
   display: grid;
-  grid-template-columns: 17rem minmax(0, 1fr) 15rem;
+  grid-template-columns: var(--rail-l) minmax(0, 1fr) var(--rail-r);
   grid-template-areas: "nav main toc";
   align-items: start;
-  max-width: 96rem;
-  margin-inline: auto;
 }
 .shell.plain {
   display: block;
-  max-width: none;
+}
+/* A page with no "On this page" rail gives its width to the centre. */
+@media (min-width: 68.8rem) {
+  .shell:not(.plain):not(:has(.toc)) {
+    grid-template-columns: var(--rail-l) minmax(0, 1fr);
+    grid-template-areas: "nav main";
+  }
 }
 
 .sidenav {
@@ -423,97 +422,79 @@ button.signin {
   position: sticky;
   top: var(--topbar);
   height: calc(100vh - var(--topbar));
+  height: calc(100dvh - var(--topbar));
   overflow-y: auto;
-  padding: 1.5rem 1rem 3rem 1.25rem;
+  padding: 1.25rem 1rem 3rem 1.5rem;
+  background: var(--bg-sunken);
   border-right: 1px solid var(--line);
-  font-size: 0.92rem;
+  font-size: 0.875rem;
 }
 .sidenav .part + .part {
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
 }
 .part-title {
-  margin: 0 0 0.35rem;
-  font-size: 0.74rem;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-.part-title a {
-  color: inherit;
-  text-decoration: none;
-}
-.part-title a:hover {
-  text-decoration: underline;
-}
-.part-title a[aria-current="page"] {
-  color: var(--accent);
-}
-.part-title .name {
-  display: block;
-  margin-top: 0.15rem;
-  font-size: 0.95rem;
-  letter-spacing: -0.005em;
-  text-transform: none;
+  margin: 0 0 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 600;
   color: var(--fg);
 }
-.sidenav ol {
+.course-title {
   margin: 0;
-  padding: 0;
-  list-style: none;
 }
+.course-title a,
 .sidenav li a {
   display: flex;
   align-items: baseline;
-  gap: 0.55rem;
-  padding: 0.4rem 0.6rem;
-  margin-inline: -0.6rem;
-  border-radius: 0.35rem;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
   color: var(--muted);
   text-decoration: none;
-  line-height: 1.35;
+  line-height: 1.4;
 }
+.course-title a:hover,
 .sidenav li a:hover {
   color: var(--fg);
-  background: var(--surface);
 }
+.course-title a[aria-current="page"],
 .sidenav li a[aria-current="page"] {
-  color: var(--fg);
-  background: var(--surface);
-  font-weight: 600;
-  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--accent);
+}
+.sidenav ol {
+  margin: 0 0 0.4rem 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+.sidenav li a.is-locked,
+.lecture-list a.is-locked {
+  color: var(--text-3);
 }
 
-/* ---------- Progress marks (filled in from localStorage) ---------- */
+/* ---------- Progress marks (filled in from localStorage), in grey ---------- */
 
 .mark {
+  flex: none;
+  width: 0.55rem;
+  height: 0.55rem;
+  align-self: center;
+  border: 1px solid var(--text-3);
+  border-radius: 50%;
+}
+.mark[data-state="started"] {
+  background: color-mix(in srgb, var(--text-3) 45%, transparent);
+}
+.mark[data-state="done"] {
+  border-color: var(--muted);
+  background: var(--muted);
+}
+.lock {
+  display: inline-block;
   flex: none;
   width: 0.8rem;
   height: 0.8rem;
   align-self: center;
-  border: 1.5px solid var(--text-3);
-  border-radius: 50%;
-}
-.mark[data-state="started"] {
-  border-color: var(--accent);
-  background: linear-gradient(90deg, var(--accent) 50%, transparent 50%);
-}
-.mark[data-state="done"] {
-  border-color: var(--success);
-  background: var(--success);
-  box-shadow: inset 0 0 0 2px var(--bg);
-}
-.tag {
-  display: inline-block;
-  padding: 0.05rem 0.45rem;
-  border: 1px solid var(--accent);
-  border-radius: 0.25rem;
-  color: var(--accent);
-  font-size: 0.7rem;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
+  color: var(--text-3);
 }
 
 /* ---------- Lecture header ---------- */
@@ -521,148 +502,186 @@ button.signin {
 .lecture {
   grid-area: main;
   min-width: 0;
-  padding: clamp(1.5rem, 4vw, 3rem) clamp(1.1rem, 4vw, 3rem) 4rem;
+  padding: 2.5rem clamp(1.25rem, 3vw, 3rem) 4rem;
 }
-.lecture > * {
-  max-width: 44rem;
+.lecture > header,
+.lecture > .lecture-end {
+  max-width: var(--measure);
   margin-inline: auto;
 }
-
-.eyebrow {
-  margin: 0 0 0.6rem;
-  color: var(--text-3);
-  font-size: 0.82rem;
-  letter-spacing: 0.04em;
+.crumb {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.875rem;
 }
-.eyebrow a {
+.crumb a {
   color: inherit;
   text-decoration: none;
 }
-.eyebrow a:hover {
+.crumb a:hover {
   color: var(--fg);
   text-decoration: underline;
 }
-.lecture h1 {
+.lecture h1,
+.page h1 {
   margin: 0;
-  font-size: clamp(2rem, 5.2vw, 2.9rem);
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-  font-weight: 700;
+  font-size: clamp(1.75rem, 1.4rem + 1vw, 2.25rem);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   text-wrap: balance;
 }
-.promise {
-  margin: 0.9rem 0 0;
-  font-family: var(--font-text);
-  font-size: clamp(1.15rem, 2.2vw, 1.35rem);
-  line-height: 1.45;
+.promise,
+.lede {
+  margin: 1rem 0 0;
+  font-size: 1.0625rem;
+  line-height: 1.7;
+}
+.lede {
   color: var(--muted);
-  text-wrap: pretty;
 }
 .meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-  margin-top: 1rem;
-  color: var(--text-3);
-  font-size: 0.88rem;
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
 }
 .banner {
-  margin-top: 1.25rem;
-  padding: 0.7rem 0.9rem;
-  border: 1px dashed var(--accent);
-  border-radius: 0.4rem;
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+.banner strong {
   color: var(--fg);
-  font-size: 0.92rem;
+}
+.objectives-title {
+  margin: 2rem 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.objectives {
+  margin: 0;
+  padding-left: 1.25rem;
+  line-height: 1.65;
+}
+.objectives li + li {
+  margin-top: 0.3rem;
+}
+.objectives li::marker {
+  color: var(--text-3);
+}
+.prereq {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.locked-note {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.locked-note h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.4rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+.locked-note p {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
 }
 
 /* ---------- Video ---------- */
 
 .video {
-  margin: 1.75rem auto 0;
+  width: min(100%, 60rem);
+  margin: 2rem auto 0;
 }
 .video video {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
   background: #000;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
 }
 .video figcaption {
   margin-top: 0.5rem;
   color: var(--text-3);
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
 }
 
 /* ---------- Prose ---------- */
 
 .prose {
   counter-reset: q;
-  margin-top: 2rem;
-  font-family: var(--font-text);
-  font-size: clamp(1.0625rem, 0.4vw + 1rem, 1.1875rem);
-  line-height: 1.7;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) min(var(--measure), 100%) minmax(0, 1fr);
+  margin-top: 1rem;
+  font-size: 1rem;
+  line-height: 1.75;
   overflow-wrap: break-word;
-  hanging-punctuation: first;
+}
+.prose > * {
+  grid-column: 2;
+  min-width: 0;
+  margin-block: 0;
+}
+.prose > * + * {
+  margin-top: 1.25em;
 }
 .prose p,
 .prose li {
-  /* About 68 characters a line in the serif body face (70ch measured 76). */
-  max-width: 64ch;
   text-wrap: pretty;
 }
-.prose .seg > * + * {
-  margin-top: 1.1em;
+/* Code, tables, formulas and diagrams may be wider than the text, up to the centre. */
+.prose > :is(pre, .table-wrap, .math-block, figure.diagram) {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: max-content;
+  min-width: min(100%, var(--measure));
+  max-width: 100%;
 }
-.prose .seg + .seg {
-  margin-top: 1.1em;
+.prose > .table-wrap {
+  max-width: min(100%, 64rem);
 }
 .prose h2,
 .prose h3,
 .prose h4 {
-  font-family: var(--font-ui);
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-  text-wrap: balance;
   position: relative;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
 }
 .prose h2 {
-  margin-top: 2.6em;
-  font-size: 1.65em;
-  font-weight: 700;
-  padding-top: 1.1rem;
+  counter-reset: q;
+  margin-top: 3rem;
+  padding-top: 1.75rem;
   border-top: 1px solid var(--line);
+  font-size: 1.5rem;
 }
 .prose h3 {
-  margin-top: 1.9em;
-  font-size: 1.25em;
-  font-weight: 650;
+  margin-top: 2rem;
+  font-size: 1.1875rem;
 }
 .prose h4 {
-  margin-top: 1.6em;
-  font-size: 1.05em;
-  font-weight: 650;
+  margin-top: 1.5rem;
+  font-size: 1rem;
 }
 .prose h2 + *,
-.prose h3 + * {
-  margin-top: 0.7em !important;
-}
-.prose .seg:first-child > h2:first-child {
-  margin-top: 0.4em;
-  border-top: 0;
-  padding-top: 0;
+.prose h3 + *,
+.prose h4 + * {
+  margin-top: 0.9rem;
 }
 .prose .sec-no {
-  display: inline-block;
-  min-width: 1.6em;
-  margin-right: 0.15em;
-  color: var(--accent);
+  margin-right: 0.5em;
   font-variant-numeric: tabular-nums;
 }
 .prose .anchor {
   position: absolute;
-  left: -1.1em;
+  left: -1.25em;
   padding-right: 0.3em;
   color: var(--text-3);
   text-decoration: none;
@@ -678,17 +697,16 @@ button.signin {
     display: none;
   }
 }
-
 .prose a {
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
 }
 .prose strong {
-  font-weight: 650;
+  font-weight: 600;
 }
 .prose ul,
 .prose ol {
-  padding-left: 1.35em;
+  padding-left: 1.5em;
 }
 .prose li + li {
   margin-top: 0.35em;
@@ -696,41 +714,56 @@ button.signin {
 .prose li::marker {
   color: var(--text-3);
 }
-.prose blockquote {
+.prose blockquote,
+.prose .callout {
   margin-inline: 0;
-  padding-left: 1.1rem;
-  border-left: 3px solid var(--border);
+  padding-left: 1.25rem;
+}
+.prose blockquote {
   color: var(--muted);
+}
+.prose .callout {
+  color: var(--fg);
+}
+.prose blockquote > * + * {
+  margin-top: 0.6em;
 }
 .prose hr {
   border: 0;
   border-top: 1px solid var(--line);
   margin-block: 2rem;
 }
+.prose a.cite {
+  font-size: 0.8em;
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: 0.05em;
+}
+.prose a.cite:hover {
+  text-decoration: underline;
+}
 
 .prose code {
   font-family: var(--font-mono);
-  font-size: 0.84em;
-  padding: 0.12em 0.35em;
+  font-size: 0.875em;
+  padding: 0.1em 0.35em;
   background: var(--bg-sunken);
-  border: 1px solid var(--line);
-  border-radius: 0.3rem;
+  border-radius: 3px;
 }
 .prose pre {
   margin-inline: 0;
-  padding: 0.9rem 1.1rem;
+  padding: 1rem 1.25rem;
   overflow-x: auto;
   background: var(--code-bg);
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  font-size: 0.8em;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
   line-height: 1.6;
   tab-size: 4;
 }
 .prose pre code {
   padding: 0;
   background: none;
-  border: 0;
   font-size: inherit;
 }
 /* Shiki writes both themes as variables; the theme token picks one. */
@@ -745,32 +778,25 @@ button.signin {
 
 .table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
 }
 .prose table {
   width: 100%;
   border-collapse: collapse;
-  font-family: var(--font-ui);
-  font-size: 0.82em;
-  line-height: 1.4;
+  font-size: 0.9rem;
+  line-height: 1.45;
   font-variant-numeric: tabular-nums;
 }
 .prose th,
 .prose td {
-  padding: 0.55rem 0.8rem;
+  padding: 0.55rem 0.9rem 0.55rem 0;
   text-align: left;
   vertical-align: top;
   border-bottom: 1px solid var(--line);
 }
 .prose th {
-  font-weight: 650;
-  color: var(--fg);
-  background: var(--surface);
+  font-weight: 600;
+  border-bottom-color: var(--border);
   white-space: nowrap;
-}
-.prose tbody tr:last-child td {
-  border-bottom: 0;
 }
 .prose td .katex,
 .prose th .katex {
@@ -784,10 +810,9 @@ button.signin {
 .prose .katex {
   font-size: 1.06em;
 }
-/* An inline formula wider than its line scrolls inside its own box instead of
-   widening the page. learn.js sets the class on those, and only those: a box
-   with an overflow has its baseline at its bottom edge, which would lift the
-   ordinary formulas off the line of text. */
+/* An inline formula wider than its line scrolls inside its own box. learn.js sets
+   the class on those, and only those: a box with an overflow has its baseline at
+   its bottom edge, which would lift the ordinary formulas off the line of text. */
 .prose .wide-math {
   display: inline-block;
   max-width: 100%;
@@ -808,85 +833,42 @@ button.signin {
   font-size: 1.15em;
 }
 
-.prose .note {
-  padding: 0.85rem 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  font-size: 0.94em;
-}
-.prose .note-title {
-  margin: 0 0 0.3rem;
-  font-family: var(--font-ui);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.prose .note > * + * {
-  margin-top: 0.7em;
-}
-
-/* ---------- Frame sections ---------- */
-
-.prose h2.frame-idea + p {
-  padding-left: 1.1rem;
-  border-left: 3px solid var(--accent);
-  font-size: 1.08em;
-  line-height: 1.65;
-}
-.prose .references {
-  padding-left: 1.5em;
-  font-family: var(--font-ui);
-  font-size: 0.86em;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
+/* ---------- Questions: plain disclosure rows ---------- */
 
 .question {
   counter-increment: q;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-top: 1px solid var(--line);
 }
-.question + .question {
-  margin-top: 0.7rem;
+.prose > .question:last-of-type {
+  border-bottom: 1px solid var(--line);
 }
 .question summary {
   display: flex;
-  gap: 0.8rem;
-  padding: 0.8rem 1rem;
+  gap: 0.75rem;
+  padding: 0.7rem 0;
   cursor: pointer;
-  font-family: var(--font-ui);
-  font-size: 0.95em;
   font-weight: 600;
-  line-height: 1.45;
+  line-height: 1.5;
   list-style: none;
 }
 .question summary::-webkit-details-marker {
   display: none;
 }
 .question summary::before {
-  content: counter(q);
+  content: counter(q) ".";
   flex: none;
-  width: 1.7rem;
-  height: 1.7rem;
-  display: grid;
-  place-items: center;
-  border: 1.5px solid var(--accent);
-  border-radius: 50%;
-  color: var(--accent);
-  font-size: 0.85em;
+  min-width: 1.4em;
+  color: var(--text-3);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 .question summary::after {
   content: "Show answer";
   margin-left: auto;
   flex: none;
-  align-self: start;
   color: var(--text-3);
-  font-size: 0.82em;
-  font-weight: 500;
+  font-size: 0.8125rem;
+  font-weight: 400;
   white-space: nowrap;
 }
 .question[open] summary::after {
@@ -899,44 +881,50 @@ button.signin {
   min-width: 0;
 }
 .question .answer {
-  padding: 0.2rem 1rem 1rem 3.5rem;
-  border-top: 1px solid var(--line);
-  padding-top: 0.8rem;
-  font-size: 0.96em;
+  padding: 0 0 1rem 2.15rem;
 }
 .question .answer > * + * {
   margin-top: 0.8em;
 }
 
-/* ---------- Diagrams ---------- */
+.prose h2.frame-references ~ .references,
+.prose .references {
+  padding-left: 1.5em;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.prose .references li {
+  scroll-margin-top: calc(var(--topbar) + 1rem);
+}
+.prose .references li:target {
+  outline: 1px solid var(--accent);
+  outline-offset: 3px;
+}
+.prose .ref-id {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+.prose .checked {
+  color: var(--text-3);
+  font-size: 0.8125rem;
+}
+
+/* ---------- Diagrams and their controls ---------- */
 
 .diagram {
-  margin: 1.8rem 0;
-  padding: 0;
-  max-width: 100%;
+  margin: 0;
+  width: min(100%, calc(var(--w, 600) * 1.15px));
 }
 .diagram-body {
   overflow-x: auto;
-  padding: 0.75rem;
-  /* Shadows on the edges that have more to scroll to, and only those. */
-  background:
-    linear-gradient(to right, var(--surface) 30%, transparent) left / 1.5rem 100%
-      no-repeat local,
-    linear-gradient(to left, var(--surface) 30%, transparent) right / 1.5rem 100%
-      no-repeat local,
-    linear-gradient(to right, color-mix(in srgb, var(--fg) 22%, transparent), transparent)
-      left / 0.7rem 100% no-repeat scroll,
-    linear-gradient(to left, color-mix(in srgb, var(--fg) 22%, transparent), transparent)
-      right / 0.7rem 100% no-repeat scroll,
-    var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
 }
 .diagram svg {
   display: block;
-  /* Diagrams have a viewBox and no size. --w is its width, from the file:
-     they grow to a little over that and no further, so a diagram drawn 400
-     wide does not blow its labels up to the width of the column. */
+  /* Diagrams have a viewBox and no size. --w is its width, from the file: they
+     grow to a little over that and no further, so a diagram drawn 400 wide does
+     not blow its labels up to the width of the column. */
   width: 100%;
   max-width: calc(var(--w, 600) * 1.15px);
   height: auto;
@@ -952,22 +940,21 @@ button.signin {
 .diagram figcaption {
   margin-top: 0.6rem;
   color: var(--muted);
-  font-family: var(--font-ui);
-  font-size: 0.86rem;
+  font-size: 0.875rem;
   line-height: 1.5;
-  max-width: 70ch;
+  max-width: var(--measure);
 }
 .diagram figcaption strong {
   color: var(--fg);
+  font-weight: 600;
 }
 .dg-controls {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
   align-items: end;
   gap: 0.6rem 1.5rem;
-  padding: 0 0.25rem 0.75rem;
-  font-family: var(--font-ui);
-  font-size: 0.88rem;
+  padding: 0 0 0.75rem;
+  font-size: 0.875rem;
   color: var(--muted);
 }
 /* A slider: its name and value on one line, the track under them. */
@@ -981,7 +968,7 @@ button.signin {
   grid-column: 1 / -1;
   grid-row: 2;
   width: 100%;
-  accent-color: var(--accent);
+  accent-color: var(--muted);
 }
 .dg-controls label > output {
   grid-row: 1;
@@ -996,50 +983,46 @@ button.signin {
 .dg-controls output {
   min-width: 3ch;
   color: var(--fg);
-  font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
 .dg-controls button,
 .dg-controls select {
   padding: 0.25rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 0.4rem;
-  background: var(--surface);
+  border-radius: var(--radius);
+  background: transparent;
   color: var(--fg);
 }
 .dg-controls button:hover,
 .dg-controls select:hover {
-  border-color: var(--accent);
+  border-color: var(--muted);
 }
 .dg-controls input[type="checkbox"] {
   width: 1.1rem;
   height: 1.1rem;
-  accent-color: var(--accent);
+  accent-color: var(--muted);
 }
-/* The result of a diagram, in the body font: one or two sentences. */
+/* The result of a diagram: one or two sentences in the body font. */
 .dg-readout {
   margin: 0;
-  padding: 0.6rem 0.25rem 0;
-  max-width: 70ch;
-  font-family: var(--font-text);
+  padding: 0.6rem 0 0;
+  max-width: var(--measure);
   font-size: 1rem;
   font-weight: 400;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--fg);
 }
 /* Everything else the reader may want to check, closed until asked for. */
 .dg-more {
-  max-width: 70ch;
-  padding: 0.35rem 0.25rem 0;
-  font-family: var(--font-ui);
-  font-size: 0.88rem;
+  max-width: var(--measure);
+  padding-top: 0.35rem;
+  font-size: 0.875rem;
   line-height: 1.55;
   color: var(--muted);
 }
 .dg-more summary {
   width: fit-content;
   cursor: pointer;
-  border-radius: 0.25rem;
 }
 .dg-more summary:hover {
   color: var(--fg);
@@ -1059,7 +1042,6 @@ button.signin {
     fill: context-stroke !important;
   }
 }
-
 .dg-token {
   cursor: pointer;
   outline: none;
@@ -1077,7 +1059,7 @@ button.signin {
     opacity 0.15s;
 }
 
-/* ---------- Footer: mark as read, previous, next ---------- */
+/* ---------- End of a lecture: mark as read, previous, next ---------- */
 
 .lecture-end {
   margin-top: 3rem;
@@ -1088,12 +1070,11 @@ button.signin {
   display: none;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.6rem 1rem;
-  background: var(--surface);
+  padding: 0.4rem 0.9rem;
+  background: transparent;
   border: 1px solid var(--border);
-  border-radius: 0.45rem;
-  font-weight: 600;
-  font-size: 0.93rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
 }
 .js .mark-read {
   display: inline-flex;
@@ -1101,38 +1082,30 @@ button.signin {
 .mark-read:hover {
   border-color: var(--muted);
 }
-.mark-read[aria-pressed="true"] {
-  border-color: var(--success);
-}
 .pager {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+  gap: 1rem;
   margin-top: 1.5rem;
 }
 .pager a {
   display: block;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  padding: 0.75rem 0;
   color: var(--fg);
   text-decoration: none;
-  background: var(--surface);
 }
-.pager a:hover {
-  border-color: var(--accent);
+.pager a:hover .title {
+  color: var(--accent);
 }
 .pager .dir {
   display: block;
   color: var(--text-3);
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
+  font-size: 0.8125rem;
 }
 .pager .title {
   display: block;
-  margin-top: 0.15rem;
-  font-weight: 650;
-  line-height: 1.3;
+  margin-top: 0.1rem;
+  line-height: 1.35;
 }
 .pager .next {
   grid-column: 2;
@@ -1142,24 +1115,23 @@ button.signin {
   grid-column: 1;
 }
 
-/* ---------- On this page ---------- */
+/* ---------- On this page: the right rail ---------- */
 
 .toc {
   grid-area: toc;
   position: sticky;
   top: var(--topbar);
-  max-height: calc(100vh - var(--topbar));
+  height: calc(100vh - var(--topbar));
+  height: calc(100dvh - var(--topbar));
   overflow-y: auto;
-  padding: 2rem 1.25rem 2rem 0.5rem;
-  font-size: 0.86rem;
+  padding: 2.5rem 1.5rem 3rem 0.5rem;
+  font-size: 0.8125rem;
 }
 .toc-title {
   margin: 0 0 0.6rem;
-  font-size: 0.74rem;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--fg);
 }
 .toc ol {
   margin: 0;
@@ -1169,81 +1141,43 @@ button.signin {
 }
 .toc li a {
   display: block;
-  padding: 0.28rem 0.2rem 0.28rem 0.9rem;
-  margin-left: -1px;
-  border-left: 2px solid transparent;
+  padding: 0.25rem 0 0.25rem 0.9rem;
   color: var(--muted);
   text-decoration: none;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 .toc li.d3 a {
   padding-left: 1.7rem;
-  font-size: 0.95em;
 }
 .toc li a:hover {
   color: var(--fg);
 }
 .toc li a[aria-current="location"] {
-  color: var(--fg);
-  border-left-color: var(--accent);
-  font-weight: 600;
+  color: var(--accent);
 }
 .toc .toc-no {
-  display: inline-block;
-  min-width: 1.3em;
-  color: var(--text-3);
+  margin-right: 0.4em;
   font-variant-numeric: tabular-nums;
 }
-/* ---------- Landing and search ---------- */
+
+/* ---------- Course page, landing and plain pages ---------- */
 
 .plain .page {
   max-width: 54rem;
   margin-inline: auto;
-  padding: clamp(2rem, 6vw, 4.5rem) clamp(1.1rem, 4vw, 2rem) 5rem;
+  padding: 3rem 1.5rem 5rem;
 }
-.page h1 {
-  margin: 0;
-  font-size: clamp(2.2rem, 6vw, 3.4rem);
-  line-height: 1.05;
-  letter-spacing: -0.035em;
+.course-intro {
+  margin-top: 1rem;
 }
-.page .lede {
-  margin: 1rem 0 0;
-  max-width: 40rem;
-  font-family: var(--font-text);
-  font-size: 1.2rem;
-  line-height: 1.55;
-  color: var(--muted);
+.course-intro.prose {
+  display: block;
+  max-width: var(--measure);
+  margin-inline: auto;
 }
-.book-part {
-  margin-top: 3rem;
-  scroll-margin-top: calc(var(--topbar) + 1.5rem);
-}
-.book-part header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.3rem 0.9rem;
-  padding-bottom: 0.8rem;
-  border-bottom: 1px solid var(--border);
-}
-.book-part h2 {
-  margin: 0;
-  font-size: 1.5rem;
-  letter-spacing: -0.02em;
-}
-.book-part .part-no {
-  color: var(--accent);
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.book-part .summary {
-  flex-basis: 100%;
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.95rem;
+.lecture > .lecture-list {
+  max-width: var(--measure);
+  margin: 2rem auto 0;
 }
 .lecture-list {
   margin: 0;
@@ -1253,33 +1187,37 @@ button.signin {
 .lecture-list a {
   display: grid;
   grid-template-columns: 1.6rem 1fr auto;
-  gap: 0.2rem 0.9rem;
+  gap: 0.1rem 0.75rem;
   align-items: baseline;
-  padding: 1rem 0.5rem;
+  padding: 0.9rem 0;
   border-bottom: 1px solid var(--line);
   color: var(--fg);
   text-decoration: none;
 }
-.lecture-list a:hover {
-  background: var(--surface);
+.lecture-list a:hover .t {
+  color: var(--accent);
+}
+.lecture-list li:first-child a {
+  border-top: 1px solid var(--line);
 }
 .lecture-list .n {
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
 .lecture-list .t {
-  font-size: 1.12rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-size: 1.0625rem;
 }
 .lecture-list .t .tag {
-  margin-left: 0.6rem;
-  vertical-align: 0.15em;
+  margin-left: 0.5rem;
+}
+.tag {
+  color: var(--muted);
+  font-size: 0.8125rem;
 }
 .lecture-list .p {
   grid-column: 2;
   color: var(--muted);
-  font-size: 0.93rem;
+  font-size: 0.9rem;
 }
 .lecture-list .r {
   grid-column: 3;
@@ -1288,62 +1226,93 @@ button.signin {
   align-items: center;
   gap: 0.6rem;
   color: var(--text-3);
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
   white-space: nowrap;
 }
 
 .results {
-  margin: 2rem 0 0;
+  margin: 1.5rem 0 0;
   padding: 0;
   list-style: none;
 }
 .results li {
-  padding: 1rem 0;
+  padding: 0.9rem 0;
   border-bottom: 1px solid var(--line);
 }
 .results a {
-  font-size: 1.15rem;
-  font-weight: 650;
+  font-size: 1.0625rem;
   text-decoration: none;
 }
 .results a:hover {
   text-decoration: underline;
 }
 .results p {
-  margin: 0.25rem 0 0;
+  margin: 0.2rem 0 0;
   color: var(--muted);
-  font-size: 0.93rem;
+  font-size: 0.9rem;
 }
 .page .search-form {
   display: flex;
   gap: 0.6rem;
   margin-top: 1.5rem;
 }
-.page .search-form input {
-  flex: 1;
+.page .search-form input,
+.signin-form input {
   min-width: 0;
-  height: 2.75rem;
-  padding: 0 0.9rem;
+  height: 2.5rem;
+  padding: 0 0.8rem;
   font: inherit;
   color: var(--fg);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.45rem;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
 }
-.page .search-form button {
+.page .search-form input {
+  flex: 1;
+}
+.page .search-form button,
+.signin-form button {
+  height: 2.5rem;
   padding: 0 1.1rem;
-  background: var(--accent);
-  color: var(--on-accent);
-  border: 0;
-  border-radius: 0.45rem;
-  font-weight: 650;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.page .search-form button:hover,
+.signin-form button:hover {
+  border-color: var(--muted);
+}
+.signin-form {
+  display: grid;
+  gap: 1rem;
+  max-width: 22rem;
+  margin-top: 1.5rem;
+}
+.signin-form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.signin-form button {
+  justify-self: start;
+}
+.form-error {
+  margin: 1rem 0 0;
+  color: var(--fg);
+  font-weight: 600;
+}
+.empty {
+  color: var(--muted);
 }
 
 .footer {
-  padding: 1.5rem clamp(1.1rem, 4vw, 2rem) 2.5rem;
+  flex: none;
+  margin-top: auto;
+  padding: 1.25rem 1.5rem 1.75rem;
   border-top: 1px solid var(--line);
   color: var(--text-3);
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
 }
 .footer a {
   color: var(--muted);
@@ -1351,52 +1320,24 @@ button.signin {
 
 /* ---------- Narrower windows ---------- */
 
-@media (max-width: 70rem) {
-  /* The right column goes: "On this page" becomes a bar above the lecture. */
+/* The right rail goes. */
+@media (max-width: 68.75rem) {
   .shell {
-    grid-template-columns: 16rem minmax(0, 1fr);
-    grid-template-areas:
-      "nav toc"
-      "nav main";
+    grid-template-columns: var(--rail-l) minmax(0, 1fr);
+    grid-template-areas: "nav main";
   }
-  .toc {
-    position: static;
-    max-height: none;
-    padding: 1rem clamp(1.1rem, 4vw, 3rem) 0;
-  }
-  .toc > * {
-    max-width: 44rem;
-    margin-inline: auto;
-  }
-  .toc ol {
-    border: 1px solid var(--line);
-    border-radius: 0.5rem;
-    padding: 0.4rem 0.2rem;
-  }
-  .toc li a {
-    margin-left: 0;
-    border-left: 0;
-    padding-left: 0.8rem;
-  }
-  .toc li.d3 a {
-    padding-left: 1.6rem;
-  }
-  .toc li a[aria-current="location"] {
-    background: var(--surface);
-  }
-  .toc-title {
-    display: none;
-  }
+  .toc,
   .parts-nav {
     display: none;
   }
 }
 
-@media (max-width: 52rem) {
+/* The left rail becomes a drawer. Without JavaScript it stays in the page, above the text. */
+@media (max-width: 50rem) {
   .shell {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      "toc"
+      "nav"
       "main";
   }
   .nav-toggle {
@@ -1405,6 +1346,10 @@ button.signin {
   .brand .site,
   .brand .slash {
     display: none;
+  }
+  .topbar {
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
   }
   .topbar .spacer,
   .search kbd,
@@ -1415,21 +1360,12 @@ button.signin {
     width: auto;
     flex: 1;
   }
-
-  /* The sidebar becomes a drawer. Without JavaScript it stays in the page. */
   .sidenav {
     position: static;
     height: auto;
-    grid-area: auto;
     border-right: 0;
     border-bottom: 1px solid var(--line);
-    padding: 1rem clamp(1.1rem, 4vw, 3rem);
-  }
-  .shell {
-    grid-template-areas:
-      "nav"
-      "toc"
-      "main";
+    padding: 1rem 1.25rem;
   }
   .js .sidenav {
     position: fixed;
@@ -1438,7 +1374,6 @@ button.signin {
     width: min(20rem, 86vw);
     height: auto;
     padding: 1.25rem 1rem 3rem 1.25rem;
-    background: var(--bg);
     border-right: 1px solid var(--border);
     translate: -100% 0;
     visibility: hidden;
@@ -1452,9 +1387,7 @@ button.signin {
     transition: translate 0.2s;
   }
   .js .shell {
-    grid-template-areas:
-      "toc"
-      "main";
+    grid-template-areas: "main";
   }
   .scrim {
     position: fixed;
@@ -1472,9 +1405,11 @@ button.signin {
     right: 0.75rem;
     width: auto;
   }
-
+  .lecture {
+    padding-top: 1.75rem;
+  }
   .prose h2 {
-    font-size: 1.45em;
+    font-size: 1.35rem;
   }
   .prose .anchor {
     display: none;
@@ -1487,7 +1422,7 @@ button.signin {
     grid-row: auto;
   }
   .question .answer {
-    padding-left: 1rem;
+    padding-left: 0;
   }
   .pager {
     grid-template-columns: 1fr;
@@ -1507,13 +1442,13 @@ button.signin {
     color-scheme: light;
     --bg: #ffffff;
     --surface: #ffffff;
-    --bg-sunken: #f2f0ea;
-    --line: rgba(28, 27, 31, 0.13);
-    --border: rgba(28, 27, 31, 0.34);
-    --fg: #1c1b1f;
-    --muted: #4d4c55;
-    --text-3: #62616b;
-    --accent: #b0431f;
+    --bg-sunken: #f1f1f4;
+    --line: rgba(27, 26, 31, 0.1);
+    --border: rgba(27, 26, 31, 0.3);
+    --fg: #1b1a1f;
+    --muted: #55545c;
+    --text-3: #66656e;
+    --accent: #4547c7;
     --code-bg: #ffffff;
     --c1: #b0431f;
     --c2: #0b6f64;
@@ -1542,6 +1477,7 @@ button.signin {
     --c6: var(--alert);
   }
   body {
+    display: block;
     background: #fff;
   }
   .prose .shiki,
@@ -1562,6 +1498,13 @@ button.signin {
   .shell {
     display: block;
   }
+  .prose {
+    display: block;
+  }
+  .prose > :is(pre, .table-wrap, .math-block, figure.diagram) {
+    width: auto;
+    max-width: 100%;
+  }
   .prose a[href^="http"]::after {
     content: " (" attr(href) ")";
     font-size: 0.85em;
@@ -1573,187 +1516,4 @@ button.signin {
   .prose details {
     break-inside: avoid;
   }
-}
-
-/* ---------- Contract elements: objectives, callouts, citations, sources ---------- */
-
-.objectives {
-  margin: 1.5rem 0 0;
-  padding: 0.9rem 1.1rem;
-  list-style: none;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  font-size: 0.93rem;
-  line-height: 1.5;
-}
-.objectives-title {
-  margin: 1.5rem 0 -1.1rem;
-  font-size: 0.74rem;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-.objectives li {
-  position: relative;
-  padding-left: 1.6rem;
-}
-.objectives li + li {
-  margin-top: 0.35rem;
-}
-.objectives li::before {
-  content: "";
-  position: absolute;
-  left: 0.1rem;
-  top: 0.5em;
-  width: 0.55rem;
-  height: 0.3rem;
-  border-left: 2px solid var(--accent);
-  border-bottom: 2px solid var(--accent);
-  rotate: -45deg;
-}
-.prereq {
-  margin: 0.9rem 0 0;
-  color: var(--text-3);
-  font-size: 0.88rem;
-}
-
-.prose .callout {
-  margin-inline: 0;
-  padding: 0.8rem 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--c5);
-  border-radius: 0.4rem;
-  color: var(--fg);
-  font-size: 0.94em;
-}
-.prose .callout-mistake {
-  border-left-color: var(--c1);
-}
-.prose .callout > * + * {
-  margin-top: 0.6em;
-}
-.prose .callout > p:first-child strong:first-child {
-  font-family: var(--font-ui);
-  font-size: 0.78em;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.prose a.cite {
-  font-family: var(--font-ui);
-  font-size: 0.78em;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-  vertical-align: 0.05em;
-}
-.prose a.cite:hover {
-  text-decoration: underline;
-}
-.prose .references li {
-  scroll-margin-top: calc(var(--topbar) + 1rem);
-}
-.prose .references li:target {
-  background: var(--surface);
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-.prose .ref-id {
-  color: var(--text-3);
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-}
-.prose .checked {
-  margin-top: 0.8rem;
-  color: var(--text-3);
-  font-family: var(--font-ui);
-  font-size: 0.82em;
-}
-
-/* ---------- Locked courses and lectures ---------- */
-
-.lock {
-  display: inline-block;
-  flex: none;
-  width: 0.8rem;
-  height: 0.8rem;
-  align-self: center;
-  color: var(--text-3);
-}
-.locked-note {
-  margin-top: 2rem;
-  padding: 1.25rem 1.25rem 1.4rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-}
-.locked-note h2 {
-  margin: 0 0 0.4rem;
-  font-size: 1.15rem;
-}
-.locked-note p {
-  margin: 0;
-  color: var(--muted);
-}
-.sidenav li a.is-locked,
-.lecture-list a.is-locked {
-  color: var(--text-3);
-}
-
-/* ---------- Shelves and courses ---------- */
-
-.shelf {
-  margin-top: 3rem;
-  scroll-margin-top: calc(var(--topbar) + 1.5rem);
-}
-.course-intro {
-  max-width: 44rem;
-  font-family: var(--font-text);
-  font-size: 1.1rem;
-  line-height: 1.6;
-  color: var(--muted);
-}
-.course-intro p {
-  margin: 1rem 0 0;
-}
-
-/* ---------- Sign in ---------- */
-
-.signin-form {
-  display: grid;
-  gap: 1rem;
-  max-width: 22rem;
-  margin-top: 1.5rem;
-}
-.signin-form label {
-  display: grid;
-  gap: 0.35rem;
-  font-size: 0.9rem;
-  color: var(--muted);
-}
-.signin-form input {
-  height: 2.75rem;
-  padding: 0 0.9rem;
-  font: inherit;
-  color: var(--fg);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.45rem;
-}
-.signin-form button {
-  height: 2.75rem;
-  background: var(--accent);
-  color: var(--on-accent);
-  border: 0;
-  border-radius: 0.45rem;
-  font-weight: 650;
-}
-.form-error {
-  margin: 1rem 0 0;
-  padding: 0.6rem 0.8rem;
-  border: 1px solid var(--accent);
-  border-radius: 0.4rem;
-  color: var(--fg);
 }

@@ -2,7 +2,7 @@
 
 Branch `feat/learn-v2`, worktree `.tmp/sitev2`. Plan: one continuous lecture (no depths), then a bare, quiet interface in the style of `style-bible-reference.png`. Contract: `learn-content/CONTRACT.md` version 2.
 
-STATUS: steps 1 and 2 are DONE and committed (green: full `pnpm test` 361 tests passed after step 2 except the four that were then fixed and re-run green; `astro check` 0 errors; `pnpm build` ok). Step 3 (restyle) NOT STARTED in code; design decisions below. Step 4 not started. No server is running from this worktree. Scratch: `D:\SundayMarket\scratch\learn\SiteV2\` (a copy of `learn-content-stable` in `content\` for converting three lectures to version 2; `sample.ts`, `sample2.ts`, `mk.ts` helpers; `v2\` fixture course). Delete it when done.
+STATUS: steps 1, 2 and 3 are DONE and committed (full `pnpm test` 362 pass, `pnpm check` 0 errors). Word range for a version 2 lecture is 3,000 to 9,000. Step 4 (prove it) is next: remaining items are listed at the end. A dev server may be running from this worktree on port 48000 (service name v2dev; check its command line before stopping). Scratch: `D:\\SundayMarket\\scratch\\learn\\SiteV2\\` (`content\\` = stable copy with lectures 01-03 of how-language-models-work converted to version 2 by `convert.mjs`, one `friends` lecture in system-design; `shot.ts` takes screenshots into `.data\\learn-screenshots\\v2\\`, `fit.ts` measures code width and measure). Delete the scratch folder when done.
 
 ## Step 1: lecture format version 2 (done, commit 6a0501cd44)
 
@@ -21,7 +21,7 @@ STATUS: steps 1 and 2 are DONE and committed (green: full `pnpm test` 361 tests 
 - Reading time is one number everywhere (`class="rt"` in bookshelf lists, `data-minutes` on a book).
 - Left in the old CSS until step 3 rewrites it: everything else (still coral/serif look). `docs/learn-qa.md` still mentions depths: rewrite in step 4.
 
-## Step 3: restyle (TODO: write `src/styles/learn.css` anew, then adapt `learn-bookshelf.css`)
+## Step 3: restyle (done; the decisions below are what was built; rules in `docs/learn-style.md`)
 
 Decisions made (from sampling the style bible with the headless browser):
 - Dark: `--bg #1b1a1f` (page, topbar), left rail / search / `--bg-sunken #161618`, `--surface #222127`, `--fg #f0efed`, `--muted #a9a8ae`, `--text-3 #8c8b93`, `--accent` (the ONE muted link/current colour) `#a5a8f6` (reference `#aaacff`), `--line rgba(255,255,255,.09)`, `--border rgba(255,255,255,.22)`, `--code-bg #151418`. Light: `--bg #fff`, `--surface #f5f5f7`, `--bg-sunken #f1f1f4`, `--fg #1b1a1f`, `--muted #55545c`, `--text-3 #66656e`, `--accent #4547c7`, `--code-bg #f6f6f8`. Keep token names (tests read them: bg, surface, bg-sunken, fg, muted, text-3, accent, on-accent, focus, code-bg, c1-c6, alert, border/line as rgba). Drop `--success` (remove from `test/learn-contrast.test.ts` coloured list). Keep `--font-text` (serif) ONLY for the bookshelf covers. UI and prose: system UI stack; mono for code. Radius at most 4px. No shadows/gradients.
@@ -36,3 +36,8 @@ Decisions made (from sampling the style bible with the headless browser):
 ## Step 4: prove it (TODO)
 
 Full `pnpm test` + `pnpm check`; link/anchor crawl from `docs/learn-qa.md` over `learn-content-stable` (rewrite the qa doc's depth parts); screenshots into `.data\learn-screenshots\v2\` at 2560x1440, 1920x1080, 1440x900, 820, 390, dark and light: landing, course, long lecture top+middle (code, table, maths, diagram, interactive diagram, video; convert lectures 01-03 of how-language-models-work to version 2 in scratch for this), search results, sign-in, locked lecture as a visitor (scratch copy with one `friends` lecture), 404, print preview; verify with `pnpm build` + `node bin/serve.mjs` AND `pnpm learn:dev` (content dir = stable copy, ports 48000-48049, 127.0.0.1); zero CSP violations/console errors; side-by-side with the style bible and list of kept differences; list served/in-page files changed for the security re-sweep: `src/lib/learn/{lecture,render,blocks,catalog,disk,bookshelf,depth}.ts`, `src/pages/learn/**`, `src/layouts/Learn.astro`, `src/components/learn/*`, `src/scripts/learn.js`, `learn-init.js`, `learn-bookshelf/index.js`, CSS. Sanitisers (`sanitize.ts`, `svg.ts`), `access.ts`, auth and the CSP were NOT changed.
+
+## Step 3 measured (dev server, stable-copy content)
+
+- Code that fits without scrolling (characters per line in a code block): 199 at 2560x1440, 152 at 1920x1080, 108 at 1440x900. Prose measure `--measure: 35rem`, about 72 to 80 characters a line.
+- No sideways page scroll at 2560, 1920, 1440, 820, 390 in dark and light. The footer is at the bottom of the window on landing, sign-in, 404, search with no results and locked pages.
