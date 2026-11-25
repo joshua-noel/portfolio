@@ -36,9 +36,9 @@
   --alert: #ff7096;
 
   --topbar: 3.5rem;
-  --rail-l: clamp(14rem, 13vw, 18rem);
-  --rail-r: clamp(13rem, 11vw, 16rem);
-  --measure: 35rem;
+  --rail-l: clamp(14rem, 14vw, 19rem);
+  --rail-r: clamp(13rem, 12vw, 17rem);
+  --measure: 36rem;
   --radius: 4px;
   --font-ui:
     system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -98,20 +98,12 @@
 }
 
 html {
-  font-size: 100%;
+  /* 16px up to 1280 wide, growing to 21px at 2560: about the proportion of the style bible,
+     so the page reads the same from the same distance on a large screen. */
+  font-size: clamp(1rem, 0.6875rem + 0.390625vw, 1.3125rem);
   scroll-padding-top: calc(var(--topbar) + 1rem);
   scrollbar-gutter: stable;
   -webkit-text-size-adjust: 100%;
-}
-@media (min-width: 1800px) {
-  html {
-    font-size: 106.25%;
-  }
-}
-@media (min-width: 2300px) {
-  html {
-    font-size: 112.5%;
-  }
 }
 html.js {
   scroll-behavior: smooth;
