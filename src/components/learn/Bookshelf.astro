@@ -4,6 +4,8 @@
 // src/scripts/learn-bookshelf/index.js stands each cover on a shelf as a book,
 // moves the card's text into a panel, and the cards are hidden. Everything a
 // card says is in the HTML either way, and only what the reader's catalog gave.
+// A course's cover illustration (`cover.svg`, sanitised by the loader, empty for
+// a locked course) is drawn on its cover and, cropped to its mark, on its spine.
 import Lock from "./Lock.astro";
 import BookMotif from "./BookMotif.astro";
 import { filterPills } from "../../lib/learn/bookshelf-filter.ts";
@@ -28,6 +30,10 @@ const bookStyle = (book: Book): string =>
   `--b-color:${book.cover.color};--b-accent:${book.cover.accent};--b-ink:${book.cover.ink};` +
   `--b-soft:${book.cover.inkSoft};--b-mark:${book.cover.mark};--b-t:${book.thickness}rem;--b-h:${book.height}rem;` +
   `--b-fs:${book.spine.size}rem;--b-cs:${book.coverTitle}rem`;
+
+/** The box of the cover art the spine shows, as the properties the styles read. */
+const markStyle = (mark: NonNullable<Book["mark"]>): string =>
+  `--mx:${mark[0]};--my:${mark[1]};--mw:${mark[2]};--mh:${mark[3]}`;
 ---
 
 <div class="bookshelf" data-bookshelf>
@@ -122,7 +128,11 @@ const bookStyle = (book: Book): string =>
                         data-label={`${book.title}. ${plural(book.lectures.length, "lecture")}`}
                       >
                         <span class="face spine">
-                          <BookMotif class="s-motif" name={book.cover.motif} />
+                          {book.art && book.mark ? (
+                            <span class="s-art" style={markStyle(book.mark)} set:html={book.art} />
+                          ) : (
+                            <BookMotif class="s-motif" name={book.cover.motif} />
+                          )}
                           <span class="s-title" data-lines={book.spine.lines}>
                             {book.main}
                           </span>
@@ -130,19 +140,22 @@ const bookStyle = (book: Book): string =>
                           <span class="s-count">{book.lectures.length}</span>
                         </span>
                         <span class="face cover">
+                          {book.art && <span class="c-art" set:html={book.art} />}
                           {book.locked && (
                             <span class="c-lock">
                               <Lock />
                             </span>
                           )}
-                          <span class="c-shelf">{book.shelfTitle}</span>
-                          <span class="c-title">{book.main}</span>
-                          {book.sub && <span class="c-sub">{book.sub}</span>}
-                          <BookMotif class="c-motif" name={book.cover.motif} />
+                          {!book.art && !book.locked && (
+                            <BookMotif class="c-motif" name={book.cover.motif} />
+                          )}
+                          <span class="c-head">
+                            <span class="c-title">{book.main}</span>
+                            {book.sub && <span class="c-sub">{book.sub}</span>}
+                          </span>
                           <span class="c-promise">{book.promise}</span>
                           <span class="c-foot">
                             {plural(book.lectures.length, "lecture")}
-                            {book.locked && <Lock />}
                           </span>
                         </span>
                         <span class="face edge" />
