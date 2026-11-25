@@ -27,7 +27,7 @@ import { contrast, mix } from "../../src/lib/learn/cover.ts";
 const PAPER = "#fbfaf7";
 const SW = 2.5;
 /** The drawings are laid out on a band from y 112; the cover's own text leaves the band from y 102. */
-const RISE = 10;
+const RISE = 12;
 
 const n = (v) => String(Math.round(v * 100) / 100);
 
