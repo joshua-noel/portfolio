@@ -2,7 +2,7 @@
 
 Branch `feat/learn-v2`, worktree `.tmp/sitev2`. Plan: one continuous lecture (no depths), then a bare, quiet interface in the style of `style-bible-reference.png`. Contract: `learn-content/CONTRACT.md` version 2.
 
-STATUS: steps 1, 2 and 3 are DONE and committed (full `pnpm test` 362 pass, `pnpm check` 0 errors). Word range for a version 2 lecture is 3,000 to 9,000. Step 4 (prove it) is next: remaining items are listed at the end. A dev server may be running from this worktree on port 48000 (service name v2dev; check its command line before stopping). Scratch: `D:\\SundayMarket\\scratch\\learn\\SiteV2\\` (`content\\` = stable copy with lectures 01-03 of how-language-models-work converted to version 2 by `convert.mjs`, one `friends` lecture in system-design; `shot.ts` takes screenshots into `.data\\learn-screenshots\\v2\\`, `fit.ts` measures code width and measure). Delete the scratch folder when done.
+STATUS: ALL FOUR STEPS ARE DONE and committed, plus the coordinator's scale, top-bar, landing, rail and video items. No server from this worktree is left running (ports 48000 and 48001 stopped). The scratch folder under `D:\SundayMarket\scratch\learn\SiteV2\` is deleted at the end.
 
 ## Step 1: lecture format version 2 (done, commit 6a0501cd44)
 
@@ -41,3 +41,18 @@ Full `pnpm test` + `pnpm check`; link/anchor crawl from `docs/learn-qa.md` over 
 
 - Code that fits without scrolling (characters per line in a code block): 199 at 2560x1440, 152 at 1920x1080, 108 at 1440x900. Prose measure `--measure: 35rem`, about 72 to 80 characters a line.
 - No sideways page scroll at 2560, 1920, 1440, 820, 390 in dark and light. The footer is at the bottom of the window on landing, sign-in, 404, search with no results and locked pages.
+
+## Step 4 results
+
+- Production (`pnpm build` + `node bin/serve.mjs`, stable content, port 48001) and `pnpm learn:dev` (stable content, port 48000): link and anchor crawl of the landing, search, sign-in, 5 course pages and 40 lectures: about 5,100 internal links, 3,885 in-page anchors, 0 dead links, 0 dead anchors; every lecture loads identically with `?depth=tip|waterline|deep|abyss`. Zero Content-Security-Policy violations. The only console errors are the browser's own log of the 404 and 403 pages.
+- Type and measure: root 16px up to 1280 wide, growing to 21px at 2560 (`clamp(1rem, 0.6875rem + 0.390625vw, 1.3125rem)`); prose measure 36rem. At 2560x1440: prose 20.9px, column 754px (29.5% of the window), code fits 163 characters without scrolling. At 1920x1080: 18.4px, 664px (34.6%), 135 characters. At 1440x900: 16.6px, 596px (41%), 103 characters. About 74 to 78 characters a line.
+- Screenshots: `.data/learn-screenshots/v2/` (all sizes, both themes), `prod/` (production server), `dev/`, `print-lecture-*.png`, `side-by-side-bible-vs-lecture.png`.
+
+## Differences from the style bible that were kept
+
+- The bible is a macOS window with a rounded frame and shadow; the site is the page itself.
+- Prose is 30% of the window at 2560 (the bible's is 32% of its window, at a smaller type size): a wider column would break the 75 to 80 character line. The rest of the centre is for code, tables, diagrams and video, which the bible has none of.
+- Top bar: shelf names instead of "Part 0 .. Part IV"; no language menu and no GitHub icon; the theme control is an icon button, not a switch; the search hint is "/" (the key that focuses it), not a badge.
+- Left rail: shelves, then courses, then the lectures of the current course; the bible lists the chapters of one course. Titles in "On this page" wrap instead of being cut with an ellipsis.
+- Link colour `#a5a8f6` is a little more muted than the bible's `#aaacff`; it passes AA on every surface.
+- Colour is kept only where the brief allows it: diagrams and figures, code syntax, book covers and video. The bookcase on the landing page is untouched.
