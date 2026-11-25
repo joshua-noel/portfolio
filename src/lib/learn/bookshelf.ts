@@ -47,6 +47,13 @@ export interface Book {
   /** Why a locked book is locked, in the words of the course page. */
   why?: string;
   cover: CoverStyle;
+  /**
+   * The course's `cover.svg`, already sanitised, as inline markup; empty for a
+   * course with none and for a locked one (the loader sends nothing for it).
+   */
+  art: string;
+  /** The box of `art` that makes the spine's mark: x, y, width, height in the 240 x 320 canvas. */
+  mark?: [number, number, number, number];
   lectures: BookLecture[];
   /** Lectures the reader may open that have a video. */
   videos: number;
@@ -129,6 +136,14 @@ export function standingWidth(books: { thickness: number }[]): number {
 
 const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0);
 
+/** The `data-mark` box a cover names, when it is four whole numbers inside the canvas. */
+export function markOf(art: string): Book["mark"] {
+  const found = /\sdata-mark="(\d{1,3}) (\d{1,3}) (\d{1,3}) (\d{1,3})"/.exec(art);
+  if (!found) return undefined;
+  const [x, y, w, h] = found.slice(1).map(Number) as [number, number, number, number];
+  return w > 0 && h > 0 && x + w <= 240 && y + h <= 320 ? [x, y, w, h] : undefined;
+}
+
 function bookOf(course: Course, shelfTitle: string): Book {
   const { front } = course;
   const lectures = course.lectures.map((lecture): BookLecture => {
@@ -171,6 +186,8 @@ function bookOf(course: Course, shelfTitle: string): Book {
     locked: course.locked,
     why: course.locked ? whyLocked(front.visibility) : undefined,
     cover: coverStyle(front.cover),
+    art: course.coverSvg,
+    mark: markOf(course.coverSvg),
     lectures,
     videos: open.filter((lecture) => lecture.video).length,
     minutes,

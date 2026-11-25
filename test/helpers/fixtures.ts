@@ -104,12 +104,21 @@ Course intro ${secret}.
 `;
 }
 
+/**
+ * A small cover illustration, as a course's cover.svg: the page's own rules
+ * (viewBox, no text) and a mark of its own, so a test can tell whose it is.
+ */
+export const coverArt = (slug: string): string =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" data-art="ART-${slug}" data-mark="40 120 80 80" fill="none" stroke="#e8e8e8" stroke-width="2.5"><g><rect class="m" x="40" y="120" width="80" height="80" rx="4"/><circle cx="160" cy="160" r="20"/></g></svg>`;
+
 export interface FixtureCourse {
   slug: string;
   shelf: string;
   order: number;
   visibility: string;
   lectures: FixtureLecture[];
+  /** The course has a cover.svg (`coverArt(slug)`). */
+  cover?: boolean;
 }
 
 const secretOf = (visibility: string): string =>
@@ -122,6 +131,7 @@ export function visibilityLibrary(): FixtureCourse[] {
     shelf: ["foundations", "systems", "agents", "special"][i]!,
     order: 1,
     visibility: v,
+    cover: true,
     lectures: [
       {
         order: 1,
@@ -149,6 +159,7 @@ export function sources(courses: FixtureCourse[]): CourseSource[] {
       return { path: `${c.slug}/${name}`, name, raw: lectureMarkdown(c.slug, l) };
     }),
     diagrams: new Map([["01-d", DIAGRAM]]),
+    ...(c.cover ? { cover: coverArt(c.slug) } : {}),
     media: new Set(
       c.lectures.flatMap((l) => [
         `${String(l.order).padStart(2, "0")}-${l.slug}.mp4`,
@@ -168,6 +179,7 @@ export function writeLibrary(root: string, courses: FixtureCourse[]): void {
       courseMarkdown(c.slug, c.shelf, c.order, c.visibility, secretOf(c.visibility)),
     );
     writeFileSync(join(dir, "diagrams", "01-d.svg"), DIAGRAM);
+    if (c.cover) writeFileSync(join(dir, "cover.svg"), coverArt(c.slug));
     for (const l of c.lectures) {
       const stem = `${String(l.order).padStart(2, "0")}-${l.slug}`;
       writeFileSync(join(dir, `${stem}.md`), lectureMarkdown(c.slug, l));

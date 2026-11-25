@@ -75,22 +75,29 @@ if (shelf) {
 
   /** Whether the shelves are packed into bookcases, as on a wide screen, or each is a case of its own. */
   const packed = () => matchMedia("(min-width: 76rem)").matches;
+  const remPx = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
+  const isShown = (book) => !book.hidden && book.offsetWidth > 0;
+
+  /** The books beside which a book makes room: its case on a wide screen, else its own shelf. */
+  const scopeOf = (lead) => (packed() ? lead.closest(".bookcase") : lead.parentElement);
+  const scopeBooks = (lead) => [...scopeOf(lead).querySelectorAll("[data-book]")].filter(isShown);
+  /** The width of a book's cover, and how far a neighbour goes aside for it (the styles use the same number). */
+  const coverOf = (book) => book.querySelector(".cover").offsetWidth;
+  const partOf = (lead) => (coverOf(lead) - lead.offsetWidth) / 2 + 0.55 * remPx();
 
   /**
    * Pulling a book out (or opening it) makes room: the books on either side of
    * it step aside, those before it one way and those after it the other, within
-   * the case it stands in. The styles do the moving; this only says who is where.
+   * the case it stands in. The styles do the moving; this only says who is where
+   * and how far.
    */
   function layout() {
     const lead = open ?? pulled;
-    const scope = lead
-      ? [
-          ...(packed() ? lead.closest(".bookcase") : lead.parentElement).querySelectorAll(
-            "[data-book]:not([hidden])",
-          ),
-        ]
-      : [];
+    const scope = lead ? scopeBooks(lead) : [];
     const at = scope.indexOf(lead);
+    if (lead && !reducedMotion.matches) {
+      shelf.style.setProperty("--p", `${Math.round(partOf(lead) * 100) / 100}px`);
+    }
     for (const book of books) {
       const i = scope.indexOf(book);
       const side = i < 0 || i === at ? "" : i < at ? "before" : "after";
@@ -119,6 +126,8 @@ if (shelf) {
   nameBooks();
   const hitOf = (book) => book.querySelector(".hit");
   const visibleBooks = (row) => [...row.querySelectorAll("[data-book]:not([hidden])")];
+  const bookOfEvent = (target) =>
+    target instanceof Element && target.closest(".hit") ? target.closest("[data-book]") : null;
 
   /** One tab stop per shelf; the arrow keys move along it. */
   function rove(row, to) {
@@ -148,27 +157,115 @@ if (shelf) {
     }
   });
 
-  // The pointer: a mouse pulls a book out; a finger only opens it. A book that
-  // has stepped aside to make room is not pulled in its turn: it would slide
-  // out from under the pointer, and the click aimed at it would land on a gap.
-  // It stays where it is, under the pointer, until it is pressed, or until the
-  // pointer leaves the books altogether.
-  shelf.addEventListener("pointerover", (event) => {
-    if (event.pointerType === "touch" || open) return;
-    const book = event.target.closest?.("[data-book]");
-    if (!book || !event.target.closest(".hit") || pulled === book || book.dataset.side) return;
-    pulled = book;
+  // ------------------------------------------------------------ the pointer
+  //
+  // Which book the pointer means is worked out from where the books WILL stand
+  // once they have settled around the one that is out, not from where they are
+  // drawn this instant. A book's slot never moves; the book that is pulled
+  // out covers a span of its own, and the books on either side are shifted by
+  // the same amount the styles shift them. So the answer does not depend on
+  // how far a move has got, a book that is still sliding is not mistaken for
+  // the one under the pointer, and sweeping along the row cannot make the books
+  // chase the pointer. A touch has no hover: it only opens.
+
+  /** The latest mouse position, and how fast it is moving (px per ms). */
+  let pointer;
+  let frame = 0;
+  let retry = 0;
+  const FAST = 1.6;
+
+  /** The book at (x, y) with `lead` out, or `lead` when the pointer is in a gap beside it, or nothing. */
+  function bookAt(x, y, lead) {
+    const rem = remPx();
+    // With reduced motion nothing moves: a book is where its slot is.
+    const moves = !reducedMotion.matches;
+    const slot = (book) => book.getBoundingClientRect();
+    let scope = [];
+    let at = -1;
+    let part = 0;
+    if (lead) {
+      scope = scopeBooks(lead);
+      at = scope.indexOf(lead);
+      part = moves ? partOf(lead) : 0;
+      const r = slot(lead);
+      const half = moves ? coverOf(lead) * 0.56 : r.width / 2;
+      const mid = (r.left + r.right) / 2;
+      const top = r.top - (moves ? 4.2 : 0.4) * rem;
+      if (x >= mid - half && x <= mid + half && y >= top && y <= r.bottom) return lead;
+    }
+    for (const book of books) {
+      if (!isShown(book)) continue;
+      const r = slot(book);
+      const i = scope.indexOf(book);
+      const shift = i < 0 || i === at ? 0 : i < at ? -part : part;
+      if (x >= r.left + shift && x <= r.right + shift && y >= r.top - 0.4 * rem && y <= r.bottom) {
+        return book;
+      }
+    }
+    if (lead && moves) {
+      // In the gap between the span of the book that is out and its neighbours: stay.
+      const edge = scopeOf(lead).getBoundingClientRect();
+      const r = slot(lead);
+      if (x >= edge.left && x <= edge.right && y >= r.top - 4.2 * rem && y <= r.bottom + 0.8 * rem) {
+        return lead;
+      }
+    }
+    return undefined;
+  }
+
+  function update() {
+    frame = 0;
+    if (!pointer || open) return;
+    const target = bookAt(pointer.x, pointer.y, pulled);
+    if (target === pulled) return;
+    if (target && pointer.v > FAST) {
+      // Sweeping past: wait until the pointer slows or stops before pulling the next book.
+      clearTimeout(retry);
+      retry = setTimeout(() => {
+        pointer.v = 0;
+        update();
+      }, 70);
+      return;
+    }
+    clearTimeout(retry);
+    if (target) pulled = target;
+    else if (pulled !== focused) pulled = undefined; // the keyboard's book stays out
+    else return;
     layout();
-  });
-  shelf.addEventListener("pointerout", (event) => {
-    const to = event.relatedTarget instanceof Element ? event.relatedTarget : null;
-    if (to?.closest("[data-book]")) return; // the book it moves onto decides
-    if (!event.target.closest?.("[data-book]")) return;
+  }
+  const reconsider = () => {
+    if (!frame) frame = requestAnimationFrame(update);
+  };
+
+  shelf.addEventListener(
+    "pointermove",
+    (event) => {
+      if (event.pointerType === "touch") return;
+      const dt = pointer ? Math.max(1, event.timeStamp - pointer.t) : 1000;
+      const v = pointer ? Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) / dt : 0;
+      pointer = {
+        x: event.clientX,
+        y: event.clientY,
+        t: event.timeStamp,
+        v: pointer ? pointer.v * 0.4 + v * 0.6 : 0,
+        // The book the browser found under it, as it was drawn this instant.
+        over: bookOfEvent(event.target),
+      };
+      reconsider();
+    },
+    { passive: true },
+  );
+  shelf.addEventListener("pointerleave", (event) => {
+    if (event.pointerType === "touch") return;
+    pointer = undefined;
+    clearTimeout(retry);
     if (pulled && pulled !== focused) {
       pulled = undefined;
       layout();
     }
   });
+  // A page that scrolls under a still pointer changes what is under it.
+  addEventListener("scroll", () => pointer && reconsider(), { passive: true });
 
   shelf.addEventListener("keydown", (event) => {
     const hit = event.target;
@@ -239,15 +336,24 @@ if (shelf) {
     }
   }
 
-  /** Brings the book along its row and the panel into view, once the panel has its height. */
+  /**
+   * Brings the book along its row and the panel into view, as part of the
+   * opening: the panel is already in the page at its full height, so the least
+   * scroll that shows its foot (never pushing the book's top under the bar) can
+   * start at once and is one smooth move beside the book coming forward.
+   */
   function reveal(book) {
     const behavior = reducedMotion.matches ? "auto" : "smooth";
     if (book.parentElement.scrollWidth > book.parentElement.clientWidth + 4) {
       hitOf(book).scrollIntoView({ inline: "center", block: "nearest", behavior });
     }
-    const show = () => panel.scrollIntoView({ block: "nearest", behavior });
-    if (reducedMotion.matches) show();
-    else setTimeout(show, 450);
+    const rem = remPx();
+    const bar = document.querySelector(".topbar")?.getBoundingClientRect().bottom ?? 0;
+    // The panel starts a little above its place (it settles down into it).
+    const foot = panel.getBoundingClientRect().bottom + (reducedMotion.matches ? 0 : 1.1 * rem);
+    let by = foot - (innerHeight - rem);
+    by = Math.min(by, book.getBoundingClientRect().top - (bar + rem));
+    if (by > 1) scrollBy({ top: by, behavior });
   }
 
   /** The last case on the same row of the wall as this book's: the panel opens after it. */
@@ -271,15 +377,20 @@ if (shelf) {
     if (focused) panel.focus({ preventScroll: true });
   }
 
+  /** Lets the panel arrive: it starts from where it settles from, then goes to its place. */
+  function arrive() {
+    panel.hidden = false;
+    panel.classList.remove("is-open");
+    panel.style.transition = "none";
+    void panel.offsetHeight;
+    panel.style.transition = "";
+    panel.classList.add("is-open");
+  }
+
   function openBook(book) {
     if (open === book) return;
     const anchor = anchorOf(book);
-    const sameShelf = open && panel.previousElementSibling === anchor && !panel.hidden;
     if (open) markClosed(open);
-    if (!sameShelf) {
-      panel.classList.remove("is-open");
-      panel.hidden = true;
-    }
     open = book;
     pulled = undefined;
     shelf.classList.add("has-open");
@@ -287,13 +398,8 @@ if (shelf) {
     layout();
     hitOf(book).setAttribute("aria-expanded", "true");
     fill(book);
-    if (!sameShelf) {
-      anchor.after(panel);
-      panel.hidden = false;
-      // One frame with the panel at height 0, so opening has something to grow from.
-      void panel.offsetHeight;
-      panel.classList.add("is-open");
-    }
+    if (panel.previousElementSibling !== anchor) anchor.after(panel);
+    arrive();
     panel.focus({ preventScroll: true });
     reveal(book);
   }
@@ -316,32 +422,49 @@ if (shelf) {
       const done = () => {
         if (!open) panel.hidden = true;
       };
-      panel.addEventListener("transitionend", done, { once: true });
-      setTimeout(done, 480);
+      panel.addEventListener("transitionend", (e) => e.target === panel && e.propertyName === "opacity" && done(), { once: true });
+      setTimeout(done, 520);
     }
     if (returnFocus) hitOf(book).focus();
+    // The pointer is probably still over it: it comes straight back out.
+    reconsider();
   }
 
-  // A book may slide while it is pressed (its neighbours step aside as the
-  // pointer arrives). Press and release then land on different elements, and the
-  // browser sends the click to their common parent, not to the book. A click
-  // that ends close to where it began still belongs to the book that was pressed.
+  // The book the pointer pressed is the one that opens, however far it has
+  // moved by the time the button comes up. What is under the pointer at the
+  // press is what the reader sees (the browser hit-tests the drawn,
+  // part-way-through-its-move books), so that is the pressed book; the release
+  // or the click may land on a gap or on another book, as a book slides, and
+  // does not matter. A book that slides away between the pointer's last move
+  // and the press leaves a gap under it: the book the pointer was over a
+  // moment before is the one. Only when there was none is it worked out from
+  // where the books will stand.
   let pressed;
   shelf.addEventListener("pointerdown", (event) => {
-    const hit = event.target instanceof Element && event.target.closest(".hit");
-    pressed = hit ? { hit, x: event.clientX, y: event.clientY } : undefined;
+    if (event.button !== 0) return;
+    const recent =
+      pointer?.over &&
+      event.timeStamp - pointer.t < 250 &&
+      Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) < 6
+        ? pointer.over
+        : null;
+    const book =
+      bookOfEvent(event.target) ??
+      recent ??
+      bookAt(event.clientX, event.clientY, open ?? pulled);
+    pressed = book ? { book, x: event.clientX, y: event.clientY } : undefined;
   });
   /** The click events already acted on, so the click-away rule below skips them. */
   const handled = new WeakSet();
   shelf.addEventListener("click", (event) => {
-    let hit = event.target instanceof Element && event.target.closest(".hit");
-    if (!hit && pressed && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) < 24) {
-      hit = pressed.hit;
+    let book = null;
+    if (event.detail === 0) book = bookOfEvent(event.target); // the keyboard, or a screen reader
+    else if (pressed && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) < 24) {
+      book = pressed.book;
     }
     pressed = undefined;
-    if (!hit) return;
+    if (!book) return;
     handled.add(event);
-    const book = hit.closest("[data-book]");
     if (open === book) closeBook(false);
     else openBook(book);
   });
@@ -398,6 +521,7 @@ if (shelf) {
       );
     }
     if (open?.hidden) closeBook(false);
+    if (pulled?.hidden) pulled = undefined;
     rows.forEach((row) => {
       rove(row);
       row.scrollTo({ left: 0 });
@@ -454,6 +578,7 @@ if (shelf) {
       measure();
       layout();
       placePanel();
+      if (pointer) reconsider();
     });
   };
   for (const { row } of pairs) row.addEventListener("scroll", queue, { passive: true });
