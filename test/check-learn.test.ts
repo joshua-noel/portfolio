@@ -5,6 +5,7 @@ import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DIAGRAMS, lectureV2, withBody, without, words } from "./helpers/lecture-v2.ts";
 
 const script = fileURLToPath(new URL("../bin/check-learn.mjs", import.meta.url));
 
@@ -33,15 +34,15 @@ test("every course's errors are reported, grouped, with a summary per course", (
     assert.equal(all.status, 1);
     assert.match(all.text, /^alpha\n {2}01-broken\.md\n {4}error: /m);
     assert.match(all.text, /^beta\n {2}01-broken\.md\n {4}error: /m);
-    assert.match(all.text, /^alpha: 1 lecture, [1-9]\d* errors?, 0 warnings$/m);
-    assert.match(all.text, /^beta: 1 lecture, [1-9]\d* errors?, 0 warnings$/m);
-    assert.match(all.text, /^total: 2 courses, 2 lectures, /m);
+    assert.match(all.text, /^alpha: 1 lecture \(1 still version 1\), [1-9]\d* errors?, 0 warnings$/m);
+    assert.match(all.text, /^beta: 1 lecture \(1 still version 1\), [1-9]\d* errors?, 0 warnings$/m);
+    assert.match(all.text, /^total: 2 courses, 2 lectures \(2 still version 1\), /m);
 
     const one = run(root, "--course", "beta");
     assert.equal(one.status, 1);
     assert.doesNotMatch(one.text, /alpha/);
     assert.match(one.text, /^beta: /m);
-    assert.match(one.text, /^total: 1 course, 1 lecture, /m);
+    assert.match(one.text, /^total: 1 course, 1 lecture \(1 still version 1\), /m);
 
     const both = run(root, "--course", "alpha", "--course=beta");
     assert.match(both.text, /^total: 2 courses, /m);
@@ -64,7 +65,7 @@ test("a course with no errors exits 0 even when another course, not selected, ha
     );
     const result = run(root, "--course", "beta");
     assert.equal(result.status, 0, result.text);
-    assert.match(result.text, /^beta: 0 lectures, 0 errors, 0 warnings$/m);
+    assert.match(result.text, /^beta: 0 lectures \(0 still version 1\), 0 errors, 0 warnings$/m);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -112,5 +113,79 @@ test("the in-repo public-only check runs even when a content folder is named in 
   } finally {
     rmSync(copy.root, { recursive: true, force: true });
     rmSync(other, { recursive: true, force: true });
+  }
+});
+
+/** A course folder at `root/c` with a version 2 lecture, its diagrams, and optionally a cover. */
+function courseV2(root: string, lecture = lectureV2(), cover?: string): void {
+  const dir = join(root, "c");
+  mkdirSync(join(dir, "diagrams"), { recursive: true });
+  writeFileSync(
+    join(dir, "course.md"),
+    `---\nslug: c\ntitle: c\nshelf: systems\npromise: A course for the checker test.\nvisibility: public\norder: 1\ncover: { color: "#3a3f4b", accent: "#9aa3b5", motif: "grid" }\n---\n\nIntro.\n`,
+  );
+  writeFileSync(join(dir, "01-a-lecture.md"), lecture.raw);
+  for (const [name, svg] of DIAGRAMS) writeFileSync(join(dir, "diagrams", `${name}.svg`), svg);
+  if (cover !== undefined) writeFileSync(join(dir, "cover.svg"), cover);
+}
+
+test("a version 2 course passes, and the words of every section are printed when its course is asked for", () => {
+  const root = mkdtempSync(join(tmpdir(), "check-learn-"));
+  try {
+    courseV2(root);
+    const quiet = run(root);
+    assert.equal(quiet.status, 0, quiet.text);
+    assert.match(quiet.text, /^c: 1 lecture \(0 still version 1\), 0 errors, 0 warnings$/m);
+    assert.doesNotMatch(quiet.text, /words:/);
+
+    const asked = run(root, "--course", "c");
+    assert.equal(asked.status, 0, asked.text);
+    assert.match(asked.text, /^ {4}words: 4,\d{3} in all \(the contract asks for 3,000 to 7,000\)$/m);
+    assert.match(asked.text, /^ {4} {2} {2}200 {2}In brief {2}\(asked 150 to 350\)$/m);
+    assert.match(asked.text, /^ {4} {2}\s*\d+ {2}1\. Section 1$/m);
+    assert.match(asked.text, /^ {4} {2}\s*300 {2}In practice {2}\(asked 200 to 700\)$/m);
+
+    assert.match(run(root, "--words").text, /words: 4,\d{3} in all/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a version 2 lecture with errors prints its section words, and the errors count", () => {
+  const root = mkdtempSync(join(tmpdir(), "check-learn-"));
+  try {
+    courseV2(root, lectureV2(withBody("In brief", words(90))));
+    const result = run(root);
+    assert.equal(result.status, 1);
+    assert.match(result.text, /error: In brief has 90 words; the contract asks for 150 to 350/);
+    assert.match(result.text, /^ {4}words: /m);
+    assert.match(result.text, /^c: 1 lecture \(0 still version 1\), 1 error, 0 warnings$/m);
+
+    courseV2(root, lectureV2(without("In practice")));
+    assert.match(run(root).text, /error: missing the "## In practice" section/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("cover.svg beside course.md is checked: viewBox, no text, nothing that runs", () => {
+  const root = mkdtempSync(join(tmpdir(), "check-learn-"));
+  const cover = (inner: string, box = "0 0 240 320"): string =>
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}">${inner}</svg>`;
+  try {
+    courseV2(root, lectureV2(), cover('<rect width="240" height="320" fill="#1f3a5f"/>'));
+    const clean = run(root);
+    assert.equal(clean.status, 0, clean.text);
+
+    courseV2(root, lectureV2(), cover("<rect/>", "0 0 100 100"));
+    assert.match(run(root).text, /cover\.svg: the <svg> has viewBox="0 0 240 320"/);
+    courseV2(root, lectureV2(), cover('<text x="1" y="1">Title</text>'));
+    assert.match(run(root).text, /cover\.svg: a cover has no text/);
+    courseV2(root, lectureV2(), cover("<script>alert(1)</script>"));
+    assert.match(run(root).text, /cover\.svg: <script> is not allowed/);
+    courseV2(root, lectureV2(), cover('<rect onload="x()"/>'));
+    assert.match(run(root).text, /cover\.svg: the event handler onload is not allowed/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });

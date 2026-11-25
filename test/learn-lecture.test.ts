@@ -9,14 +9,12 @@ import {
   type Content,
   type CourseSource,
 } from "../src/lib/learn/catalog.ts";
-import { DEFAULT_DEPTH, parseDepth, visibleAt } from "../src/lib/learn/depth.ts";
 import { readContentDir } from "../src/lib/learn/disk.ts";
 import {
   buildLecture,
   checkDiagram,
   type BuildOptions,
   LectureError,
-  minutesAt,
   proseWords,
   type SourceFile,
 } from "../src/lib/learn/lecture.ts";
@@ -123,7 +121,7 @@ const issuesOf = async (
   return "";
 };
 
-test("a complete lecture builds: layers in reading order, Check yourself last", async () => {
+test("a complete version 1 lecture builds as one page: the old depths read in order, Check yourself last", async () => {
   const built = await buildLecture(
     lecture({ ready: true }),
     "c",
@@ -131,39 +129,56 @@ test("a complete lecture builds: layers in reading order, Check yourself last", 
     new Set(),
     PUBLIC,
   );
+  assert.equal(built.front.format, 1);
+  // One reading time: the four old layers added up.
+  assert.equal(built.front.minutes, 25);
+  assert.ok(built.html.startsWith('<h2 id="in-brief" class="frame frame-brief">In brief'));
+  assert.match(built.html, /Check yourself[\s\S]*<ol class="references">/);
   assert.deepEqual(
-    built.segments.map((s) => s.layer),
-    ["tip", "waterline", "deep", "abyss", "waterline"],
-  );
-  const tail = built.segments.at(-1)!.html;
-  assert.match(tail, /Check yourself/);
-  assert.match(tail, /<ol class="references">/);
-  assert.deepEqual(
-    built.toc.filter((h) => h.depth === 2).map((h) => [h.layer, h.number, h.text]),
+    built.toc.filter((h) => h.depth === 2).map((h) => [h.shown, h.text]),
     [
-      ["waterline", undefined, "The idea in one paragraph"],
-      ["waterline", 1, "Section 1"],
-      ["waterline", 2, "Section 2"],
-      ["waterline", 3, "Section 3"],
-      ["waterline", 4, "Section 4"],
-      ["waterline", undefined, "Worked example"],
-      ["deep", 1, "Deeper"],
-      ["abyss", 1, "Deepest"],
-      ["waterline", undefined, "Check yourself"],
-      ["waterline", undefined, "References"],
+      [undefined, "In brief"],
+      [undefined, "The idea in one paragraph"],
+      [1, "Section 1"],
+      [2, "Section 2"],
+      [3, "Section 3"],
+      [4, "Section 4"],
+      [undefined, "Worked example"],
+      // The numbers run on from Waterline into Deep and Abyss: no two sections are "1".
+      [5, "Deeper"],
+      [6, "Deepest"],
+      [undefined, "Check yourself"],
+      [undefined, "References"],
     ],
   );
+  const at = (needle: string): number => built.html.indexOf(needle);
+  assert.ok(at('id="in-brief"') < at('id="the-idea-in-one-paragraph"'));
+  assert.ok(at('id="worked-example"') < at('id="deeper"'));
+  assert.ok(at('id="deeper"') < at('id="deepest"'));
+  assert.ok(at('id="deepest"') < at('id="check-yourself"'));
+  // The old names are not shown anywhere, and nothing marks a layer.
+  assert.doesNotMatch(built.html, /data-layer|layer-tag|>Tip<|>Waterline<|>Deep<|>Abyss</);
+  assert.deepEqual(built.words, []);
+});
+
+test("a version 1 lecture's old rules still apply", async () => {
+  assert.match(
+    await issuesOf(lecture({ edit: { tip: "A formula $x$ in the Tip." } })),
+    /Tip has no formulas and no code/,
+  );
+  const mixed = lecture();
+  mixed.raw = mixed.raw.replace("minutes: { tip: 2, waterline: 9, deep: 8, abyss: 6 }", "minutes: 25");
+  assert.match(await issuesOf(mixed), /"minutes" lists tip, waterline, deep and abyss/);
 });
 
 test("maths and citations render on the server; answers stay closed", async () => {
-  const { segments, objectivesHtml } = await buildLecture(
+  const { html, objectivesHtml } = await buildLecture(
     lecture(),
     "c",
     DIAGRAMS,
     new Set(),
     PUBLIC,
   );
-  const html = segments.map((s) => s.html).join("");
   assert.match(html, /class="katex"/);
   assert.match(html, /<a class="cite" href="#ref-Paper">\[Paper\]<\/a>/);
   assert.match(
@@ -176,8 +191,7 @@ test("maths and citations render on the server; answers stay closed", async () =
 });
 
 test("a diagram is inlined, sized by its viewBox, with an accessible name", async () => {
-  const { segments } = await buildLecture(lecture(), "c", DIAGRAMS, new Set(), PUBLIC);
-  const html = segments.map((s) => s.html).join("");
+  const { html } = await buildLecture(lecture(), "c", DIAGRAMS, new Set(), PUBLIC);
   assert.match(html, /<figure class="diagram" data-diagram="01-one" style="--w:10">/);
   assert.match(html, /<svg role="img" aria-label="x" viewBox="0 0 10 10">/);
   assert.match(html, /<figcaption><strong>One\.<\/strong> A caption\.<\/figcaption>/);
@@ -395,7 +409,7 @@ test("a lecture this process may not show is checked but not rendered", async ()
     shows: (v) => v === "public",
   });
   assert.equal(built.locked, true);
-  assert.deepEqual(built.segments, []);
+  assert.equal(built.html, "");
   assert.equal(built.text, "");
   assert.equal(built.front.visibility, "members");
   // Still checked: a locked lecture with a broken front matter fails too.
@@ -428,25 +442,6 @@ test("video files are found beside the lecture, and a missing one is a warning",
   assert.deepEqual(found.warnings, []);
 });
 
-test("reading time adds layers up, and Tip stands alone", () => {
-  const minutes = { tip: 2, waterline: 10, deep: 7, abyss: 6 };
-  assert.equal(minutesAt(minutes, "tip"), 2);
-  assert.equal(minutesAt(minutes, "waterline"), 10);
-  assert.equal(minutesAt(minutes, "deep"), 17);
-  assert.equal(minutesAt(minutes, "abyss"), 23);
-});
-
-test("depth parsing and visibility", () => {
-  assert.equal(parseDepth("deep"), "deep");
-  assert.equal(parseDepth("DEEP"), undefined);
-  assert.equal(parseDepth(null), undefined);
-  assert.equal(DEFAULT_DEPTH, "waterline");
-  assert.equal(visibleAt("waterline", "deep"), true);
-  assert.equal(visibleAt("abyss", "deep"), false);
-  assert.equal(visibleAt("tip", "waterline"), false);
-  assert.equal(visibleAt("waterline", "tip"), false);
-  assert.equal(visibleAt("tip", "tip"), true);
-});
 
 test("quotes curl in prose and nowhere else", () => {
   const text = (value: string): HNode => ({ type: "text", value });

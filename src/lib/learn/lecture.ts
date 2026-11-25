@@ -3,18 +3,22 @@ import {
   BlockError,
   scanBlocks,
   splitSections,
+  splitSectionsV2,
   type Block,
+  type FlatSection,
   type Section,
 } from "./blocks.ts";
 import { DEPTHS, type Depth } from "./depth.ts";
-import { Renderer, suspectMaths, type Facts, type Heading } from "./render.ts";
+import { FRAMES_V2, Renderer, suspectMaths, type Facts, type Heading } from "./render.ts";
 import { sanitizeSvg } from "./svg.ts";
 
 /**
- * One lecture: its front matter, its four depths rendered to HTML, and every
- * structural rule of learn-content/CONTRACT.md as a build-time check. The
+ * One lecture: its front matter, its body rendered to one page of HTML, and
+ * every structural rule of learn-content/CONTRACT.md as a build-time check. The
  * rules live in this file and nowhere else; the contract describes them and
- * this enforces them.
+ * this enforces them. A lecture is in format 2 (`format: 2`, `##` sections) or
+ * format 1 (four `#` depth sections, kept until they are converted); both are
+ * shown as one continuous page.
  */
 
 export const VISIBILITIES = ["public", "members", "friends", "local"] as const;
@@ -32,13 +36,30 @@ export const SHELVES = [
 
 export type ShelfId = (typeof SHELVES)[number]["id"];
 
-/** Words per layer the contract asks for; a placeholder is exempt. */
-export const WORD_RANGES: Record<Depth, readonly [number, number]> = {
+/** Version 1 words per old depth section the contract asked for; a placeholder is exempt. */
+export const WORD_RANGES_V1: Record<Depth, readonly [number, number]> = {
   tip: [250, 350],
   waterline: [1400, 2000],
   deep: [1200, 2000],
   abyss: [1000, 1800],
 };
+
+/** Version 2 words the contract asks for; a placeholder is exempt. */
+export const WORD_RANGES = {
+  brief: [150, 350],
+  lecture: [3000, 7000],
+  limits: [200, 900],
+  practice: [200, 700],
+} as const;
+
+/** Version 2 counts: numbered sections, and the questions of each kind. */
+export const COUNTS = {
+  numbered: [6, 14],
+  explain: [3, 5],
+  interview: [4, 8],
+  check: 5,
+  diagrams: 4,
+} as const;
 
 export interface Source {
   id: string;
@@ -71,6 +92,8 @@ export interface CourseFront {
 }
 
 export interface LectureFront {
+  /** 1: four `#` depth sections (to be converted). 2: one document of `##` sections. */
+  format: 1 | 2;
   course: string;
   order: number;
   slug: string;
@@ -78,8 +101,8 @@ export interface LectureFront {
   promise: string;
   visibility: Visibility;
   video: boolean;
-  /** Reading time of each layer; the layers add up. */
-  minutes: Record<Depth, number>;
+  /** Reading time of the whole lecture; for format 1 the four old layers added up. */
+  minutes: number;
   objectives: string[];
   prerequisites: string[];
   sources: Source[];
@@ -92,10 +115,10 @@ export interface LectureFront {
   placeholder: boolean;
 }
 
-/** A piece of rendered body. It is on screen at `layer`, and at deeper layers too. */
-export interface Segment {
-  layer: Depth;
-  html: string;
+/** Words of prose in one `##` section of a format 2 lecture. */
+export interface SectionWords {
+  title: string;
+  words: number;
 }
 
 /** The files beside a lecture that the site serves, as found on disk. */
@@ -112,15 +135,18 @@ export interface Lecture {
   /** `NN-slug`, the name its files share. */
   file: string;
   front: LectureFront;
-  /** True when this process may not show the body; `segments` is then empty. */
+  /** True when this process may not show the body; `html` is then empty. */
   locked: boolean;
-  segments: Segment[];
+  /** The whole lecture as one page of HTML, ending with its references. */
+  html: string;
   /** The learning objectives as HTML (they may hold maths). */
   objectivesHtml: string[];
-  /** Headings the "On this page" list shows: sections and their subsections. */
+  /** Headings the "On this page" list shows: sections and their subsections, in reading order. */
   toc: Heading[];
-  /** Plain text of every layer, for search. */
+  /** Plain text of the whole lecture, for search. */
   text: string;
+  /** Words of prose per `##` section, for the checker; empty for format 1. */
+  words: SectionWords[];
   media: Media;
   /** Things worth saying that do not fail the build. */
   warnings: string[];
@@ -141,21 +167,15 @@ export type Diagrams = ReadonlyMap<string, string>;
 export class LectureError extends Error {
   readonly path: string;
   readonly issues: string[];
+  /** Words per `##` section of a format 2 lecture, when the body got far enough to count them. */
+  readonly words: SectionWords[];
 
-  constructor(path: string, issues: string[]) {
+  constructor(path: string, issues: string[], words: SectionWords[] = []) {
     super(`${path}:\n${issues.map((issue) => `  - ${issue}`).join("\n")}`);
     this.path = path;
     this.issues = issues;
+    this.words = words;
   }
-}
-
-/** Minutes to read the lecture at `depth`: layers add up, and Tip stands alone. */
-export function minutesAt(minutes: Record<Depth, number>, depth: Depth): number {
-  if (depth === "tip") return minutes.tip;
-  return DEPTHS.slice(1, DEPTHS.indexOf(depth) + 1).reduce(
-    (sum, d) => sum + minutes[d],
-    0,
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -317,10 +337,23 @@ export function readLecture(
     );
   }
 
-  const minutes = (r.data.minutes ?? {}) as Record_;
-  const layers = Object.fromEntries(
-    DEPTHS.map((depth) => [depth, r.int(depth, minutes)]),
-  ) as Record<Depth, number>;
+  const asked = r.data.format;
+  if (asked !== undefined && asked !== 2) {
+    r.issues.push('front matter: "format" is 2; leave it out for a version 1 lecture');
+  }
+  const format: 1 | 2 = asked === 2 ? 2 : 1;
+
+  let minutes: number;
+  if (format === 2) minutes = r.int("minutes");
+  else if (r.data.minutes !== null && typeof r.data.minutes === "object") {
+    const layers = r.data.minutes as Record_;
+    minutes = DEPTHS.reduce((sum, depth) => sum + r.int(depth, layers), 0);
+  } else {
+    r.issues.push(
+      'front matter: "minutes" lists tip, waterline, deep and abyss in a version 1 lecture; add "format: 2" for one number',
+    );
+    minutes = 0;
+  }
 
   const placeholder = r.bool("placeholder", false);
   const objectives = r.list("objectives").map((item) => {
@@ -372,6 +405,7 @@ export function readLecture(
     r.data.prerequisites === undefined ? [] : r.list("prerequisites").map(String);
 
   const front: LectureFront = {
+    format,
     course,
     order,
     slug: named[2]!,
@@ -379,7 +413,7 @@ export function readLecture(
     promise: r.text("promise"),
     visibility: r.oneOf("visibility", VISIBILITIES),
     video: r.bool("video"),
-    minutes: layers,
+    minutes,
     objectives,
     prerequisites,
     sources,
@@ -387,6 +421,28 @@ export function readLecture(
     placeholder,
   };
   return r.issues.length > 0 ? { issues: r.issues } : { front, issues: [] };
+}
+
+// ---------------------------------------------------------------------------
+// A course's cover
+
+/**
+ * Checks `cover.svg` beside `course.md`: the sanitiser's rules (nothing that
+ * runs or fetches), `viewBox="0 0 240 320"` and no text. Literal colours are
+ * allowed here: a cover is one of the places colour lives. `html` is the
+ * sanitiser's output, empty when there is any issue.
+ */
+export function readCover(source: string): { html: string; issues: string[] } {
+  const issues: string[] = [];
+  const root = /<svg\b[^>]*>/i.exec(source)?.[0] ?? "";
+  const box = /\sviewBox\s*=\s*["']([^"']*)["']/i.exec(root)?.[1];
+  if (box?.trim().split(/[\s,]+/).join(" ") !== "0 0 240 320") {
+    issues.push('cover.svg: the <svg> has viewBox="0 0 240 320"');
+  }
+  if (/<(?:text|tspan)[\s>]/i.test(source)) issues.push("cover.svg: a cover has no text");
+  const clean = sanitizeSvg(source);
+  issues.push(...clean.issues.map((issue) => `cover.svg: ${issue}`));
+  return { html: issues.length === 0 ? clean.html : "", issues };
 }
 
 // ---------------------------------------------------------------------------
@@ -513,10 +569,11 @@ export async function buildLecture(
     file: stem,
     front,
     locked: !render,
-    segments: [],
+    html: "",
     objectivesHtml: [],
     toc: [],
     text: "",
+    words: [],
     media: {
       video: media.has(`${stem}.mp4`),
       captions: media.has(`${stem}.vtt`),
@@ -534,34 +591,23 @@ export async function buildLecture(
   }
   if (!render) return lecture;
 
-  let sections: Section[];
-  try {
-    sections = splitSections(split.body, split.bodyLine);
-  } catch (error) {
-    return fail(...issues, error instanceof BlockError ? error.message : String(error));
-  }
-
-  const renderer = new Renderer(new Set(front.sources.map((source) => source.id)));
-  // Waterline's closing sections (check yourself, references) are shown after
-  // Deep and Abyss, so the layers read in order and the lecture still ends there.
-  const parts = {
-    tip: [] as string[],
-    waterline: [] as string[],
-    tail: [] as string[],
-    deep: [] as string[],
-    abyss: [] as string[],
+  const renderer = new Renderer(
+    new Set(front.sources.map((source) => source.id)),
+    front.format,
+  );
+  const counts: Counts = {
+    figures: 0,
+    questions: 0,
+    explain: 0,
+    interview: 0,
+    words: {} as Record<Depth, number>,
+    sections: [],
   };
-  const counts = { figures: 0, questions: 0, words: {} as Record<Depth, number> };
-  let inTail = false;
-
-  const target = (layer: Depth): string[] =>
-    layer === "waterline" && inTail ? parts.tail : parts[layer];
 
   const figure = async (
     block: Extract<Block, { type: "diagram" }>,
-    layer: Depth,
+    layer?: Depth,
   ): Promise<string> => {
-    counts.figures += layer === "waterline" ? 1 : 0;
     const source = diagrams.get(block.id);
     if (source === undefined) {
       issues.push(
@@ -578,7 +624,7 @@ export async function buildLecture(
 
   const question = async (
     block: Extract<Block, { type: "details" }>,
-    layer: Depth,
+    layer?: Depth,
   ): Promise<string> => {
     const summary = await renderer.renderInline(block.summary, layer);
     const answer = await renderer.render(block.body, layer);
@@ -588,66 +634,138 @@ export async function buildLecture(
     );
   };
 
-  for (const section of sections) {
-    const layer = section.layer;
-    counts.words[layer] = proseWords(section.text);
-    if (
-      layer === "tip" &&
-      (/\$/.test(section.text) || /^ {0,3}(```|~~~)/m.test(section.text))
-    ) {
-      issues.push("Tip has no formulas and no code");
+  const parts: string[] = [];
+  let toc: Heading[] = [];
+  if (front.format === 2) {
+    let flat: FlatSection[];
+    try {
+      flat = splitSectionsV2(split.body, split.bodyLine);
+    } catch (error) {
+      return fail(...issues, error instanceof BlockError ? error.message : String(error));
     }
-    for (const block of scanBlocks(section.text, section.line)) {
-      if (block.type === "diagram") {
-        target(layer).push(await figure(block, layer));
-      } else if (block.type === "details") {
-        if (layer === "waterline" && inTail) counts.questions += 1;
-        target(layer).push(await question(block, layer));
-      } else {
-        // The first "## Check yourself" ends the Waterline proper.
-        const at =
-          layer === "waterline" ? /^## Check yourself\s*$/m.exec(block.text) : null;
-        if (at && !inTail) {
-          const before = block.text.slice(0, at.index);
-          if (before.trim() !== "")
-            parts.waterline.push(await renderer.render(before, layer));
-          inTail = true;
-          parts.tail.push(await renderer.render(block.text.slice(at.index), layer));
+    for (const section of flat) {
+      const frame = (FRAMES_V2 as Record<string, string>)[section.title.toLowerCase()];
+      counts.sections.push({ title: section.title, words: proseWords(section.text), frame });
+      if (frame === "brief" && (/(^|[^\\])\$/.test(section.text) || /^ {0,3}(```|~~~)/m.test(section.text))) {
+        lecture.warnings.push("In brief has no formulas and no code");
+      }
+      if (frame === "references" && section.text.trim() !== "") {
+        lecture.warnings.push(
+          "References is the heading only; the site builds the list from the front matter",
+        );
+      }
+      for (const block of scanBlocks(`${section.heading}\n${section.text}`, section.line)) {
+        if (block.type === "diagram") {
+          counts.figures += 1;
+          parts.push(await figure(block));
+        } else if (block.type === "details") {
+          if (frame === "check") counts.questions += 1;
+          if (frame === "explain") {
+            counts.explain += 1;
+            if (!/A good explanation covers/i.test(block.body) || !/^\s*[-*] /m.test(block.body)) {
+              lecture.warnings.push(
+                `line ${block.line}: an explain-it-back prompt is followed by "A good explanation covers:" and bullet points`,
+              );
+            }
+          }
+          if (frame === "interview") counts.interview += 1;
+          parts.push(await question(block));
         } else {
-          target(layer).push(await renderer.render(block.text, layer));
+          parts.push(await renderer.render(block.text));
         }
       }
     }
-  }
-  parts.tail.push(referencesHtml(front));
-  issues.push(...renderer.facts.issues);
-  checkStructure(front, renderer.facts, counts, issues);
-  issues.push(...suspectMaths(split.body, split.bodyLine));
-  if (issues.length > 0) fail(...issues);
+    parts.push(referencesHtml(front));
+    toc = renderer.facts.headings.filter((heading) => heading.depth <= 3);
+  } else {
+    let sections: Section[];
+    try {
+      sections = splitSections(split.body, split.bodyLine);
+    } catch (error) {
+      return fail(...issues, error instanceof BlockError ? error.message : String(error));
+    }
+    // The old Tip stands first, under the heading "In brief". Waterline's
+    // closing sections (check yourself, references) are shown after Deep and
+    // Abyss, so the old sections read in order and the lecture still ends there.
+    const brief = renderer.briefHeading();
+    const old = {
+      tip: [brief.html] as string[],
+      waterline: [] as string[],
+      tail: [] as string[],
+      deep: [] as string[],
+      abyss: [] as string[],
+    };
+    let inTail = false;
+    const target = (layer: Depth): string[] =>
+      layer === "waterline" && inTail ? old.tail : old[layer];
 
-  lecture.segments = [
-    { layer: "tip", html: parts.tip.join("") },
-    { layer: "waterline", html: parts.waterline.join("") },
-    { layer: "deep", html: parts.deep.join("") },
-    { layer: "abyss", html: parts.abyss.join("") },
-    { layer: "waterline", html: parts.tail.join("") },
-  ].filter((segment) => segment.html.trim() !== "") as Segment[];
+    for (const section of sections) {
+      const layer = section.layer;
+      counts.words[layer] = proseWords(section.text);
+      if (
+        layer === "tip" &&
+        (/\$/.test(section.text) || /^ {0,3}(```|~~~)/m.test(section.text))
+      ) {
+        issues.push("Tip has no formulas and no code");
+      }
+      for (const block of scanBlocks(section.text, section.line)) {
+        if (block.type === "diagram") {
+          counts.figures += layer === "waterline" ? 1 : 0;
+          target(layer).push(await figure(block, layer));
+        } else if (block.type === "details") {
+          if (layer === "waterline" && inTail) counts.questions += 1;
+          target(layer).push(await question(block, layer));
+        } else {
+          // The first "## Check yourself" ends the Waterline proper.
+          const at =
+            layer === "waterline" ? /^## Check yourself\s*$/m.exec(block.text) : null;
+          if (at && !inTail) {
+            const before = block.text.slice(0, at.index);
+            if (before.trim() !== "")
+              old.waterline.push(await renderer.render(before, layer));
+            inTail = true;
+            old.tail.push(await renderer.render(block.text.slice(at.index), layer));
+          } else {
+            target(layer).push(await renderer.render(block.text, layer));
+          }
+        }
+      }
+    }
+    old.tail.push(referencesHtml(front));
+    parts.push(...old.tip, ...old.waterline, ...old.deep, ...old.abyss, ...old.tail);
+    // In reading order: Check yourself and References come after Deep and Abyss.
+    const headings = renderer.facts.headings.filter((heading) => heading.depth <= 3);
+    const closing = headings.findIndex(
+      (h) => h.layer === "waterline" && h.frame === "check",
+    );
+    const waterline = headings.filter((h) => h.layer === "waterline");
+    const ahead = closing === -1 ? waterline.length : waterline.indexOf(headings[closing]!);
+    toc = [
+      brief.heading,
+      ...waterline.slice(0, ahead),
+      ...headings.filter((h) => h.layer === "deep"),
+      ...headings.filter((h) => h.layer === "abyss"),
+      ...waterline.slice(ahead),
+    ];
+  }
+  issues.push(...renderer.facts.issues);
+  if (front.format === 2) checkStructureV2(front, renderer.facts, counts, issues);
+  else checkStructure(front, renderer.facts, counts, issues);
+  issues.push(...suspectMaths(split.body, split.bodyLine));
+  if (issues.length > 0) {
+    throw new LectureError(
+      file.path,
+      issues,
+      counts.sections.map(({ title, words }) => ({ title, words })),
+    );
+  }
+
+  lecture.html = parts.join("");
   lecture.objectivesHtml = await Promise.all(
-    front.objectives.map((objective) => renderer.renderInline(objective, "waterline")),
+    front.objectives.map((objective) => renderer.renderInline(objective)),
   );
-  // In reading order: Check yourself and References come after Deep and Abyss.
-  const headings = renderer.facts.headings.filter((heading) => heading.depth <= 3);
-  const closing = headings.findIndex(
-    (h) => h.layer === "waterline" && h.frame === "check",
-  );
-  const waterline = headings.filter((h) => h.layer === "waterline");
-  const ahead = closing === -1 ? waterline.length : waterline.indexOf(headings[closing]!);
-  lecture.toc = [
-    ...waterline.slice(0, ahead),
-    ...headings.filter((h) => h.layer === "deep"),
-    ...headings.filter((h) => h.layer === "abyss"),
-    ...waterline.slice(ahead),
-  ];
+  lecture.toc = toc;
+  lecture.words = counts.sections.map(({ title, words }) => ({ title, words }));
   lecture.text = `${front.title}. ${front.promise}\n${renderer.facts.text.join("\n")}`;
   return lecture;
 }
@@ -683,8 +801,104 @@ function referencesHtml(front: LectureFront): string {
 
 interface Counts {
   figures: number;
+  /** Check-yourself questions. */
   questions: number;
+  /** Explain-it-back prompts and interview questions (format 2). */
+  explain: number;
+  interview: number;
+  /** Format 1: words per old depth section. */
   words: Record<Depth, number>;
+  /** Format 2: words per `##` section, with the frame it is, if it is one. */
+  sections: { title: string; words: number; frame?: string }[];
+}
+
+/** The frame sections of format 2 in the order they close a lecture, with the titles readers see. */
+const CLOSING_V2 = [
+  ["limits", "Limits and open questions"],
+  ["practice", "In practice"],
+  ["explain", "Explain it back"],
+  ["interview", "Interview questions"],
+  ["check", "Check yourself"],
+  ["references", "References"],
+] as const;
+
+/** Every rule of CONTRACT.md version 2 that the build can check. */
+function checkStructureV2(
+  front: LectureFront,
+  facts: Facts,
+  counts: Counts,
+  issues: string[],
+): void {
+  const full = !front.placeholder;
+  const top = facts.headings.filter((h) => h.depth === 2);
+  const numbered = top.filter((h) => h.number !== undefined);
+  const unknown = top.filter((h) => h.number === undefined && h.frame === undefined);
+  for (const h of unknown) {
+    issues.push(
+      `"## ${h.text}" is not one of the sections of a lecture: number it, like "## 1. ${h.text}", or use one of In brief, Worked example, Limits and open questions, In practice, Explain it back, Interview questions, Check yourself, References`,
+    );
+  }
+  const frames = top.map((h) => h.frame);
+  const present = (frame: string): boolean => frames.includes(frame as never);
+  const missing = [
+    ...(present("brief") ? [] : ["In brief"]),
+    ...(present("example") ? [] : ["Worked example (at least one)"]),
+    ...CLOSING_V2.filter(([frame]) => !present(frame)).map(([, title]) => title),
+  ];
+  for (const title of missing) issues.push(`missing the "## ${title}" section`);
+  const sequence = top.map((h) => (h.number !== undefined ? "n" : (h.frame ?? "?"))).join(" ");
+  if (
+    unknown.length === 0 &&
+    missing.length === 0 &&
+    !/^brief( (?:n|example))+ limits practice explain interview check references$/.test(sequence)
+  ) {
+    issues.push(
+      "the sections come in this order: In brief, the numbered sections (with a Worked example where it helps), Limits and open questions, In practice, Explain it back, Interview questions, Check yourself, References; each once",
+    );
+  }
+  if (numbered.map((h) => h.number).join() !== numbered.map((_, i) => i + 1).join()) {
+    issues.push("the numbered sections count 1, 2, 3, … in order");
+  }
+  const [fewest, most] = COUNTS.numbered;
+  if (numbered.length < 1 || (full && (numbered.length < fewest || numbered.length > most))) {
+    issues.push(
+      `${numbered.length} numbered sections; a lecture has ${fewest} to ${most}`,
+    );
+  }
+
+  const range = (name: string, n: number, low: number, high: number): void => {
+    if (full ? n < low || n > high : n < 1) {
+      issues.push(
+        `${name} has ${n}; the contract asks for ${low === high ? `exactly ${low}` : `${low} to ${high}`}`,
+      );
+    }
+  };
+  range("Check yourself", counts.questions, COUNTS.check, COUNTS.check);
+  range("Explain it back", counts.explain, ...COUNTS.explain);
+  range("Interview questions", counts.interview, ...COUNTS.interview);
+  if (full && counts.figures < COUNTS.diagrams) {
+    issues.push(`${counts.figures} diagrams; a lecture has at least ${COUNTS.diagrams}`);
+  }
+
+  if (full) {
+    const words = (frame: string): number =>
+      counts.sections.find((s) => s.frame === frame)?.words ?? 0;
+    const asked = [
+      ["In brief", words("brief"), WORD_RANGES.brief],
+      ["Limits and open questions", words("limits"), WORD_RANGES.limits],
+      ["In practice", words("practice"), WORD_RANGES.practice],
+      [
+        "The lecture",
+        counts.sections.reduce((sum, s) => sum + s.words, 0),
+        WORD_RANGES.lecture,
+      ],
+    ] as const;
+    for (const [name, n, [low, high]] of asked) {
+      if (n < low || n > high) {
+        issues.push(`${name} has ${n} words; the contract asks for ${low} to ${high}`);
+      }
+    }
+  }
 }
 
 function checkStructure(
@@ -760,7 +974,7 @@ function checkStructure(
   // Words, and the rules for the Tip.
   if (full) {
     for (const layer of DEPTHS) {
-      const [low, high] = WORD_RANGES[layer];
+      const [low, high] = WORD_RANGES_V1[layer];
       const words = counts.words[layer];
       if (words < low || words > high) {
         issues.push(

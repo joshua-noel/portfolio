@@ -11,8 +11,6 @@ import {
   thicknessRem,
   type CoverStyle,
 } from "./cover.ts";
-import { DEPTHS, type Depth } from "./depth.ts";
-import { minutesAt } from "./lecture.ts";
 
 /**
  * The landing page's bookshelf as data: one book per course, shelves in the
@@ -31,8 +29,8 @@ export interface BookLecture {
   locked: boolean;
   placeholder: boolean;
   video: boolean;
-  /** Reading time at each depth; absent for a lecture the reader may not open. */
-  minutes?: Record<Depth, number>;
+  /** Reading time; absent for a lecture the reader may not open. */
+  minutes?: number;
 }
 
 export interface Book {
@@ -52,8 +50,8 @@ export interface Book {
   lectures: BookLecture[];
   /** Lectures the reader may open that have a video. */
   videos: number;
-  /** Reading time of the whole course at each depth; absent when locked. */
-  minutes?: Record<Depth, number>;
+  /** Reading time of the whole course; absent when locked. */
+  minutes?: number;
   /** Spine width and height in rem. */
   thickness: number;
   height: number;
@@ -154,19 +152,10 @@ function bookOf(course: Course, shelfTitle: string): Book {
     };
   });
   const open = lectures.filter((lecture) => !lecture.locked);
-  // The spine is as thick as the whole course reads, at every depth but Tip
-  // (which is a short text of its own). A lecture the reader may not open
-  // counts as a typical one, so a locked book still stands on the shelf.
-  const full = (lecture: BookLecture): number =>
-    lecture.minutes ? minutesAt(lecture.minutes, "abyss") : NOMINAL_LECTURE_MINUTES;
-  const minutes = course.locked
-    ? undefined
-    : (Object.fromEntries(
-        DEPTHS.map((depth) => [
-          depth,
-          sum(open.map((lecture) => minutesAt(lecture.minutes!, depth))),
-        ]),
-      ) as Record<Depth, number>);
+  // The spine is as thick as the whole course reads. A lecture the reader may
+  // not open counts as a typical one, so a locked book still stands on the shelf.
+  const full = (lecture: BookLecture): number => lecture.minutes ?? NOMINAL_LECTURE_MINUTES;
+  const minutes = course.locked ? undefined : sum(open.map((lecture) => lecture.minutes!));
   const { main, sub } = splitTitle(front.title);
   const thickness = thicknessRem(sum(lectures.map(full)));
   const height = heightRem(front.slug);

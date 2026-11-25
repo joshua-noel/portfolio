@@ -251,7 +251,7 @@ test("shelves stand in the catalog's order, books in course order, and empty she
   assert.deepEqual(buildShelves(await load([])), []);
 });
 
-test("a book is made from its course: counts, links, minutes at every depth, thickness from reading time", async () => {
+test("a book is made from its course: counts, links, minutes, thickness from reading time", async () => {
   const [foundations] = buildShelves(await load(library()));
   const book = foundations!.books[0]!;
   assert.equal(book.href, "/f-foundations");
@@ -261,9 +261,9 @@ test("a book is made from its course: counts, links, minutes at every depth, thi
     ["/f-foundations/l1", "/f-foundations/l2", "/f-foundations/l3", "/f-foundations/l4"],
   );
   assert.equal(book.videos, 4);
-  // The fixture's lectures read 2 / 9 / 8 / 6 minutes at Tip, Waterline, Deep, Abyss.
-  assert.deepEqual(book.minutes, { tip: 8, waterline: 36, deep: 68, abyss: 92 });
-  assert.equal(book.thickness, thicknessRem(4 * 23));
+  // The fixture's lectures read 25 minutes each (the four old layers added up).
+  assert.equal(book.minutes, 100);
+  assert.equal(book.thickness, thicknessRem(4 * 25));
   assert.equal(book.locked, false);
   assert.equal(book.cover.motif, "grid");
 });
@@ -479,7 +479,7 @@ test("a lecture the reader may not open inside a course they may is locked on it
     [false, true],
   );
   // Only the lecture they can open counts toward the reading time.
-  assert.equal(book!.minutes!.abyss, 23);
+  assert.equal(book!.minutes, 25);
   assert.equal(book!.videos, 1);
   assert.equal(JSON.stringify(book).includes(SECRET.members), false);
 });

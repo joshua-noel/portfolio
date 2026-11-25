@@ -103,6 +103,56 @@ export function splitSections(body: string, firstLine: number): Section[] {
   return sections;
 }
 
+/** One `## ` section of a version 2 lecture. `text` is what follows the heading line. */
+export interface FlatSection {
+  /** The heading's own line, as written. */
+  heading: string;
+  title: string;
+  text: string;
+  /** 1-based line of the heading. */
+  line: number;
+}
+
+/**
+ * Splits a version 2 body at its `## ` lines. A version 2 lecture has no
+ * `# ` headings, and nothing stands before the first `## `.
+ */
+export function splitSectionsV2(body: string, firstLine: number): FlatSection[] {
+  const sections: FlatSection[] = [];
+  let current: { heading: string; title: string; lines: string[]; line: number } | undefined;
+  const close = (): void => {
+    if (current) {
+      sections.push({
+        heading: current.heading,
+        title: current.title,
+        text: current.lines.join("\n"),
+        line: current.line,
+      });
+    }
+  };
+  eachLine(body, (line, index, fenced) => {
+    const lineNo = firstLine + index;
+    if (!fenced && /^# /.test(line)) {
+      throw new BlockError(
+        `"${line.trim()}": a version 2 lecture has no "#" headings; its title comes from the front matter and its sections start with "##"`,
+        lineNo,
+      );
+    }
+    const heading = !fenced ? /^## (.*?)\s*$/.exec(line) : null;
+    if (heading) {
+      close();
+      current = { heading: line.trimEnd(), title: heading[1]!, lines: [], line: lineNo };
+      return;
+    }
+    if (current) current.lines.push(line);
+    else if (line.trim() !== "") {
+      throw new BlockError('text before "## In brief": a version 2 lecture is "##" sections', lineNo);
+    }
+  });
+  close();
+  return sections;
+}
+
 export type Block =
   | { type: "markdown"; text: string; line: number }
   | { type: "diagram"; id: string; caption: string; line: number }
