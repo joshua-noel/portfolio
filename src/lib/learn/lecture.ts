@@ -47,7 +47,7 @@ export const WORD_RANGES_V1: Record<Depth, readonly [number, number]> = {
 /** Version 2 words the contract asks for; a placeholder is exempt. */
 export const WORD_RANGES = {
   brief: [150, 350],
-  lecture: [3000, 7000],
+  lecture: [3000, 9000],
   limits: [200, 900],
   practice: [200, 700],
 } as const;

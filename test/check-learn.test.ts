@@ -140,7 +140,7 @@ test("a version 2 course passes, and the words of every section are printed when
 
     const asked = run(root, "--course", "c");
     assert.equal(asked.status, 0, asked.text);
-    assert.match(asked.text, /^ {4}words: 4,\d{3} in all \(the contract asks for 3,000 to 7,000\)$/m);
+    assert.match(asked.text, /^ {4}words: 4,\d{3} in all \(the contract asks for 3,000 to 9,000\)$/m);
     assert.match(asked.text, /^ {4} {2} {2}200 {2}In brief {2}\(asked 150 to 350\)$/m);
     assert.match(asked.text, /^ {4} {2}\s*\d+ {2}1\. Section 1$/m);
     assert.match(asked.text, /^ {4} {2}\s*300 {2}In practice {2}\(asked 200 to 700\)$/m);

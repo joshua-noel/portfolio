@@ -195,10 +195,10 @@ test("error: word ranges", async () => {
   );
   const thin = (list: Section[]): Section[] =>
     list.map(([h, t]): Section => (/^\d+\./.test(h) ? [h, words(60)] : [h, t]));
-  assert.match(await issuesOf(lectureV2(thin)), /The lecture has \d+ words; the contract asks for 3000 to 7000/);
+  assert.match(await issuesOf(lectureV2(thin)), /The lecture has \d+ words; the contract asks for 3000 to 9000/);
   const fat = (list: Section[]): Section[] =>
     list.map(([h, t]): Section => (/^\d+\./.test(h) ? [h, `${words(600)}\n\n${t}`] : [h, t]));
-  assert.match(await issuesOf(lectureV2(fat)), /The lecture has \d+ words; the contract asks for 3000 to 7000/);
+  assert.match(await issuesOf(lectureV2(fat)), /The lecture has \d+ words; the contract asks for 3000 to 9000/);
 });
 
 test("error: the number of questions of each kind", async () => {
