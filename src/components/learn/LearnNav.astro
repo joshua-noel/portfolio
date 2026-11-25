@@ -7,11 +7,9 @@ interface Props {
   catalog: Catalog;
   /** Slugs of the course and lecture being read. */
   current?: { course: string; lecture?: string };
-  /** `?depth=…` to carry from lecture to lecture, or empty. */
-  query: string;
 }
 
-const { catalog, current, query } = Astro.props;
+const { catalog, current } = Astro.props;
 ---
 
 <nav class="sidenav" id="sidenav" aria-label="Courses" data-sidenav>
@@ -21,7 +19,7 @@ const { catalog, current, query } = Astro.props;
         <h2 class="part-title">{shelf.title}</h2>
         {shelf.courses.map((course) => (
           <div class="nav-course">
-            <p class="part-title">
+            <p class="course-title">
               <a
                 class="name"
                 href={`/${course.front.slug}`}
@@ -40,19 +38,11 @@ const { catalog, current, query } = Astro.props;
                 {course.lectures.map((lecture) => (
                   <li>
                     <a
-                      href={`${lectureUrl(lecture)}${lecture.locked ? "" : query}`}
-                      data-lecture-link={lecture.locked ? undefined : ""}
+                      href={lectureUrl(lecture)}
                       class:list={[lecture.locked && "is-locked"]}
                       aria-current={lecture.slug === current.lecture ? "page" : undefined}
                     >
-                      {lecture.locked ? (
-                        <Lock />
-                      ) : (
-                        <span
-                          class="mark"
-                          data-mark={`${lecture.course}/${lecture.slug}`}
-                        />
-                      )}
+                      {lecture.locked && <Lock />}
                       <span>{lecture.front.title}</span>
                     </a>
                   </li>

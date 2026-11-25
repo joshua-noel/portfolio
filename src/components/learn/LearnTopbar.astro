@@ -47,13 +47,6 @@ const { siteUrl } = getConfig();
     <span class="slash" aria-hidden="true">/</span>
     <a class="home" href="/">Learn</a>
   </span>
-
-  <nav class="parts-nav" aria-label="Shelves">
-    {catalog.shelves.map((shelf) => <a href={`/#shelf-${shelf.id}`}>{shelf.title}</a>)}
-  </nav>
-
-  <span class="spacer"></span>
-
   <form class="search" action="/search" method="get" role="search">
     <svg
       class="icon"
@@ -85,6 +78,12 @@ const { siteUrl } = getConfig();
     >
     </ul>
   </form>
+
+  <span class="spacer"></span>
+
+  <nav class="parts-nav" aria-label="Shelves">
+    {catalog.shelves.map((shelf) => <a href={`/#shelf-${shelf.id}`}>{shelf.title}</a>)}
+  </nav>
 
   <button
     class="icon-button theme-toggle"

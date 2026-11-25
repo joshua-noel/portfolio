@@ -68,13 +68,9 @@ const themes = {
 
 const surfaces = ["bg", "surface", "bg-sunken"];
 const textOnSurfaces = ["fg", "muted", "text-3", "accent"];
-// Coloured text and strokes: the depth colours, the series colours --c1 to --c6
-// that diagrams draw with, and the success tick.
+// Coloured text and strokes: the series colours --c1 to --c6 that diagrams
+// draw with. The chrome itself has no colour but --accent.
 const coloured = [
-  "d-tip",
-  "d-waterline",
-  "d-deep",
-  "d-abyss",
   "c1",
   "c2",
   "c3",
@@ -82,8 +78,20 @@ const coloured = [
   "c5",
   "c6",
   "alert",
-  "success",
 ];
+
+test("the chrome stays plain: no gradients, shadows, pills or small caps (docs/learn-style.md)", () => {
+  for (const banned of [
+    /gradient\(/,
+    /box-shadow/,
+    /text-shadow/,
+    /text-transform:\s*uppercase/,
+    /border-radius:\s*999/,
+    /backdrop-filter/,
+  ]) {
+    assert.doesNotMatch(css, banned);
+  }
+});
 
 for (const [name, theme] of Object.entries(themes)) {
   test(`${name}: text clears 4.5:1 on every surface`, () => {

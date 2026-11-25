@@ -1,26 +1,19 @@
 // The landing page's bookshelf. The markup works without this file (a grid of
 // course cards); this turns each cover into a book that stands on a shelf,
 // moves a card's text into a panel when the book is opened, and adds the
-// filter pills. Plain DOM, no framework, nothing fetched.
+// filter row. Plain DOM, no framework, nothing fetched.
 import { filterFromKey, matchesFilter } from "../../lib/learn/bookshelf-filter.ts";
-import { DEPTHS, DEPTH_LABELS } from "../../lib/learn/depth.ts";
 
-const root = document.documentElement;
 const shelf = document.querySelector("[data-bookshelf]");
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
-/**
- * What a book is called to a screen reader: its title, its lectures, its
- * reading time at the depth chosen (it changes with the switch), and whether
- * it is locked.
- */
+/** What a book is called to a screen reader: its title, its lectures, its reading time, and whether it is locked. */
 function nameBooks() {
-  const depth = DEPTHS.includes(root.dataset.depth) ? root.dataset.depth : "waterline";
   for (const book of document.querySelectorAll("[data-book]")) {
     const hit = book.querySelector(".hit");
     if (!hit) continue;
-    const minutes = book.dataset.minutes?.split(",")[DEPTHS.indexOf(depth)];
-    const time = minutes ? `, about ${minutes} minutes at ${DEPTH_LABELS[depth]}` : "";
+    const minutes = book.dataset.minutes;
+    const time = minutes ? `, about ${minutes} minutes` : "";
     const locked = book.hasAttribute("data-locked") ? ". Locked" : "";
     hit.setAttribute(
       "aria-label",
@@ -37,31 +30,7 @@ const store = {
       return null;
     }
   },
-  set(key, value) {
-    try {
-      localStorage.setItem(key, value);
-    } catch {
-      // Storage disabled: the choice lasts until the page closes.
-    }
-  },
 };
-
-// ---------------------------------------------------------------- depth
-
-// The same four links as a lecture's switch; here they set the depth the
-// reading times show, and which one the next lecture opens at.
-document.querySelector("[data-depth-switch]")?.addEventListener("click", (event) => {
-  const link = event.target instanceof Element && event.target.closest("a[data-depth]");
-  if (!link) return;
-  event.preventDefault();
-  const depth = link.dataset.depth;
-  root.dataset.depth = depth;
-  store.set("learn-depth", depth);
-  const url = new URL(location.href);
-  url.searchParams.set("depth", depth);
-  history.replaceState(history.state, "", url);
-  nameBooks();
-});
 
 // ---------------------------------------------------------------- resume
 

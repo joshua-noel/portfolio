@@ -8,7 +8,6 @@ import Lock from "./Lock.astro";
 import BookMotif from "./BookMotif.astro";
 import { filterPills } from "../../lib/learn/bookshelf-filter.ts";
 import { packCases, type Book, type ShelfView } from "../../lib/learn/bookshelf.ts";
-import { DEPTHS } from "../../lib/learn/depth.ts";
 import "../../styles/learn-bookshelf.css";
 
 interface Props {
@@ -37,7 +36,7 @@ const bookStyle = (book: Book): string =>
       pills.map((pill) => (
         <button
           type="button"
-          class="pill"
+          class="filter-option"
           aria-pressed={pill.key === "all" ? "true" : "false"}
           data-filter={pill.key}
         >
@@ -113,11 +112,7 @@ const bookStyle = (book: Book): string =>
                       data-slug={book.slug}
                       data-shelf={book.shelf}
                       data-videos={book.videos}
-                      data-minutes={
-                        book.minutes
-                          ? DEPTHS.map((d) => book.minutes![d]).join(",")
-                          : undefined
-                      }
+                      data-minutes={book.minutes}
                       data-locked={book.locked ? "" : undefined}
                       style={bookStyle(book)}
                     >
@@ -157,13 +152,7 @@ const bookStyle = (book: Book): string =>
                       <div class="detail" data-detail>
                         <p class="d-eyebrow">
                           {book.shelfTitle} · {plural(book.lectures.length, "lecture")}
-                          {book.minutes &&
-                            DEPTHS.map((depth) => (
-                              <span class="rt" data-d={depth}>
-                                {" "}
-                                · {book.minutes![depth]} min
-                              </span>
-                            ))}
+                          {book.minutes && ` · ${book.minutes} min`}
                           {book.videos > 0 && <span> · {book.videos} with video</span>}
                         </p>
                         <h3 class="d-title">{book.title}</h3>
@@ -222,11 +211,7 @@ const bookStyle = (book: Book): string =>
                                           <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />
                                         </svg>
                                       )}
-                                      {DEPTHS.map((depth) => (
-                                        <span class="rt" data-d={depth}>
-                                          {lecture.minutes![depth]} min
-                                        </span>
-                                      ))}
+                                      <span class="rt">{lecture.minutes} min</span>
                                       <span
                                         class="mark"
                                         data-mark={`${book.slug}/${lecture.slug}`}

@@ -53,41 +53,9 @@
 /* ---------- Introduction ---------- */
 
 .intro {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1.5rem 3rem;
-}
-.intro-text {
-  flex: 1 1 28rem;
   max-width: 42rem;
-}
-.intro .depth {
-  flex: 0 1 26rem;
-  margin-top: 0.4rem;
-  min-width: min(100%, 18rem);
-}
-.depth-line {
-  margin: 0.9rem 0 0;
-  max-width: 40rem;
-  color: var(--muted);
-  font-size: 0.95rem;
-}
-.depth-line strong {
-  font-weight: 650;
-}
-.depth-line .d-tip {
-  color: var(--d-tip);
-}
-.depth-line .d-waterline {
-  color: var(--d-waterline);
-}
-.depth-line .d-deep {
-  color: var(--d-deep);
-}
-.depth-line .d-abyss {
-  color: var(--d-abyss);
+  margin-inline: auto;
+  text-align: center;
 }
 .resume {
   margin: 1rem 0 0;
@@ -109,38 +77,23 @@
 .js .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
-  width: fit-content;
-  max-width: 100%;
-  margin-top: 2.25rem;
-  padding: 0.25rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
+  justify-content: center;
+  gap: 0.25rem 1.5rem;
+  margin: 2.25rem auto 0;
 }
-.pill {
-  height: 2rem;
-  padding: 0 0.95rem;
+.filter-option {
+  padding: 0.35rem 0;
   border: 0;
-  border-radius: 999px;
   background: transparent;
   color: var(--muted);
-  font-size: 0.86rem;
-  font-weight: 560;
+  font-size: 0.875rem;
   white-space: nowrap;
-  transition:
-    background-color 0.2s,
-    color 0.2s;
 }
-.pill:hover {
+.filter-option:hover {
   color: var(--fg);
 }
-.pill[aria-pressed="true"] {
-  background: var(--fg);
-  color: var(--bg);
-}
-.pill:focus-visible {
-  outline-offset: 1px;
+.filter-option[aria-pressed="true"] {
+  color: var(--accent);
 }
 
 /* ---------- A shelf ---------- */
@@ -153,11 +106,9 @@
 }
 .shelf-head h2 {
   margin: 0;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--accent);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--fg);
 }
 .shelf-count {
   color: var(--text-3);
@@ -182,8 +133,8 @@
   height: 2rem;
   padding: 0;
   border: 1px solid var(--line);
-  border-radius: 50%;
-  background: var(--surface);
+  border-radius: 4px;
+  background: transparent;
   color: var(--fg);
 }
 .shelf-arrows button:hover {
@@ -1031,6 +982,10 @@
     display: flex;
     align-items: center;
     height: calc(var(--plank) - 0.1rem);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     padding-top: 0.5rem;
     color: var(--engrave);
     text-shadow: 0 1px 0 var(--engrave-edge);
@@ -1212,27 +1167,15 @@
   }
   .js .filters {
     flex-wrap: nowrap;
-    width: auto;
+    justify-content: flex-start;
     overflow-x: auto;
     scrollbar-width: none;
   }
-  .pill {
+  .filter-option {
     flex: none;
-  }
-  .page.shelf-page h1 {
-    font-size: 2.4rem;
-  }
-  .page.shelf-page .lede {
-    font-size: 1.05rem;
   }
   .intro {
     gap: 0.5rem;
-  }
-  .intro .depth {
-    margin-top: 0;
-  }
-  .depth-line {
-    margin-top: 0.7rem;
   }
 }
 

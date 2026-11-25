@@ -18,9 +18,9 @@ import { sanitize } from "./sanitize.ts";
  * rendered on the server, so the browser gets finished HTML and no library.
  *
  * Unlike src/lib/markdown.ts this renderer is stateful. A lecture arrives as
- * several chunks (one per depth layer), and heading ids, section numbers and
- * word counts must run on across all of them, so one `Renderer` renders one
- * whole lecture.
+ * several chunks (one per section, diagram or question), and heading ids and
+ * section numbers must run on across all of them, so one `Renderer` renders
+ * one whole lecture.
  */
 
 export interface HNode {
@@ -36,23 +36,42 @@ export interface Heading {
   /** Plain text; for a numbered section this excludes the number. */
   text: string;
   depth: 2 | 3 | 4;
-  /** The depth layer that contains it: it is on screen only at this depth or deeper. */
-  layer: Depth;
-  /** From "## 3. Title". */
+  /** Version 1 only: the old depth section that holds it. */
+  layer?: Depth;
+  /** From "## 3. Title", as written. */
   number?: number;
-  /** The unnumbered sections of the Waterline. */
+  /**
+   * The number the page shows. As written in version 2; in version 1 the
+   * numbers of Waterline, Deep and Abyss run on, so one page has no two "1".
+   */
+  shown?: number;
+  /** The unnumbered sections every lecture has. */
   frame?: FrameSection;
 }
 
-/** The unnumbered sections every Waterline has. */
-export const FRAME_SECTIONS = {
+/** Version 1's unnumbered sections of the Waterline. */
+const FRAMES_V1 = {
   "the idea in one paragraph": "idea",
   "worked example": "example",
   "check yourself": "check",
   references: "references",
 } as const;
 
-export type FrameSection = (typeof FRAME_SECTIONS)[keyof typeof FRAME_SECTIONS];
+/** Version 2's unnumbered sections, by title. */
+export const FRAMES_V2 = {
+  "in brief": "brief",
+  "worked example": "example",
+  "limits and open questions": "limits",
+  "in practice": "practice",
+  "explain it back": "explain",
+  "interview questions": "interview",
+  "check yourself": "check",
+  references: "references",
+} as const;
+
+export type FrameSection =
+  | (typeof FRAMES_V1)[keyof typeof FRAMES_V1]
+  | (typeof FRAMES_V2)[keyof typeof FRAMES_V2];
 
 /** What the renderer saw while rendering; the lecture's structural checks read it. */
 export interface Facts {
@@ -111,12 +130,17 @@ export class Renderer {
   };
 
   private readonly slugger = new GithubSlugger();
-  private layer: Depth = "waterline";
+  /** Version 1 only: the depth section being rendered. */
+  private layer: Depth | undefined;
   private section: FrameSection | "" = "";
   private readonly sources: ReadonlySet<string>;
+  private readonly format: 1 | 2;
+  /** Version 1: the number the page shows for the last numbered section. */
+  private shownCount = 0;
 
-  constructor(sourceIds: ReadonlySet<string> = new Set()) {
+  constructor(sourceIds: ReadonlySet<string> = new Set(), format: 1 | 2 = 2) {
     this.sources = sourceIds;
+    this.format = format;
   }
 
   private readonly processor = unified()
@@ -147,14 +171,14 @@ export class Renderer {
     .use(() => (tree: unknown) => wrapTables(tree as HNode))
     .use(rehypeStringify);
 
-  /** Renders a chunk of Markdown written for `layer`. */
-  async render(markdown: string, layer: Depth): Promise<string> {
+  /** Renders a chunk of Markdown; a version 1 chunk says which depth section it is from. */
+  async render(markdown: string, layer?: Depth): Promise<string> {
     this.layer = layer;
     return String(await this.processor.process(markdown));
   }
 
   /** A caption or a question: inline content, so the wrapping <p> goes. */
-  async renderInline(markdown: string, layer: Depth): Promise<string> {
+  async renderInline(markdown: string, layer?: Depth): Promise<string> {
     const html = await this.render(markdown, layer);
     return html.replace(/^<p>([\s\S]*)<\/p>\s*$/, "$1").trim();
   }
@@ -178,9 +202,7 @@ export class Renderer {
       if (prose.trim() !== "" && this.section !== "references") facts.text.push(prose);
 
       if (tag === "blockquote") this.callout(node);
-      if (this.layer === "waterline" && this.section === "idea" && tag === "p") {
-        facts.ideaParagraphs += 1;
-      }
+      if (this.section === "idea" && tag === "p") facts.ideaParagraphs += 1;
     }
   }
 
@@ -234,10 +256,25 @@ export class Renderer {
     visitNode(tree);
   }
 
+  /**
+   * Version 1 only: the heading that stands over the old Tip. It is not in
+   * `facts.headings`, which the version 1 rules read; the caller puts it first
+   * in the contents.
+   */
+  briefHeading(): { html: string; heading: Heading } {
+    const id = this.slugger.slug("In brief");
+    return {
+      heading: { id, text: "In brief", depth: 2, frame: "brief" },
+      html:
+        `<h2 id="${id}" class="frame frame-brief">In brief` +
+        `<a class="anchor" href="#${id}" aria-label="Link to \u201cIn brief\u201d">#</a></h2>\n`,
+    };
+  }
+
   private heading(node: HNode, depth: number): void {
     const label = proseText(node).trim();
     if (depth === 1) {
-      this.issue(`"# ${label}": only Tip, Waterline, Deep and Abyss are "#" sections`);
+      this.issue(`"# ${label}": a lecture has no "#" headings; sections start with "##"`);
       return;
     }
     if (depth > 4) {
@@ -250,25 +287,28 @@ export class Renderer {
       id: "",
       text: numbered ? numbered[2]! : label,
       depth: depth as 2 | 3 | 4,
-      layer: this.layer,
+      ...(this.layer ? { layer: this.layer } : {}),
     };
     const classes: string[] = [];
 
     if (depth === 2) {
-      const frame = (FRAME_SECTIONS as Record<string, FrameSection>)[label.toLowerCase()];
-      this.section = this.layer === "waterline" ? (frame ?? "") : "";
+      const frames: Record<string, FrameSection> =
+        this.format === 2 ? FRAMES_V2 : this.layer === "waterline" ? FRAMES_V1 : {};
+      const frame = frames[label.toLowerCase()];
+      this.section = frame ?? "";
       if (numbered) {
         heading.number = Number(numbered[1]);
+        heading.shown = this.format === 2 ? heading.number : ++this.shownCount;
         classes.push("numbered");
         const first = (node.children ?? []).find((child) => child.type === "text");
         if (first?.value) first.value = first.value.replace(/^\d+\.\s+/, "");
         node.children = [
           element("span", { className: ["sec-no"], ariaHidden: "true" }, [
-            text(String(heading.number)),
+            text(String(heading.shown)),
           ]),
           ...(node.children ?? []),
         ];
-      } else if (frame && this.layer === "waterline") {
+      } else if (frame) {
         heading.frame = frame;
         classes.push("frame", `frame-${frame}`);
       }

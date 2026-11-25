@@ -4,7 +4,7 @@
 // just the first, grouped by course and then by file, with a one-line summary
 // per course and a total. It exits 1 if there is any error.
 //
-//   node bin/check-learn.mjs [--course <slug>]... [content-dir ...]
+//   node bin/check-learn.mjs [--course <slug>]... [--words] [content-dir ...]
 //
 // With no directory it checks the folders named by PORTFOLIO_LEARN_CONTENT_DIRS
 // or PORTFOLIO_LEARN_CONTENT_DIR, or else the sample lectures in this
@@ -19,6 +19,13 @@
 // courses are still read, because a lecture's `prerequisites` may name a
 // lecture of another course.
 //
+// A lecture with `format: 2` is held to CONTRACT.md version 2; one without it
+// is version 1 (four `#` sections) and is held to the old rules. Each course's
+// summary says how many of its lectures are still version 1. The words of every
+// `##` section of a version 2 lecture are printed under its file name when
+// `--course` or `--words` is given, and for any version 2 lecture with an
+// error, so a writer sees what to cut or add.
+//
 // How it works: each file is built on its own, so one bad file never hides
 // the rest. The files that built are then loaded together as a catalog, which
 // is what finds the faults between files (prerequisites, clashing orders).
@@ -30,10 +37,14 @@ import { readContentDirs } from "../src/lib/learn/disk.ts";
 import { interactiveProblems } from "../src/lib/learn/interactive.ts";
 import {
   buildLecture,
+  COUNTS,
   LectureError,
   readCourse,
+  readCover,
   splitFrontmatter,
+  WORD_RANGES,
 } from "../src/lib/learn/lecture.ts";
+import { FRAMES_V2 } from "../src/lib/learn/render.ts";
 
 const sample = fileURLToPath(new URL("../content/learn", import.meta.url));
 
@@ -44,6 +55,7 @@ function usage(message) {
 
 const only = [];
 const positional = [];
+let showWords = false;
 const args = process.argv.slice(2);
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
@@ -51,7 +63,8 @@ for (let i = 0; i < args.length; i++) {
     const slug = arg === "--course" ? args[++i] : arg.slice("--course=".length);
     if (!slug || slug.startsWith("--")) usage("--course needs a course slug");
     only.push(slug);
-  } else if (arg.startsWith("--")) usage(`unknown option ${arg}`);
+  } else if (arg === "--words") showWords = true;
+  else if (arg.startsWith("--")) usage(`unknown option ${arg}`);
   else positional.push(arg);
 }
 
@@ -69,16 +82,47 @@ for (const slug of only) {
     usage(`no course called "${slug}" in ${dirs.join(", ")}`);
 }
 
-/** @type {{ course: string, file: string, kind: "error" | "warning", text: string }[]} */
+/** @type {{ course: string, file: string, kind: "error" | "warning" | "info", text: string }[]} */
 const problems = [];
 const add = (course, file, kind, text) => problems.push({ course, file, kind, text });
 for (const text of content.problems ?? []) add("", "", "error", text);
+
+/** Whether a lecture file says `format: 2` in its front matter. A file that cannot be read counts as version 1. */
+function isVersion2(raw) {
+  try {
+    const data = splitFrontmatter(raw).data;
+    return data !== null && typeof data === "object" && data.format === 2;
+  } catch {
+    return false;
+  }
+}
+
+const number = (n) => n.toLocaleString("en-US");
+const range = ([low, high]) => `${number(low)} to ${number(high)}`;
+const ASKED = {
+  brief: WORD_RANGES.brief,
+  limits: WORD_RANGES.limits,
+  practice: WORD_RANGES.practice,
+};
+
+/** The words of each section of a version 2 lecture, as lines to print. */
+function wordLines(words) {
+  const total = words.reduce((sum, section) => sum + section.words, 0);
+  return [
+    `words: ${number(total)} in all (the contract asks for ${range(WORD_RANGES.lecture)})`,
+    ...words.map((section) => {
+      const asked = ASKED[FRAMES_V2[section.title.toLowerCase()]];
+      return `  ${String(section.words).padStart(5)}  ${section.title}${asked ? `  (asked ${range(asked)})` : ""}`;
+    }),
+  ];
+}
 
 /** `NN-slug.md` to `slug`, the name other lectures use in `prerequisites`. */
 const slugOfFile = (name) => /^\d{2}-(.*)\.md$/.exec(name)?.[1];
 
 // Pass 1: every file on its own.
 const failed = new Set(); // lecture slugs that did not build
+const versionOne = new Map(); // course slug to how many of its lectures are version 1
 const good = [];
 for (const source of content.courses) {
   let courseOk = true;
@@ -95,13 +139,24 @@ for (const source of content.courses) {
     for (const text of issues) add(source.slug, "course.md", "error", text);
   }
 
+  if (source.cover !== undefined) {
+    for (const text of readCover(source.cover).issues) add(source.slug, "cover.svg", "error", text);
+  }
+
   // Interactive diagrams: each module the site has for this course must be declared.
   for (const text of interactiveProblems(source.slug, source.diagrams, resolve(source.dir) === resolve(sample) || resolve(source.dir).startsWith(resolve(sample)))) {
     add(source.slug, "diagrams", "error", text);
   }
 
   const lectures = [];
+  versionOne.set(source.slug, source.lectures.filter((file) => !isVersion2(file.raw)).length);
   for (const file of source.lectures) {
+    const second = isVersion2(file.raw);
+    const printWords = (words, failedBuild) => {
+      if (!second || words.length === 0) return;
+      if (!(failedBuild || showWords || only.includes(source.slug))) return;
+      for (const text of wordLines(words)) add(source.slug, file.name, "info", text);
+    };
     try {
       const lecture = await buildLecture(
         file,
@@ -111,12 +166,14 @@ for (const source of content.courses) {
         { shows: () => true },
       );
       for (const text of lecture.warnings) add(source.slug, file.name, "warning", text);
+      printWords(lecture.words, false);
       lectures.push(file);
     } catch (error) {
       if (!(error instanceof LectureError)) throw error;
       const slug = slugOfFile(file.name);
       if (slug) failed.add(slug);
       for (const text of error.issues) add(source.slug, file.name, "error", text);
+      printWords(error.words, true);
     }
   }
   if (courseOk) good.push({ ...source, lectures });
@@ -184,6 +241,7 @@ let errors = 0;
 let warnings = 0;
 let lectureCount = 0;
 let courseCount = 0;
+let oldCount = 0;
 
 function report(heading, list, summary) {
   if (list.length > 0) {
@@ -194,7 +252,7 @@ function report(heading, list, summary) {
     for (const file of files) {
       if (file !== "") lines.push(`  ${file}`);
       for (const p of list.filter((p) => p.file === file))
-        lines.push(`    ${p.kind}: ${p.text}`);
+        lines.push(p.kind === "info" ? `    ${p.text}` : `    ${p.kind}: ${p.text}`);
     }
   }
   if (summary) lines.push(summary);
@@ -205,15 +263,17 @@ for (const source of content.courses) {
   if (!selected(source.slug)) continue;
   const list = shown.filter((p) => p.course === source.slug);
   const e = list.filter((p) => p.kind === "error").length;
-  const w = list.length - e;
+  const w = list.filter((p) => p.kind === "warning").length;
   errors += e;
   warnings += w;
   courseCount += 1;
   lectureCount += source.lectures.length;
+  const old = versionOne.get(source.slug) ?? 0;
+  oldCount += old;
   report(
     source.slug,
     list,
-    `${source.slug}: ${plural(source.lectures.length, "lecture")}, ${plural(e, "error")}, ${plural(w, "warning")}`,
+    `${source.slug}: ${plural(source.lectures.length, "lecture")} (${old} still version 1), ${plural(e, "error")}, ${plural(w, "warning")}`,
   );
 }
 const across = shown.filter((p) => p.course === "");
@@ -224,7 +284,7 @@ if (across.length > 0) {
 }
 
 lines.push(
-  `total: ${plural(courseCount, "course")}, ${plural(lectureCount, "lecture")}, ` +
+  `total: ${plural(courseCount, "course")}, ${plural(lectureCount, "lecture")} (${oldCount} still version 1), ` +
     `${plural(errors, "error")}, ${plural(warnings, "warning")} ` +
     `(${dirs.map((dir) => basename(dir) || dir).join(", ")})`,
 );

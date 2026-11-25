@@ -4,7 +4,7 @@ import type { Content, CourseSource } from "./catalog.ts";
 
 /**
  * Reads a content folder laid out as learn-content/CONTRACT.md says:
- * `<course>/course.md`, `<course>/NN-slug.md`, `<course>/diagrams/NN-name.svg`.
+ * `<course>/course.md`, `<course>/NN-slug.md`, `<course>/diagrams/NN-name.svg`, and an optional `<course>/cover.svg`.
  * The server, the build-time check and the tests all load content through here.
  */
 export function readContentDir(root: string): Content {
@@ -92,9 +92,15 @@ function readCourse(dir: string, slug: string, problems: string[]): CourseSource
     }
   }
 
+  const coverPath = join(dir, "cover.svg");
+  const cover = existsSync(coverPath)
+    ? readCapped(coverPath, MAX_DIAGRAM_BYTES, problems)
+    : undefined;
+
   return {
     slug,
     dir,
+    ...(cover === undefined ? {} : { cover }),
     course: {
       path: coursePath,
       name: "course.md",

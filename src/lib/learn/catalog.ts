@@ -3,6 +3,7 @@ import {
   buildLecture,
   LectureError,
   readCourse,
+  readCover,
   SHELVES,
   splitFrontmatter,
   type CourseFront,
@@ -26,6 +27,8 @@ export interface CourseSource {
   diagrams: Diagrams;
   /** Every file name in the folder, to find the video, captions and poster. */
   media: ReadonlySet<string>;
+  /** The source of `cover.svg`, when the course folder has one. */
+  cover?: string;
 }
 
 export interface Content {
@@ -40,6 +43,12 @@ export interface Course {
   dir: string;
   /** The course's own paragraph, as HTML; empty when the course is locked. */
   introHtml: string;
+  /**
+   * The sanitised `cover.svg` as inline markup, or empty when the course has
+   * none or the reader may not open it: a locked course stays a title, a
+   * promise, a shelf and the cover's colours.
+   */
+  coverSvg: string;
   /** True when the reader may not open the course or its lectures. */
   locked: boolean;
   lectures: Lecture[];
@@ -140,6 +149,15 @@ export async function loadCatalog(
       continue;
     }
 
+    let coverSvg = "";
+    if (source.cover !== undefined) {
+      const cover = readCover(source.cover);
+      if (cover.issues.length > 0) {
+        reject(`${source.dir}/cover.svg`, cover.issues);
+        continue;
+      }
+      coverSvg = cover.html;
+    }
     if (repository && front.visibility !== "public") {
       issues.push(
         `${front.slug}: a "${front.visibility}" course must not be committed; this repository is public`,
@@ -212,13 +230,13 @@ export async function loadCatalog(
 
     let introHtml: string;
     try {
-      introHtml = await new Renderer().render(split.body, "waterline");
+      introHtml = await new Renderer().render(split.body);
     } catch (error) {
       if (!lenient) throw error;
       reject(source.course.path, [error instanceof Error ? error.message : String(error)]);
       continue;
     }
-    courses.push({ front, dir: source.dir, introHtml, locked: false, lectures });
+    courses.push({ front, dir: source.dir, introHtml, coverSvg, locked: false, lectures });
   }
 
   const slugs = courses.map((course) => course.front.slug);
@@ -307,6 +325,7 @@ function lockedLecture(lecture: Lecture): Lecture {
     slug,
     file: "",
     front: {
+      format: 2,
       course,
       order,
       slug,
@@ -316,14 +335,15 @@ function lockedLecture(lecture: Lecture): Lecture {
       // Not the lecture's own flag: it would say a draft stands behind the lock.
       placeholder: false,
       video: false,
-      minutes: { tip: 0, waterline: 0, deep: 0, abyss: 0 },
+      minutes: 0,
       objectives: [],
       prerequisites: [],
       sources: [],
       checked: "",
     },
     locked: true,
-    segments: [],
+    html: "",
+    words: [],
     objectivesHtml: [],
     toc: [],
     text: "",
@@ -366,6 +386,7 @@ export function forViewer(catalog: Catalog, role: unknown, allowLocal: boolean):
         front: { slug, title, shelf, promise, visibility, order, cover },
         dir: "",
         introHtml: "",
+        coverSvg: "",
         locked: true,
         lectures,
       };

@@ -14,18 +14,18 @@ The checklist used for the polish pass. Repeat it before showing the site to any
 
 Widths 1440, 1280, 820, 390 and 360, dark and light, and with reduced motion on.
 
-- [ ] No sideways page scroll: `document.documentElement.scrollWidth <= innerWidth`. Script it over all lectures at all four depths (`?depth=tip|waterline|deep|abyss`) at 360 and 390. Wide formulas, code, tables, display maths and diagrams scroll inside their own box, and the box takes keyboard focus.
+- [ ] No sideways page scroll: `document.documentElement.scrollWidth <= innerWidth` (less the scrollbar). Script it over all lectures at 360 and 390. Wide formulas, code, tables, display maths and diagrams scroll inside their own box, and the box takes keyboard focus. At 2560x1440 and 1920x1080 a code line of 100 to 110 characters does not scroll (measure with a fixture; see `docs/learn-v2-notes.md`).
 - [ ] Look for the elements that stick out: walk `document.body` for boxes with `right > innerWidth` that no ancestor with `overflow` clips. Text with two `$` signs and no escape (`\$`) makes a very wide formula: that is a content mistake.
 - [ ] Baseline of inline maths: screenshot a paragraph with several inline formulas before and after any change to the maths CSS. Only formulas that are too wide may become boxes.
 - [ ] Line length 60 to 75 characters, heading rhythm, code size, table legibility.
-- [ ] Reading time shown against `minutes` in the front matter, at each depth.
+- [ ] Reading time shown against `minutes` in the front matter (for a version 1 lecture, the four old numbers added up).
 - [ ] Headings in order (no jump from h2 to h4), every diagram has a title and a description, every image has alt text.
-- [ ] Nothing jumps on load; the depth switch keeps your place on the page.
+- [ ] Nothing jumps on load. An old link with `?depth=` still loads the lecture, unchanged.
 
 ## Keyboard and screen reader
 
 - [ ] Tab reaches every control, in reading order; the focus ring is visible (check `outline` or `box-shadow` of `document.activeElement` and look at one screenshot per component).
-- [ ] Skip link, search (`/` focuses it, arrows move, Enter opens, Escape closes), depth switch (arrows), "On this page" rail, check-yourself questions (open and close), citations (jump and back), previous and next, theme toggle, mobile drawer (Escape closes).
+- [ ] Skip link, search (`/` focuses it, arrows move, Enter opens, Escape closes), "On this page" rail, check-yourself questions (open and close), citations (jump and back), previous and next, theme toggle, mobile drawer (Escape closes).
 - [ ] No focus trap: Tab leaves every widget.
 - [ ] Reduced motion: nothing slides or turns.
 
@@ -43,7 +43,7 @@ Then check by eye, at 360 px and in the light theme: the result is one or two sh
 
 ## Diagrams in both themes
 
-- [ ] Render every diagram (`figure.diagram`, about 156 at `?depth=abyss`) in dark and light, into contact sheets (dark left, light right).
+- [ ] Render every diagram (`figure.diagram`) in dark and light, into contact sheets (dark left, light right).
 - [ ] Programmatic pass: text contrast against the fill under it (4.5 for small text), text wider than its box, overlapping labels, `--c6` use, marker color against line color.
 - [ ] By eye: does each hue read as its meaning? `--c6` is a rose, the alert tone: it must not mark a thing that is fine, successful or neutral. Are two hues too close (CIE76 distance under 25)? Is a hue too dim in the light theme?
 
@@ -58,7 +58,7 @@ Then check by eye, at 360 px and in the light theme: the result is one or two sh
 
 - [ ] Search: real queries, open results, no results, Enter without the script.
 - [ ] References: each citation jumps to its entry and back.
-- [ ] Links: crawl every internal link and every `#anchor` on all lectures at all depths; report every dead one.
+- [ ] Links: crawl every internal link and every `#anchor` on all lectures; report every dead one, and check that `?depth=` links still load.
 - [ ] Video: player, captions on and off, poster, keyboard control (use a lecture of `agent-systems/video`).
 - [ ] Sign-in page, wrong password (one message, no hint), sign-out; a locked lecture as a visitor (stub and sign-in link, nothing of the text); member and friend views; the 404 page.
 - [ ] Print preview of a lecture: no navigation, diagrams visible, links shown, no cut-off boxes.

@@ -49,53 +49,12 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") setNav(false);
 });
 
-// ---------------------------------------------------------------- depth
+// ---------------------------------------------------------------- headings
 
-const DEPTHS = ["tip", "waterline", "deep", "abyss"];
 const lecture = document.querySelector("[data-lecture]");
 
-/** Links to other lectures carry the chosen depth, so it follows the reader. */
-function carryDepth(depth) {
-  for (const link of document.querySelectorAll("[data-lecture-link]")) {
-    const url = new URL(link.getAttribute("href"), location.href);
-    url.searchParams.set("depth", depth);
-    link.setAttribute("href", url.pathname + url.search);
-  }
-}
-
-function visibleHeadings() {
-  return [...document.querySelectorAll(".prose :is(h2, h3, h4)")].filter(
-    (heading) => heading.offsetParent !== null,
-  );
-}
-
-function setDepth(depth) {
-  if (!DEPTHS.includes(depth) || root.dataset.depth === depth) return;
-
-  // Keep what the reader is looking at where it is while the page above it
-  // grows or shrinks.
-  const anchor = visibleHeadings().find(
-    (heading) => heading.getBoundingClientRect().top >= 0,
-  );
-  const before = anchor?.getBoundingClientRect().top;
-
-  root.dataset.depth = depth;
-  store.set("learn-depth", depth);
-  const url = new URL(location.href);
-  url.searchParams.set("depth", depth);
-  history.replaceState(history.state, "", url);
-  carryDepth(depth);
-
-  fitMath(); // the new depth shows other formulas; measure them before the scroll is put back
-  if (anchor && before !== undefined && anchor.offsetParent !== null) {
-    window.scrollBy({
-      top: anchor.getBoundingClientRect().top - before,
-      behavior: "instant",
-    });
-  } else {
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }
-  spy();
+function headings() {
+  return [...document.querySelectorAll(".prose :is(h2, h3, h4)")];
 }
 
 // ---------------------------------------------------------------- wide maths
@@ -168,52 +127,9 @@ if (document.querySelector(".prose")) {
   fitMath();
 }
 
-if (lecture) {
-  // The head script already applied the remembered depth; the URL follows it,
-  // so a copied address names what is on screen.
-  const shown = root.dataset.depth;
-  if (shown && !new URL(location.href).searchParams.has("depth")) {
-    const url = new URL(location.href);
-    url.searchParams.set("depth", shown);
-    history.replaceState(history.state, "", url);
-    carryDepth(shown);
-  }
-
-  const group = document.querySelector("[data-depth-switch]");
-  group?.addEventListener("click", (event) => {
-    const link = event.target instanceof Element && event.target.closest("a[data-depth]");
-    if (!link) return;
-    event.preventDefault();
-    setDepth(link.dataset.depth);
-  });
-  group?.addEventListener("keydown", (event) => {
-    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
-    if (!step) return;
-    const links = [...group.querySelectorAll("a[data-depth]")];
-    const next = links[links.indexOf(document.activeElement) + step];
-    if (next) {
-      event.preventDefault();
-      next.focus();
-      setDepth(next.dataset.depth);
-    }
-  });
-  document.querySelector("[data-depth-link]")?.addEventListener("click", (event) => {
-    event.preventDefault();
-    setDepth(event.currentTarget.dataset.depthLink);
-  });
-}
-
 // ---------------------------------------------------------------- on this page
 
 const toc = document.querySelector("[data-toc]");
-const tocToggle = document.querySelector("[data-toc-toggle]");
-tocToggle?.addEventListener("click", () => {
-  tocToggle.setAttribute(
-    "aria-expanded",
-    String(tocToggle.getAttribute("aria-expanded") !== "true"),
-  );
-});
-
 let ticking = false;
 
 /** Marks the last heading that has scrolled past the top bar. */
@@ -222,7 +138,7 @@ function spy() {
   if (!toc) return;
   const line = parseFloat(getComputedStyle(root).getPropertyValue("--topbar")) * 16 + 24;
   let current;
-  for (const heading of visibleHeadings()) {
+  for (const heading of headings()) {
     if (heading.getBoundingClientRect().top <= line) current = heading;
     else break;
   }
@@ -230,7 +146,7 @@ function spy() {
     window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
   if (atEnd)
     current =
-      visibleHeadings()
+      headings()
         .filter((h) => h.tagName === "H2")
         .at(-1) ?? current;
   for (const link of toc.querySelectorAll("a")) {

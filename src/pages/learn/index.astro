@@ -1,11 +1,9 @@
 ---
 import Bookshelf from "../../components/learn/Bookshelf.astro";
-import DepthSwitch from "../../components/learn/DepthSwitch.astro";
 import Learn from "../../layouts/Learn.astro";
 import { getConfig } from "../../lib/config.ts";
 import { buildShelves } from "../../lib/learn/bookshelf.ts";
 import { getCatalogFor } from "../../lib/learn/content.ts";
-import { DEFAULT_DEPTH, parseDepth } from "../../lib/learn/depth.ts";
 
 const { learnUrl } = getConfig();
 const catalog = await getCatalogFor(Astro.locals.viewer?.role, Astro.locals.allowLocal);
@@ -16,35 +14,16 @@ const here = Astro.locals.here ?? {
   search: Astro.url.search,
 };
 const signin = `/signin?next=${encodeURIComponent(here.pathname + here.search)}`;
-// The depth chooses which reading times show; the page script and the head
-// script keep it, as on a lecture.
-const depth = parseDepth(Astro.url.searchParams.get("depth")) ?? DEFAULT_DEPTH;
 ---
 
-<Learn
-  title="Learn · Joshua Noel"
-  canonical={`${learnUrl}/`}
-  layout="plain"
-  depth={depth}
->
+<Learn title="Learn · Joshua Noel" canonical={`${learnUrl}/`} layout="plain">
   <main class="page shelf-page" id="main">
     <div class="intro">
-      <div class="intro-text">
-        <h1>Learn</h1>
-        <p class="lede">
-          University-style lectures on computer science, system design, language models
-          and agents, each at four depths.
-        </p>
-        <p class="depth-line">
-          Every lecture comes at four depths: <strong class="d-tip">Tip</strong>{", "}
-          <strong class="d-waterline">Waterline</strong>{", "}
-          <strong class="d-deep">Deep</strong>{" and "}
-          <strong class="d-abyss">Abyss</strong>. Start at two minutes with no jargon, or
-          go down to the edge cases and open questions. Search is in the bar above.
-        </p>
-        <p class="resume" data-resume hidden></p>
-      </div>
-      <DepthSwitch />
+      <h1>Learn</h1>
+      <p class="lede">
+        Lectures on computer science, system design, language models and agents.
+      </p>
+      <p class="resume" data-resume hidden></p>
     </div>
 
     {

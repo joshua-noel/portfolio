@@ -129,7 +129,7 @@ test("each reader's catalog opens exactly what the table says and stubs the rest
       const open = allowed.includes(visibility);
       assert.equal(course.locked, !open, `${name} ${visibility} course`);
       assert.equal(lecture.locked, !open, `${name} ${visibility} lecture`);
-      assert.equal(lecture.segments.length > 0, open);
+      assert.equal(lecture.html.length > 0, open);
       assert.equal(course.introHtml.includes(SECRET[visibility as "public"]), open);
       // Listed either way: title and promise.
       assert.equal(lecture.front.title, `Lecture ${visibility}`);
@@ -148,10 +148,12 @@ test("a locked stub carries nothing but its place, title, promise and visibility
     assert.ok(!json.includes(SECRET[visibility]), "the canary is not in the stub");
     assert.deepEqual(lecture.front.objectives, []);
     assert.deepEqual(lecture.front.sources, []);
-    assert.deepEqual(lecture.front.minutes, { tip: 0, waterline: 0, deep: 0, abyss: 0 });
+    assert.equal(lecture.front.minutes, 0);
     assert.equal(lecture.front.video, false);
     assert.equal(lecture.front.checked, "");
-    assert.deepEqual(lecture.segments, []);
+    assert.equal(lecture.html, "");
+    assert.deepEqual(lecture.words, []);
+    assert.equal(course.coverSvg, "");
     assert.deepEqual(lecture.objectivesHtml, []);
     assert.deepEqual(lecture.toc, []);
     assert.equal(lecture.text, "");
