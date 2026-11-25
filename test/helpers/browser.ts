@@ -299,6 +299,18 @@ export class Page {
     });
   }
 
+  /** Moves the pointer to a point of the window, as it is, without waiting for anything to settle. */
+  async moveTo(x: number, y: number): Promise<void> {
+    await this.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+  }
+
+  /** Presses and releases the left button at a point of the window, at once, without waiting for anything to settle. */
+  async clickAt(x: number, y: number): Promise<void> {
+    await this.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+    for (const type of ["mousePressed", "mouseReleased"])
+      await this.send("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: 1 });
+  }
+
   /** Moves the pointer somewhere that is no book. */
   async moveAway(): Promise<void> {
     await this.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 2, y: 2 });
