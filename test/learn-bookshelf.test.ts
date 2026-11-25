@@ -5,6 +5,7 @@ import {
   buildShelves,
   CASE_MAX_REM,
   caseWidth,
+  markOf,
   packCases,
   standingWidth,
   WIDE_SHELF_REM,
@@ -30,8 +31,10 @@ import {
   thicknessRem,
 } from "../src/lib/learn/cover.ts";
 import { MOTIFS, MOTIF_NAMES, resolveMotif } from "../src/lib/learn/motifs.ts";
-import { SHELVES } from "../src/lib/learn/lecture.ts";
+import { readCover, SHELVES } from "../src/lib/learn/lecture.ts";
+import { coverSvg, DRAWN } from "../tools/learn-covers/generate.mjs";
 import {
+  coverArt,
   SECRET,
   sources,
   visibilityLibrary,
@@ -482,4 +485,84 @@ test("a lecture the reader may not open inside a course they may is locked on it
   assert.equal(book!.minutes, 25);
   assert.equal(book!.videos, 1);
   assert.equal(JSON.stringify(book).includes(SECRET.members), false);
+});
+
+// ---------------------------------------------------------------------------
+// Cover illustrations
+
+test("a book of a course the reader may open carries its cover art and the box of its spine mark; a locked one carries neither", async () => {
+  const full = await load(visibilityLibrary());
+  for (const [name, readable] of Object.entries(READS)) {
+    const role = name === "visitor" ? undefined : name;
+    const shelves = buildShelves(forViewer(full, role, false));
+    const books = shelves.flatMap((s) => s.books);
+    for (const visibility of ["public", "members", "friends"] as const) {
+      const book = books.find((b) => b.slug === `c-${visibility}`)!;
+      if (readable.includes(visibility)) {
+        assert.equal(book.locked, false, `${name}: ${visibility}`);
+        assert.match(book.art, /^<svg [^>]*viewBox="0 0 240 320"/, `${name}: art of ${visibility}`);
+        assert.ok(book.art.includes(`ART-c-${visibility}`), `${name}: it is this course's art`);
+        assert.deepEqual(book.mark, [40, 120, 80, 80]);
+      } else {
+        assert.equal(book.locked, true);
+        assert.equal(book.art, "", `${name}: a locked book has no art`);
+        assert.equal(book.mark, undefined);
+        // The art is not anywhere in what the shelf says about it.
+        assert.equal(JSON.stringify(book).includes(`ART-c-${visibility}`), false, `${name}: no trace of the art of ${visibility}`);
+        // It still has its colours and its motif, which the loader sends.
+        assert.match(book.cover.color, /^#[0-9a-f]{6}$/);
+        assert.ok(book.cover.motif);
+      }
+    }
+    // No one's data holds a secret: the canaries are in bodies, never on a shelf.
+    for (const v of ["public", "members", "friends", "local"] as const) {
+      assert.equal(JSON.stringify(shelves).includes(SECRET[v]), false, `${name}: canary of ${v}`);
+    }
+  }
+});
+
+test("a course with no cover.svg has no art, and the spine falls back to its motif", async () => {
+  const [book] = buildShelves(forViewer(await load(library().slice(0, 1)), undefined, false))[0]!.books;
+  assert.equal(book!.art, "");
+  assert.equal(book!.mark, undefined);
+  assert.ok(MOTIF_NAMES.includes(book!.cover.motif));
+});
+
+test("the box of a spine mark is four whole numbers inside the canvas, else there is none", () => {
+  assert.deepEqual(markOf(coverArt("x")), [40, 120, 80, 80]);
+  assert.equal(markOf('<svg viewBox="0 0 240 320"></svg>'), undefined);
+  assert.equal(markOf('<svg data-mark="0 0 241 10"></svg>'), undefined);
+  assert.equal(markOf('<svg data-mark="0 300 10 30"></svg>'), undefined);
+  assert.equal(markOf('<svg data-mark="0 0 0 10"></svg>'), undefined);
+  assert.equal(markOf('<svg data-mark="1.5 0 10 10"></svg>'), undefined);
+  assert.equal(markOf('<svg data-mark="1 2 3 4; x"></svg>'), undefined);
+});
+
+test("every cover the generator draws passes the loader's checks, in one hand: no text, no ids, a few colours, a spine mark", () => {
+  assert.equal(DRAWN.length, 9, "one drawing per course");
+  for (const slug of DRAWN) {
+    for (const cover of [
+      { color: "#1f3a5f", accent: "#e8b84a" },
+      { color: "#2c2438", accent: "#f0a35e" },
+    ]) {
+      const svg = coverSvg(slug, cover)!;
+      const checked = readCover(svg);
+      assert.deepEqual(checked.issues, [], slug);
+      assert.ok(checked.html.startsWith("<svg"), slug);
+      assert.doesNotMatch(svg, /<text|<tspan|<script|<image|\sid=|href=|url\(|<style/i, slug);
+      // Colours: the ink, a middle tone, a faint fill, the accent, the cover's own colour.
+      const colours = new Set(svg.match(/#[0-9a-f]{6}/g));
+      assert.ok(colours.size >= 3 && colours.size <= 5, `${slug}: ${colours.size} colours`);
+      assert.ok(colours.has(cover.accent), `${slug}: the accent is used`);
+      // One line weight, except the hairlines the drawings name.
+      assert.match(svg, /stroke-width="2.5"/, slug);
+      // The spine mark: a box, and something drawn in it.
+      const mark = markOf(svg);
+      assert.ok(mark, `${slug}: a mark box`);
+      assert.ok((svg.match(/class="m"/g) ?? []).length >= 3, `${slug}: shapes of the mark`);
+      // Same text twice: the files are reproducible.
+      assert.equal(coverSvg(slug, cover), svg);
+    }
+  }
+  assert.equal(coverSvg("not-a-course", { color: "#000000", accent: "#ffffff" }), undefined);
 });
