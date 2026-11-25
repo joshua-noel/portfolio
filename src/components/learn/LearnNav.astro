@@ -42,14 +42,7 @@ const { catalog, current } = Astro.props;
                       class:list={[lecture.locked && "is-locked"]}
                       aria-current={lecture.slug === current.lecture ? "page" : undefined}
                     >
-                      {lecture.locked ? (
-                        <Lock />
-                      ) : (
-                        <span
-                          class="mark"
-                          data-mark={`${lecture.course}/${lecture.slug}`}
-                        />
-                      )}
+                      {lecture.locked && <Lock />}
                       <span>{lecture.front.title}</span>
                     </a>
                   </li>

@@ -54,6 +54,8 @@
 
 .intro {
   max-width: 42rem;
+  margin-inline: auto;
+  text-align: center;
 }
 .resume {
   margin: 1rem 0 0;
