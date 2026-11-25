@@ -88,12 +88,15 @@
     0.994 90%,
     1
   );
-  /* Textures: fractal noise as a small SVG in a data: URL (img-src allows it;
-     nothing is fetched). Streaks for the grain of wood, specks for cloth. */
+  /* Textures, as data: URLs (img-src allows them; nothing is fetched). The grain
+     of wood is fractal noise as a small SVG, drawn on parts that never move;
+     the specks of cloth, which is on every book that does, are a small PNG made
+     by tools/learn-covers/cloth-texture.mjs (an SVG filter there costs a long
+     frame whenever a book is drawn again). */
   --tex-grain-h: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='96'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.0045 0.3' numOctaves='4' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.25 0 0 0 -0.46'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
   --tex-grain-l: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='80'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.003 0.42' numOctaves='3' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.93 0 0 0 0 0.82 1.3 0 0 0 -0.6'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
   --tex-grain-v: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='520'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.3 0.0045' numOctaves='4' seed='8' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.25 0 0 0 -0.46'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
-  --tex-cloth: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1 1.1' numOctaves='2' seed='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1 0 0 0 -0.55'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+  --tex-cloth: url("data:image/png;base64,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");
 }
 :root[data-theme="light"] {
   --wall-top: #e3dfd5;
@@ -279,7 +282,7 @@
       rgba(255, 255, 255, 0) 0.95rem
     ),
     linear-gradient(150deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 38%, rgba(0, 0, 0, 0.22)),
-    var(--tex-cloth) 0 0 / 160px 160px,
+    var(--tex-cloth) 0 0 / 64px 64px,
     var(--b-color);
   border-radius: 0.1rem 0.28rem 0.28rem 0.1rem;
   box-shadow:
@@ -851,7 +854,7 @@
     ),
     /* the foot, in the shade of the board; the head, lit */
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 12%, rgba(0, 0, 0, 0) 80%, rgba(0, 0, 0, 0.28)),
-    var(--tex-cloth) 0 0 / 160px 160px,
+    var(--tex-cloth) 0 0 / 64px 64px,
     var(--b-color);
   border-radius: 0.12rem 0.12rem 0 0;
   box-shadow:
@@ -874,21 +877,27 @@
   pointer-events: none;
   transition: transform 1s var(--spring-soft);
 }
-.js .spine::after {
-  /* The shade of the book that is pulled out, on the spines next to it. */
+.js .spine::after,
+.js .hit::after {
+  /* The shade of a book that is pulled out, on the spines beside it: one
+     overlay for each side, always drawn the same, and only its opacity changes,
+     so putting it on or off repaints nothing under it. */
   content: "";
   position: absolute;
   inset: 0;
+  border-radius: 0.12rem 0.12rem 0 0;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.6s var(--spring);
 }
-.js .book[data-side="before"] .spine::after {
+.js .spine::after {
   background: linear-gradient(270deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0) 90%);
-  opacity: 1;
 }
-.js .book[data-side="after"] .spine::after {
+.js .hit::after {
   background: linear-gradient(90deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0) 90%);
+}
+.js .book[data-side="before"] .spine::after,
+.js .book[data-side="after"] .hit::after {
   opacity: 1;
 }
 .s-motif {
@@ -1001,14 +1010,14 @@
   .js .hit {
     /* A neighbour steps aside as a whole, eye and all: its own perspective
        goes with it, so it is not seen from the side when it has moved. */
-    transition: translate 0.85s var(--spring);
+    transition: translate 0.8s var(--spring);
   }
   .js .vol {
     /* Three moves, each with its own time: the slide, the lean and the turn. */
     transition:
-      translate 0.85s var(--spring),
-      rotate 0.8s var(--spring),
-      transform 1.05s var(--spring-soft);
+      translate 0.8s var(--spring),
+      rotate 0.75s var(--spring),
+      transform 0.9s var(--spring-soft);
   }
   .js .book[data-side="before"] .hit {
     translate: calc(var(--p, 0px) * -1) 0 0;
@@ -1236,7 +1245,7 @@
   opacity: 0;
   transform: translate3d(0, -1.1rem, 0);
   transition:
-    opacity 0.45s var(--spring),
+    opacity 0.7s var(--spring-soft),
     transform 0.9s var(--spring);
 }
 .panel[hidden] {
