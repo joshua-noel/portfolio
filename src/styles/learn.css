@@ -23,12 +23,6 @@
   --code-bg: #0d1117;
   --success: #77dddd;
 
-  /* One colour per depth, used for the switch, the layer rules and the tags. */
-  --d-tip: #6fd0c4;
-  --d-waterline: #8fb2ff;
-  --d-deep: #b7a4ff;
-  --d-abyss: #f0b45f;
-
   /* Diagram hues. Each course gives them a meaning in its course.md. The sixth
      is a green; a course that uses one hue for failing, hostile or wasted
      things says so with `alert: cN` in its course.md, and on that course's
@@ -65,11 +59,6 @@
   --focus: #b0431f;
   --code-bg: #ffffff;
   --success: #0b6f6f;
-
-  --d-tip: #0b6f64;
-  --d-waterline: #2450b4;
-  --d-deep: #5638c0;
-  --d-abyss: #85500a;
 
   --c1: #b0431f;
   --c2: #0b6f64;
@@ -506,8 +495,8 @@ button.signin {
   border-radius: 50%;
 }
 .mark[data-state="started"] {
-  border-color: var(--d-abyss);
-  background: linear-gradient(90deg, var(--d-abyss) 50%, transparent 50%);
+  border-color: var(--accent);
+  background: linear-gradient(90deg, var(--accent) 50%, transparent 50%);
 }
 .mark[data-state="done"] {
   border-color: var(--success);
@@ -517,9 +506,9 @@ button.signin {
 .tag {
   display: inline-block;
   padding: 0.05rem 0.45rem;
-  border: 1px solid var(--d-abyss);
+  border: 1px solid var(--accent);
   border-radius: 0.25rem;
-  color: var(--d-abyss);
+  color: var(--accent);
   font-size: 0.7rem;
   font-weight: 650;
   letter-spacing: 0.06em;
@@ -581,127 +570,10 @@ button.signin {
 .banner {
   margin-top: 1.25rem;
   padding: 0.7rem 0.9rem;
-  border: 1px dashed var(--d-abyss);
+  border: 1px dashed var(--accent);
   border-radius: 0.4rem;
   color: var(--fg);
   font-size: 0.92rem;
-}
-
-/* Reading time: all four are in the page, the depth chooses which shows. */
-.rt {
-  display: none;
-}
-html[data-depth="tip"] .rt[data-d="tip"],
-html[data-depth="waterline"] .rt[data-d="waterline"],
-html[data-depth="deep"] .rt[data-d="deep"],
-html[data-depth="abyss"] .rt[data-d="abyss"] {
-  display: inline;
-}
-
-/* ---------- The Iceberg depth switch ---------- */
-
-.depth {
-  margin-top: 1.5rem;
-}
-.depth-label {
-  margin: 0 0 0.4rem;
-  font-size: 0.74rem;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-.depth-switch {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  border: 1px solid var(--border);
-  border-radius: 0.55rem;
-  overflow: hidden;
-  background: var(--surface);
-}
-.depth-switch a {
-  --c: var(--muted);
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.6rem 0.75rem 0.7rem;
-  color: var(--muted);
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.95rem;
-  border-left: 1px solid var(--line);
-}
-.depth-switch a:first-child {
-  border-left: 0;
-}
-.depth-switch a[data-depth="tip"] {
-  --c: var(--d-tip);
-}
-.depth-switch a[data-depth="waterline"] {
-  --c: var(--d-waterline);
-}
-.depth-switch a[data-depth="deep"] {
-  --c: var(--d-deep);
-}
-.depth-switch a[data-depth="abyss"] {
-  --c: var(--d-abyss);
-}
-.depth-switch a:hover {
-  color: var(--fg);
-  background: var(--bg-sunken);
-}
-.depth-switch a:focus-visible {
-  outline-offset: -3px;
-}
-/* A tiny iceberg: the filled bars are the water you have gone below. */
-.depth-switch .bars {
-  display: flex;
-  gap: 2px;
-  height: 0.7rem;
-  align-items: flex-end;
-}
-.depth-switch .bars i {
-  flex: 1;
-  max-width: 0.5rem;
-  height: 100%;
-  border-radius: 1px;
-  background: var(--border);
-}
-.depth-switch a[data-depth="tip"] .bars i:nth-child(-n + 1),
-.depth-switch a[data-depth="waterline"] .bars i:nth-child(-n + 2),
-.depth-switch a[data-depth="deep"] .bars i:nth-child(-n + 3),
-.depth-switch a[data-depth="abyss"] .bars i:nth-child(-n + 4) {
-  background: var(--c);
-}
-html[data-depth="tip"] .depth-switch a[data-depth="tip"],
-html[data-depth="waterline"] .depth-switch a[data-depth="waterline"],
-html[data-depth="deep"] .depth-switch a[data-depth="deep"],
-html[data-depth="abyss"] .depth-switch a[data-depth="abyss"] {
-  color: var(--fg);
-  background: var(--bg-sunken);
-  box-shadow: inset 0 -3px 0 var(--c);
-}
-.depth-hint {
-  display: none;
-  margin: 0.5rem 0 0;
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-html[data-depth="tip"] .depth-hint[data-d="tip"],
-html[data-depth="waterline"] .depth-hint[data-d="waterline"],
-html[data-depth="deep"] .depth-hint[data-d="deep"],
-html[data-depth="abyss"] .depth-hint[data-d="abyss"] {
-  display: block;
-}
-
-/* Layers. Every layer is in the page; the depth decides which are shown. */
-html[data-depth="tip"] [data-layer]:not([data-layer="tip"]),
-html:not([data-depth="tip"]) [data-layer="tip"],
-html[data-depth="waterline"] [data-layer="deep"],
-html[data-depth="waterline"] [data-layer="abyss"],
-html[data-depth="deep"] [data-layer="abyss"] {
-  display: none;
 }
 
 /* ---------- Video ---------- */
@@ -934,59 +806,6 @@ html[data-depth="deep"] [data-layer="abyss"] {
 }
 .math-block .katex-display > .katex {
   font-size: 1.15em;
-}
-
-/* ---------- Depth layers inside the prose ---------- */
-
-.prose .layer {
-  --c: var(--d-deep);
-  position: relative;
-  padding: 0.2rem 0 0.2rem 1.1rem;
-  border-left: 3px solid var(--c);
-}
-.prose .layer[data-layer="abyss"] {
-  --c: var(--d-abyss);
-}
-.prose .layer-tag {
-  display: block;
-  margin-bottom: 0.5rem;
-  color: var(--c);
-  font-family: var(--font-ui);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-@media (min-width: 62rem) {
-  .prose .layer {
-    margin-left: -1.1rem;
-  }
-}
-
-.prose .seg.tip {
-  --c: var(--d-tip);
-  font-size: 1.06em;
-}
-.tip-go {
-  margin-top: 2rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--line);
-  font-family: var(--font-ui);
-  font-size: 0.95rem;
-  color: var(--muted);
-}
-.tip-go a {
-  display: inline-block;
-  margin-top: 0.5rem;
-  padding: 0.55rem 1rem;
-  background: var(--accent);
-  color: var(--on-accent);
-  border-radius: 0.4rem;
-  font-weight: 650;
-  text-decoration: none;
-}
-.tip-go a:hover {
-  filter: brightness(1.08);
 }
 
 .prose .note {
@@ -1369,43 +1188,12 @@ html[data-depth="deep"] [data-layer="abyss"] {
   border-left-color: var(--accent);
   font-weight: 600;
 }
-.toc .toc-layer {
-  padding: 0.7rem 0.9rem 0.15rem;
-  color: var(--d-deep);
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-.toc .toc-layer[data-layer="abyss"] {
-  color: var(--d-abyss);
-}
 .toc .toc-no {
   display: inline-block;
   min-width: 1.3em;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
-.toc li[data-layer="deep"] a,
-.toc li[data-layer="abyss"] a {
-  position: relative;
-}
-.toc-tip-note {
-  display: none;
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.45;
-}
-html[data-depth="tip"] .toc-tip-note {
-  display: block;
-}
-html[data-depth="tip"] .toc ol {
-  display: none;
-}
-.toc-toggle {
-  display: none;
-}
-
 /* ---------- Landing and search ---------- */
 
 .plain .page {
@@ -1599,33 +1387,6 @@ html[data-depth="tip"] .toc ol {
   .toc-title {
     display: none;
   }
-  .js .toc-toggle {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.6rem 0.9rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-  }
-  .js .toc-toggle .chev {
-    transition: rotate 0.15s;
-  }
-  .js .toc-toggle[aria-expanded="true"] .chev {
-    rotate: 180deg;
-  }
-  .js .toc-toggle[aria-expanded="false"] ~ ol {
-    display: none;
-  }
-  .js .toc-toggle ~ ol {
-    margin-top: 0.4rem;
-  }
-  html[data-depth="tip"] .toc {
-    display: none;
-  }
   .parts-nav {
     display: none;
   }
@@ -1712,10 +1473,6 @@ html[data-depth="tip"] .toc ol {
     width: auto;
   }
 
-  .depth-switch a {
-    padding: 0.55rem 0.5rem 0.65rem;
-    font-size: 0.85rem;
-  }
   .prose h2 {
     font-size: 1.45em;
   }
@@ -1758,10 +1515,6 @@ html[data-depth="tip"] .toc ol {
     --text-3: #62616b;
     --accent: #b0431f;
     --code-bg: #ffffff;
-    --d-tip: #0b6f64;
-    --d-waterline: #2450b4;
-    --d-deep: #5638c0;
-    --d-abyss: #85500a;
     --c1: #b0431f;
     --c2: #0b6f64;
     --c3: #6a2fc0;
@@ -1798,8 +1551,6 @@ html[data-depth="tip"] .toc ol {
   .topbar,
   .sidenav,
   .toc,
-  .depth,
-  .depth-switch,
   .pager,
   .lecture-end,
   .scrim,

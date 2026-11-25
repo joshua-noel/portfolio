@@ -63,32 +63,6 @@
   flex: 1 1 28rem;
   max-width: 42rem;
 }
-.intro .depth {
-  flex: 0 1 26rem;
-  margin-top: 0.4rem;
-  min-width: min(100%, 18rem);
-}
-.depth-line {
-  margin: 0.9rem 0 0;
-  max-width: 40rem;
-  color: var(--muted);
-  font-size: 0.95rem;
-}
-.depth-line strong {
-  font-weight: 650;
-}
-.depth-line .d-tip {
-  color: var(--d-tip);
-}
-.depth-line .d-waterline {
-  color: var(--d-waterline);
-}
-.depth-line .d-deep {
-  color: var(--d-deep);
-}
-.depth-line .d-abyss {
-  color: var(--d-abyss);
-}
 .resume {
   margin: 1rem 0 0;
   font-size: 0.95rem;
@@ -1227,12 +1201,6 @@
   }
   .intro {
     gap: 0.5rem;
-  }
-  .intro .depth {
-    margin-top: 0;
-  }
-  .depth-line {
-    margin-top: 0.7rem;
   }
 }
 

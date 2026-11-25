@@ -4,7 +4,6 @@ import Learn from "../../../layouts/Learn.astro";
 import { getConfig } from "../../../lib/config.ts";
 import { findCourse, lectureUrl } from "../../../lib/learn/catalog.ts";
 import { getCatalogFor } from "../../../lib/learn/content.ts";
-import { minutesAt } from "../../../lib/learn/lecture.ts";
 import { whyLocked } from "../../../lib/access.ts";
 
 const { learnUrl } = getConfig();
@@ -24,7 +23,7 @@ if (!course) Astro.response.status = 404;
     >
       <main class="lecture" id="main">
         <header>
-          <p class="eyebrow">
+          <p class="crumb">
             <a href="/">Learn</a> ·{" "}
             {catalog.shelves.find((s) => s.id === course.front.shelf)?.title}
           </p>
@@ -53,14 +52,13 @@ if (!course) Astro.response.status = 404;
             </div>
           )}
         </header>
-        <div class="course-intro" set:html={course.introHtml} />
-        <ol class="lecture-list" style="margin-top: 2rem">
+        <div class="course-intro prose" set:html={course.introHtml} />
+        <ol class="lecture-list">
           {course.lectures.map((lecture) => (
             <li>
               <a
                 href={lectureUrl(lecture)}
                 class:list={[lecture.locked && "is-locked"]}
-                data-lecture-link={lecture.locked ? undefined : ""}
               >
                 <span class="n">{lecture.front.order}</span>
                 <span class="t">
@@ -71,7 +69,7 @@ if (!course) Astro.response.status = 404;
                   {lecture.locked ? (
                     <Lock />
                   ) : (
-                    <span>{minutesAt(lecture.front.minutes, "waterline")} min</span>
+                    <span>{lecture.front.minutes} min</span>
                   )}
                   {!lecture.locked && (
                     <span class="mark" data-mark={`${lecture.course}/${lecture.slug}`} />

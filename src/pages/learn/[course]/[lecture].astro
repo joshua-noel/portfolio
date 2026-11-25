@@ -1,5 +1,4 @@
 ---
-import DepthSwitch from "../../../components/learn/DepthSwitch.astro";
 import Lock from "../../../components/learn/Lock.astro";
 import Video from "../../../components/learn/Video.astro";
 import Learn from "../../../layouts/Learn.astro";
@@ -11,13 +10,6 @@ import {
   neighbours,
 } from "../../../lib/learn/catalog.ts";
 import { getCatalogFor } from "../../../lib/learn/content.ts";
-import {
-  DEFAULT_DEPTH,
-  DEPTHS,
-  DEPTH_LABELS,
-  parseDepth,
-} from "../../../lib/learn/depth.ts";
-import { minutesAt } from "../../../lib/learn/lecture.ts";
 import { whyLocked } from "../../../lib/access.ts";
 
 const { learnUrl } = getConfig();
@@ -25,16 +17,10 @@ const catalog = await getCatalogFor(Astro.locals.viewer?.role, Astro.locals.allo
 const course = findCourse(catalog, Astro.params.course);
 const lecture = course && findLecture(course, Astro.params.lecture);
 
-// An unknown or missing ?depth= is no choice: the lecture opens at the Waterline.
-const asked = parseDepth(Astro.url.searchParams.get("depth"));
-const depth = asked ?? DEFAULT_DEPTH;
-const query = asked ? `?depth=${asked}` : "";
-
 if (!lecture) Astro.response.status = 404;
 else if (lecture.locked) Astro.response.status = 403;
 
 const { previous, next } = course && lecture ? neighbours(course, lecture.slug) : {};
-const tip = lecture?.segments.find((segment) => segment.layer === "tip");
 const prerequisites = lecture
   ? lecture.front.prerequisites
       .map(
@@ -54,8 +40,6 @@ const prerequisites = lecture
       canonical={`${learnUrl}${lectureUrl(lecture)}`}
       alert={course.front.alert}
       current={{ course: course.front.slug, lecture: lecture.slug }}
-      depth={depth}
-      linkDepth={asked}
     >
       <main
         class="lecture"
@@ -63,38 +47,27 @@ const prerequisites = lecture
         data-lecture={`${course.front.slug}/${lecture.slug}`}
       >
         <header>
-          <p class="eyebrow">
+          <p class="crumb">
             <a href={`/${course.front.slug}`}>{course.front.title}</a> · Lecture{" "}
             {lecture.front.order}
           </p>
           <h1>{lecture.front.title}</h1>
           <p class="promise">{lecture.front.promise}</p>
-          <p class="meta">
-            <span>
-              {DEPTHS.map((d) => (
-                <span class="rt" data-d={d}>
-                  {minutesAt(lecture.front.minutes, d)} min read · {DEPTH_LABELS[d]}
-                </span>
-              ))}
-            </span>
-          </p>
+          <p class="meta">{lecture.front.minutes} min read</p>
           {lecture.front.placeholder && (
             <p class="banner">
-              <span class="tag">Placeholder</span> This lecture is here only so the
-              navigation has something to show. Its content is not real.
+              <strong>Placeholder.</strong> This lecture is here only so the navigation
+              has something to show. Its content is not real.
             </p>
           )}
-          <DepthSwitch />
-          <p class="objectives-title" data-layer="waterline">
-            What you will be able to do
-          </p>
-          <ul class="objectives" data-layer="waterline">
+          <h2 class="objectives-title">Objectives</h2>
+          <ul class="objectives">
             {lecture.objectivesHtml.map((objective) => (
               <li set:html={objective} />
             ))}
           </ul>
           {prerequisites.length > 0 && (
-            <p class="prereq" data-layer="waterline">
+            <p class="prereq">
               Read first:{" "}
               {prerequisites.map((p, i) => (
                 <>
@@ -110,34 +83,7 @@ const prerequisites = lecture
           <Video lecture={lecture} />
         )}
 
-        <article class="prose" aria-label={lecture.front.title}>
-          {lecture.segments.map((segment) =>
-            segment.layer === "tip" ? (
-              <div class="seg tip" data-layer="tip" set:html={segment.html} />
-            ) : segment.layer === "waterline" ? (
-              <div class="seg" data-layer="waterline" set:html={segment.html} />
-            ) : (
-              <section
-                class="seg layer"
-                data-layer={segment.layer}
-                aria-label={`${DEPTH_LABELS[segment.layer]} depth`}
-              >
-                <span class="layer-tag">{DEPTH_LABELS[segment.layer]}</span>
-                <Fragment set:html={segment.html} />
-              </section>
-            ),
-          )}
-          {tip && (
-            <div class="tip-go" data-layer="tip">
-              That is the two-minute version.
-              <br />
-              <a href="?depth=waterline" data-depth-link="waterline">
-                Read the full lecture ({minutesAt(lecture.front.minutes, "waterline")}{" "}
-                min)
-              </a>
-            </div>
-          )}
-        </article>
+        <article class="prose" aria-label={lecture.front.title} set:html={lecture.html} />
 
         <footer class="lecture-end">
           <button
@@ -151,24 +97,14 @@ const prerequisites = lecture
           </button>
           <nav class="pager" aria-label="Previous and next lecture">
             {previous && (
-              <a
-                class="prev"
-                href={`${lectureUrl(previous)}${query}`}
-                data-lecture-link
-                rel="prev"
-              >
-                <span class="dir">← Previous</span>
+              <a class="prev" href={lectureUrl(previous)} rel="prev">
+                <span class="dir">Previous</span>
                 <span class="title">{previous.front.title}</span>
               </a>
             )}
             {next && (
-              <a
-                class="next"
-                href={`${lectureUrl(next)}${query}`}
-                data-lecture-link
-                rel="next"
-              >
-                <span class="dir">Next →</span>
+              <a class="next" href={lectureUrl(next)} rel="next">
+                <span class="dir">Next</span>
                 <span class="title">{next.front.title}</span>
               </a>
             )}
@@ -178,43 +114,16 @@ const prerequisites = lecture
 
       <aside class="toc" aria-label="On this page" data-toc>
         <p class="toc-title">On this page</p>
-        <p class="toc-tip-note">
-          You are reading the two-minute version. Choose Waterline for the full lecture.
-        </p>
-        <button class="toc-toggle" type="button" aria-expanded="false" data-toc-toggle>
-          On this page
-          <svg
-            class="chev"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            aria-hidden="true"
-          >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
         <ol>
-          {lecture.toc.map((heading, i) => (
-            <>
-              {heading.layer !== "waterline" &&
-                heading.layer !== lecture.toc[i - 1]?.layer && (
-                  <li class="toc-layer" data-layer={heading.layer}>
-                    {DEPTH_LABELS[heading.layer]}
-                  </li>
+          {lecture.toc.map((heading) => (
+            <li class={`d${heading.depth}`}>
+              <a href={`#${heading.id}`}>
+                {heading.shown !== undefined && (
+                  <span class="toc-no">{heading.shown}</span>
                 )}
-              <li class={`d${heading.depth}`} data-layer={heading.layer}>
-                <a href={`#${heading.id}`}>
-                  {heading.number !== undefined && (
-                    <span class="toc-no">{heading.number}</span>
-                  )}
-                  {heading.text}
-                </a>
-              </li>
-            </>
+                {heading.text}
+              </a>
+            </li>
           ))}
         </ol>
       </aside>
@@ -228,7 +137,7 @@ const prerequisites = lecture
     >
       <main class="lecture" id="main">
         <header>
-          <p class="eyebrow">
+          <p class="crumb">
             <a href={`/${course.front.slug}`}>{course.front.title}</a> · Lecture{" "}
             {lecture.front.order}
           </p>

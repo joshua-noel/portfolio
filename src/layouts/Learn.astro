@@ -6,7 +6,6 @@ import LearnNav from "../components/learn/LearnNav.astro";
 import LearnTopbar from "../components/learn/LearnTopbar.astro";
 import { getConfig } from "../lib/config.ts";
 import { getCatalogFor } from "../lib/learn/content.ts";
-import type { Depth } from "../lib/learn/depth.ts";
 
 interface Props {
   title: string;
@@ -14,10 +13,6 @@ interface Props {
   canonical?: string;
   /** The course and lecture being read, to mark them in the sidebar. */
   current?: { course: string; lecture?: string };
-  /** The depth the server rendered; pages that are not lectures leave it out. */
-  depth?: Depth;
-  /** Whether the URL asked for a depth; if so, links to other lectures carry it. */
-  linkDepth?: Depth;
   /** `reading` has the lecture sidebar; `plain` is a single column. */
   layout?: "reading" | "plain";
   noindex?: boolean;
@@ -30,8 +25,6 @@ const {
   description = "University-style lectures on computer science, system design, language models and agents, by Joshua Noel.",
   canonical,
   current,
-  depth,
-  linkDepth,
   layout = "reading",
   noindex = false,
   alert,
@@ -45,17 +38,15 @@ const here = Astro.locals.here ?? {
 };
 const viewer = Astro.locals.viewer;
 const catalog = await getCatalogFor(viewer?.role, Astro.locals.allowLocal);
-const query = linkDepth ? `?depth=${linkDepth}` : "";
 ---
 
 <!doctype html>
-<html lang="en" data-depth={depth} data-alert={alert} data-theme="dark">
+<html lang="en" data-alert={alert} data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark light" />
-    <!-- Before first paint, so there is no flash: the theme, and the depth the
-         reader last chose when the URL does not name one. A file, because the
+    <!-- Before first paint, so there is no flash: the theme. A file, because the
          Content-Security-Policy allows no inline script. -->
     <script is:inline src={initScript}></script>
     <title>{title}</title>
@@ -99,7 +90,7 @@ const query = linkDepth ? `?depth=${linkDepth}` : "";
     <div class:list={["shell", layout === "plain" && "plain"]}>
       {
         layout === "reading" && (
-          <LearnNav catalog={catalog} current={current} query={query} />
+          <LearnNav catalog={catalog} current={current} />
         )
       }
       <slot />

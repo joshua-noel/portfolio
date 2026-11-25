@@ -68,13 +68,9 @@ const themes = {
 
 const surfaces = ["bg", "surface", "bg-sunken"];
 const textOnSurfaces = ["fg", "muted", "text-3", "accent"];
-// Coloured text and strokes: the depth colours, the series colours --c1 to --c6
-// that diagrams draw with, and the success tick.
+// Coloured text and strokes: the series colours --c1 to --c6 that diagrams
+// draw with, and the success tick.
 const coloured = [
-  "d-tip",
-  "d-waterline",
-  "d-deep",
-  "d-abyss",
   "c1",
   "c2",
   "c3",

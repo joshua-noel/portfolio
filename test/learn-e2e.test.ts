@@ -799,22 +799,49 @@ test("the landing page lists the right books and locks for every reader, with th
     assert.equal(/Your account cannot read this/.test(res.text), role !== "visitor" && locked, where);
     if (readable.length === 3) assert.doesNotMatch(res.text, /d-locked/, `${where}: nothing locked`);
 
-    // What a visitor needs first.
+    // What a visitor needs first. No depths: they are not on the site any more.
     assert.match(res.text, /<h1>Learn<\/h1>/, where);
-    assert.match(res.text, /Tip<\/strong>[\s\S]*Waterline<\/strong>[\s\S]*Deep<\/strong>[\s\S]*Abyss<\/strong>/, where);
-    assert.match(res.text, /data-depth-switch/, where);
+    assert.doesNotMatch(res.text, /depth|Waterline|Abyss|data-d=/i, `${where}: no depth wording`);
     assert.match(res.text, /role="search"/, where);
   }
 });
 
-test("the landing page keeps the depth in the address, so reading times follow it without a script", async () => {
-  const res = await server.request("learn", "GET", "/?depth=abyss");
-  assert.match(res.text, /<html[^>]* data-depth="abyss"/);
-  const plain = await server.request("learn", "GET", "/?depth=nonsense");
-  assert.match(plain.text, /<html[^>]* data-depth="waterline"/);
-  // All four reading times are in the page; the depth chooses which shows.
-  assert.match(res.text, /class="rt" data-d="tip"[^>]*>[^<]*2 min/);
-  assert.match(res.text, /class="rt" data-d="abyss"[^>]*>[^<]*23 min/);
+/** The page without the address it was asked at: a visitor's "Sign in" link says where to come back to. */
+const withoutNext = (html: string): string => html.replace(/\/signin\?next=[^"]*/g, "/signin");
+
+test("the landing page ignores a ?depth= left in an old link", async () => {
+  const plain = withoutNext((await server.request("learn", "GET", "/")).text);
+  for (const query of ["?depth=abyss", "?depth=nonsense"]) {
+    const res = await server.request("learn", "GET", `/${query}`);
+    assert.equal(res.status, 200);
+    assert.equal(withoutNext(res.text), plain, query);
+  }
+  // One reading time per lecture and per book.
+  assert.match(plain, /class="rt">[^<]*25 min/);
+});
+
+test("a lecture is one page: no depth switch, an old ?depth= link loads it unchanged", async () => {
+  const first = await server.request("learn", "GET", "/c-public/l-public");
+  assert.equal(first.status, 200);
+  const plain = { text: withoutNext(first.text) };
+  for (const query of ["?depth=abyss", "?depth=tip", "?depth=nonsense"]) {
+    const res = await server.request("learn", "GET", `/c-public/l-public${query}`);
+    assert.equal(res.status, 200, query);
+    assert.equal(withoutNext(res.text), plain.text, query);
+  }
+  assert.doesNotMatch(plain.text, /data-depth|data-layer|layer-tag|depth-switch|<html[^>]* data-depth/);
+  assert.match(plain.text, /25 min read/);
+  assert.match(plain.text, /id="in-brief"/);
+  // Version 1 files read as one page: the old Tip first, then Waterline, Deep and Abyss in order.
+  const at = (needle: string): number => plain.text.indexOf(needle);
+  assert.ok(at("Tip text") > 0 && at("Tip text") < at("Body CANARYPUBLICQQ"));
+  assert.ok(at("Body CANARYPUBLICQQ") < at("Deep CANARYPUBLICQQ"));
+  assert.ok(at("Deep CANARYPUBLICQQ") < at("Abyss CANARYPUBLICQQ"));
+  // "On this page" lists the whole lecture.
+  const toc = /<aside class="toc"[\s\S]*?<\/aside>/.exec(plain.text)?.[0] ?? "";
+  for (const heading of ["In brief", "Section", "Deeper", "Deepest", "Check yourself"]) {
+    assert.ok(toc.includes(heading), `On this page lists ${heading}`);
+  }
 });
 
 /** A page for `role` at http://learn.test/, behind the same proxy headers every other test sends. */
@@ -853,17 +880,11 @@ test(
           assert.equal(/Locked/.test(label), !readable.includes(v), `${where}: label of ${v}`);
         }
 
-        // The reading time in a book's name follows the depth chosen.
+        // The reading time is in a book's name.
         assert.match(
           await page.evaluate<string>("document.querySelector('li[data-slug=\"c-public\"] .hit').getAttribute('aria-label')"),
-          /about 9 minutes at Waterline/,
+          /about 25 minutes/,
         );
-        await page.click('[data-depth-switch] a[data-depth="abyss"]');
-        await page.waitFor(
-          "document.querySelector('li[data-slug=\"c-public\"] .hit').getAttribute('aria-label').includes('about 23 minutes at Abyss')",
-          `${where}: the name follows the depth`,
-        );
-        await page.click('[data-depth-switch] a[data-depth="waterline"]');
         await page.moveAway();
         // One tab stop per shelf, and a book at rest is flat.
         assert.equal(await page.evaluate("document.querySelectorAll('button.hit[tabindex=\"0\"]').length"), 3);
