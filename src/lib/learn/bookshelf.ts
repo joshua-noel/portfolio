@@ -4,20 +4,21 @@ import { lectureUrl } from "./catalog.ts";
 import {
   coverStyle,
   coverTitleSize,
-  heightRem,
   NOMINAL_LECTURE_MINUTES,
+  numberOf,
   spineTitle,
   splitTitle,
-  thicknessRem,
+  thickness,
   type CoverStyle,
 } from "./cover.ts";
 
 /**
- * The landing page's bookshelf as data: one book per course, shelves in the
- * catalog's order. It is built from a catalog that `forViewer` has already
- * cut down to what this reader may see, and it reads only what a locked stub
- * carries (a course's title, promise, shelf and cover; a lecture's number,
- * title and promise), so a book of a locked course cannot show more.
+ * The landing page's bookshelf as data: one book per course, in the catalog's
+ * order (shelf by shelf), numbered from 01. It is built from a catalog that
+ * `forViewer` has already cut down to what this reader may see, and it reads
+ * only what a locked stub carries (a course's title, promise, shelf and
+ * cover; a lecture's number, title and promise), so a book of a locked
+ * course cannot show more.
  */
 
 export interface BookLecture {
@@ -36,6 +37,9 @@ export interface BookLecture {
 export interface Book {
   slug: string;
   href: string;
+  /** Place on the shelf from 0, and the two digits shown on its spine and cover. */
+  index: number;
+  number: string;
   title: string;
   /** The title before a colon, and what follows it. */
   main: string;
@@ -52,18 +56,16 @@ export interface Book {
    * course with none and for a locked one (the loader sends nothing for it).
    */
   art: string;
-  /** The box of `art` that makes the spine's mark: x, y, width, height in the 240 x 320 canvas. */
-  mark?: [number, number, number, number];
   lectures: BookLecture[];
   /** Lectures the reader may open that have a video. */
   videos: number;
   /** Reading time of the whole course; absent when locked. */
   minutes?: number;
-  /** Spine width and height in rem. */
+  /** Spine thickness as a fraction of the book's height. */
   thickness: number;
-  height: number;
-  /** Type size in rem on the spine and on the cover, and the lines the spine title takes. */
+  /** Type size on the spine (a fraction of the book's height) and the columns the title takes. */
   spine: { size: number; lines: number };
+  /** Type size of the title on the cover, a fraction of the book's height. */
   coverTitle: number;
 }
 
@@ -71,80 +73,11 @@ export interface ShelfView {
   id: string;
   title: string;
   books: Book[];
-  /** Too many books for half the page: the shelf takes the whole width. */
-  wide: boolean;
-}
-
-/** Spines this wide (rem, with the gaps between them) fill half a page; more and the shelf spans it. */
-export const WIDE_SHELF_REM = 22;
-
-/** The widest a bookcase may be (rem): the page, at the narrowest width that shows bookcases (76 rem less the page's margins). */
-export const CASE_MAX_REM = 72;
-/** How much bigger than their natural size the books stand when every case has room for it, biggest first. */
-export const CASE_SCALES = [1.2, 1.1, 1] as const;
-/** A cover is this wide (rem) at scale 1, and 7.5 rem wider for each whole step of scale. */
-const COVER_REM = 11.5;
-const COVER_PER_SCALE_REM = 7.5;
-/** Each group of books adds a bookend and a gap. */
-const GROUP_REM = 2.4;
-
-/** One bookcase: shelves that stand side by side, as big as the books are drawn. */
-export interface CasePlan {
-  shelves: ShelfView[];
-  /** A single shelf too wide for the page: its row scrolls. */
-  scrolls: boolean;
-}
-
-/**
- * The width a bookcase needs: its books at `scale`, the bookends and gaps
- * between its groups, and room at both ends for the books to slide aside
- * when one is pulled out.
- */
-export function caseWidth(shelves: ShelfView[], scale: number): number {
-  const cover = COVER_REM + (scale - 1) * COVER_PER_SCALE_REM;
-  const slack = 2 * (cover * 0.66 + 0.3);
-  const books = shelves.flatMap((shelf) => shelf.books);
-  return standingWidth(books) * scale + shelves.length * GROUP_REM + slack;
-}
-
-/**
- * Shelves into bookcases, in the catalog's order: each case takes shelves as
- * long as they fit the page, so a few books share one case and no case is
- * mostly empty; a shelf that is wider than the page has a case to itself and
- * scrolls. `scale` is one size for every book: the biggest that fits every case.
- */
-export function packCases(shelves: ShelfView[]): { cases: CasePlan[]; scale: number } {
-  const cases: CasePlan[] = [];
-  for (const shelf of shelves) {
-    const last = cases.at(-1);
-    if (last && caseWidth([...last.shelves, shelf], 1) <= CASE_MAX_REM)
-      last.shelves.push(shelf);
-    else cases.push({ shelves: [shelf], scrolls: false });
-  }
-  for (const plan of cases) plan.scrolls = caseWidth(plan.shelves, 1) > CASE_MAX_REM;
-  const scale =
-    CASE_SCALES.find((s) =>
-      cases.every((plan) => caseWidth(plan.shelves, s) <= CASE_MAX_REM),
-    ) ?? 1;
-  return { cases, scale };
-}
-
-/** How wide the books of a shelf stand, in rem. */
-export function standingWidth(books: { thickness: number }[]): number {
-  return sum(books.map((book) => book.thickness)) + Math.max(0, books.length - 1) * 0.125;
 }
 
 const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0);
 
-/** The `data-mark` box a cover names, when it is four whole numbers inside the canvas. */
-export function markOf(art: string): Book["mark"] {
-  const found = /\sdata-mark="(\d{1,3}) (\d{1,3}) (\d{1,3}) (\d{1,3})"/.exec(art);
-  if (!found) return undefined;
-  const [x, y, w, h] = found.slice(1).map(Number) as [number, number, number, number];
-  return w > 0 && h > 0 && x + w <= 240 && y + h <= 320 ? [x, y, w, h] : undefined;
-}
-
-function bookOf(course: Course, shelfTitle: string): Book {
+function bookOf(course: Course, shelfTitle: string, index: number): Book {
   const { front } = course;
   const lectures = course.lectures.map((lecture): BookLecture => {
     const base = {
@@ -172,11 +105,12 @@ function bookOf(course: Course, shelfTitle: string): Book {
   const full = (lecture: BookLecture): number => lecture.minutes ?? NOMINAL_LECTURE_MINUTES;
   const minutes = course.locked ? undefined : sum(open.map((lecture) => lecture.minutes!));
   const { main, sub } = splitTitle(front.title);
-  const thickness = thicknessRem(sum(lectures.map(full)));
-  const height = heightRem(front.slug);
+  const spine = thickness(sum(lectures.map(full)));
   return {
     slug: front.slug,
     href: `/${front.slug}`,
+    index,
+    number: numberOf(index),
     title: front.title,
     main,
     sub,
@@ -187,26 +121,21 @@ function bookOf(course: Course, shelfTitle: string): Book {
     why: course.locked ? whyLocked(front.visibility) : undefined,
     cover: coverStyle(front.cover),
     art: course.coverSvg,
-    mark: markOf(course.coverSvg),
     lectures,
     videos: open.filter((lecture) => lecture.video).length,
     minutes,
-    thickness,
-    height,
-    spine: spineTitle(main, thickness, height),
+    thickness: spine,
+    spine: spineTitle(main, spine),
     coverTitle: coverTitleSize(main),
   };
 }
 
-/** Every shelf that has a book, in the catalog's order, each book as its reader may see it. */
+/** Every shelf that has a book, in the catalog's order, each book as its reader may see it, numbered across the shelves. */
 export function buildShelves(catalog: Catalog): ShelfView[] {
-  return catalog.shelves.map((shelf) => {
-    const books = shelf.courses.map((course) => bookOf(course, shelf.title));
-    return {
-      id: shelf.id,
-      title: shelf.title,
-      books,
-      wide: standingWidth(books) > WIDE_SHELF_REM,
-    };
-  });
+  let index = 0;
+  return catalog.shelves.map((shelf) => ({
+    id: shelf.id,
+    title: shelf.title,
+    books: shelf.courses.map((course) => bookOf(course, shelf.title, index++)),
+  }));
 }

@@ -15,7 +15,8 @@ const css = readFileSync(
 );
 
 function tokens(selector: string): Record<string, string> {
-  const start = css.indexOf(`\n${selector} {`);
+  // A block, or a list of selectors that starts with this one (the design page scopes a theme to a section too).
+  const start = Math.max(css.indexOf(`\n${selector} {`), css.indexOf(`\n${selector},`));
   assert.notEqual(start, -1, `no ${selector} block`);
   const body = css.slice(start, css.indexOf("\n}", start));
   const found: Record<string, string> = {};

@@ -199,10 +199,47 @@ interface Node {
 }
 
 /**
- * Checks a diagram's SVG. `html` is the sanitised markup to inline, and is
- * empty when there is any problem; `issues` says each one.
+ * The `data-` attributes a diagram may carry: the ones its interactive script
+ * reads. Any other would be read by the page's own scripts, which find their
+ * hooks by `data-` names (`data-mark`, `data-book`, `data-search`…), so a
+ * diagram could break the page it is inlined in. An unlisted one is refused.
  */
-export function sanitizeSvg(source: string): { html: string; issues: string[] } {
+export const DIAGRAM_DATA = new Set([
+  "data-interactive",
+  "data-name",
+  "data-k",
+  "data-handle",
+  "data-v",
+  "data-q",
+  "data-role",
+  "data-used",
+  "data-total",
+  "data-pills",
+  "data-out",
+  "data-mix",
+  "data-max",
+  "data-links",
+  "data-grid",
+  "data-bars",
+  "data-flow",
+  "data-parallel",
+  "data-constrained",
+]);
+
+/**
+ * Checks a diagram's, or a cover's, SVG. `html` is the sanitised markup to
+ * inline, and is empty when there is any problem; `issues` says each one.
+ *
+ * A cover is stricter, because it stands on the landing page once for every
+ * course and next to the page's own markup: it has no `data-` attribute (the
+ * old `data-mark`, four numbers, is accepted and dropped), its `id` and
+ * `class` attributes are removed so it can neither clash with nor be styled
+ * or found by the page, and it may reference nothing by id.
+ */
+export function sanitizeSvg(
+  source: string,
+  { kind = "diagram" }: { kind?: "diagram" | "cover" } = {},
+): { html: string; issues: string[] } {
   const issues: string[] = [];
   const bad = (message: string): void => {
     if (!issues.includes(message)) issues.push(message);
@@ -230,6 +267,12 @@ export function sanitizeSvg(source: string): { html: string; issues: string[] } 
       if (!inside && tag !== "svg") bad(`<${tag}> outside the <svg>`);
       if (inside && tag === "svg") bad("must contain exactly one <svg>");
       for (const attr of child.attrs ?? []) checkAttribute(tag, attr);
+      if (kind === "cover") {
+        child.attrs = (child.attrs ?? []).filter((attr) => {
+          const name = attr.name.toLowerCase();
+          return !attr.prefix && name !== "id" && name !== "class" && name !== "data-mark";
+        });
+      }
       walk(child, true);
     }
   };
@@ -241,6 +284,10 @@ export function sanitizeSvg(source: string): { html: string; issues: string[] } 
     if (qualified === "xmlns" || qualified === "xmlns:xlink") {
       const expected = qualified === "xmlns" ? SVG_NAMESPACE : XLINK_NAMESPACE;
       if (attr.value !== expected) bad(`${qualified} must be ${expected}`);
+      return;
+    }
+    if (kind === "cover" && (name === "href" || /url\(/i.test(attr.value))) {
+      bad("a cover may not reference anything by id");
       return;
     }
     if (name === "href" && (attr.prefix === undefined || attr.prefix === "xlink")) {
@@ -255,7 +302,11 @@ export function sanitizeSvg(source: string): { html: string; issues: string[] } 
       return;
     }
     if (name.startsWith("data-")) {
-      if (!/^data-[a-z0-9-]+$/.test(name)) bad(`the attribute ${name} is not allowed`);
+      if (kind === "cover") {
+        if (!(name === "data-mark" && /^\d{1,3}( \d{1,3}){3}$/.test(attr.value))) {
+          bad(`the attribute ${name} is not allowed on a cover`);
+        }
+      } else if (!DIAGRAM_DATA.has(name)) bad(`the attribute ${name} is not allowed`);
       else if (dangerousValue(attr.value)) bad(`${name}="${attr.value}" is not allowed`);
       return;
     }

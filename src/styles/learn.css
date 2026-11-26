@@ -8,7 +8,8 @@
    holds the text colours to WCAG AA (4.5:1) in both themes.
    ============================================================ */
 
-:root {
+:root,
+.theme-scope[data-theme="dark"] {
   color-scheme: dark;
   --bg: #1b1a1f;
   --surface: #222127;
@@ -49,7 +50,8 @@
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 }
 
-:root[data-theme="light"] {
+:root[data-theme="light"],
+.theme-scope[data-theme="light"] {
   color-scheme: light;
   --bg: #ffffff;
   --surface: #f5f5f7;
@@ -98,12 +100,19 @@
 }
 
 html {
-  /* 16px up to 1280 wide, growing to 21px at 2560: about the proportion of the style bible,
-     so the page reads the same from the same distance on a large screen. */
-  font-size: clamp(1rem, 0.6875rem + 0.390625vw, 1.3125rem);
+  /* 16px on a small screen and a tablet (readable at arm's length). From 1100 wide, where the
+     rails appear, 15px growing to 18.5px at 2560: about 11% smaller on a big screen than the
+     16 to 21px this was, so the page is not zoomed in, and the measure in characters is the
+     same because it is in rem. */
+  font-size: 1rem;
   scroll-padding-top: calc(var(--topbar) + 1rem);
   scrollbar-gutter: stable;
   -webkit-text-size-adjust: 100%;
+}
+@media (min-width: 1100px) {
+  html {
+    font-size: clamp(0.9375rem, 0.7727rem + 0.2397vw, 1.15625rem);
+  }
 }
 html.js {
   scroll-behavior: smooth;

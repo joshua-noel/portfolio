@@ -1,26 +1,15 @@
-// The landing page's bookshelf. The markup works without this file (a grid of
-// course cards); this turns each cover into a book that stands on a shelf,
-// moves a card's text into a panel when the book is opened, and adds the
-// filter row. Plain DOM, no framework, nothing fetched.
-import { filterFromKey, matchesFilter } from "../../lib/learn/bookshelf-filter.ts";
+// The landing page's shelf. The markup works without this file (a grid of
+// course cards); this stands the books on a tape that wraps around the page,
+// turns the book in front to show its cover, moves a card's text into a panel
+// when the book is opened, and wires the capsule, the two round buttons, the
+// keyboard, the wheel and a drag. Plain DOM, no framework, nothing fetched.
+//
+// Every query is scoped to the shelf and to the element it expects, so
+// nothing a cover's illustration contains can be mistaken for part of the page.
+import { litPill } from "../../lib/learn/bookshelf-filter.ts";
 
 const shelf = document.querySelector("[data-bookshelf]");
-const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
-
-/** What a book is called to a screen reader: its title, its lectures, its reading time, and whether it is locked. */
-function nameBooks() {
-  for (const book of document.querySelectorAll("[data-book]")) {
-    const hit = book.querySelector(".hit");
-    if (!hit) continue;
-    const minutes = book.dataset.minutes;
-    const time = minutes ? `, about ${minutes} minutes` : "";
-    const locked = book.hasAttribute("data-locked") ? ". Locked" : "";
-    hit.setAttribute(
-      "aria-label",
-      `${book.querySelector(".vol").dataset.label}${time}${locked}`,
-    );
-  }
-}
+const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 
 const store = {
   get(key) {
@@ -39,7 +28,7 @@ const store = {
 // is where the reader left off.
 (function resume() {
   const target = document.querySelector("[data-resume]");
-  if (!target) return;
+  if (!target || !shelf) return;
   let progress;
   try {
     progress = JSON.parse(store.get("learn-progress") ?? "{}");
@@ -48,9 +37,11 @@ const store = {
   }
   for (const key of Object.keys(progress).reverse()) {
     if (progress[key] !== "started") continue;
-    const link = document.querySelector(`a[data-lecture-key="${CSS.escape(key)}"]`);
+    const link = [...shelf.querySelectorAll("ol.d-list a[data-lecture-key]")].find(
+      (a) => a.dataset.lectureKey === key,
+    );
     if (!link) continue;
-    const course = link.closest("[data-book]")?.querySelector(".d-title")?.textContent;
+    const course = link.closest("li[data-book]")?.querySelector(".d-title")?.textContent;
     const text = document.createElement("a");
     text.href = link.getAttribute("href");
     text.textContent = link.querySelector(".t")?.firstChild?.textContent?.trim() ?? key;
@@ -62,526 +53,408 @@ const store = {
 })();
 
 if (shelf) {
-  const panel = shelf.querySelector("[data-panel]");
-  const body = shelf.querySelector("[data-panel-body]");
-  const status = shelf.querySelector("[data-status]");
-  const rows = [...shelf.querySelectorAll("[data-row]")];
-  const sections = [...shelf.querySelectorAll("[data-shelf-section]")];
-  const cases = [...shelf.querySelectorAll(".bookcase")];
-  const books = [...shelf.querySelectorAll("[data-book]")];
-  let open; // the <li> of the open book
-  let pulled; // the <li> of the book pulled out by the pointer or by keyboard focus
-  let focused; // the <li> whose button has keyboard focus
+  const stage = shelf.querySelector(":scope > [data-stage]");
+  const row = stage?.querySelector(":scope > [data-row]");
+  const items = row ? [...row.querySelectorAll(":scope > li[data-book]")] : [];
+  const panel = shelf.querySelector(":scope > [data-panel]");
+  const body = panel?.querySelector("[data-panel-body]");
+  const status = shelf.querySelector(":scope > [data-status]");
+  const arrows = shelf.querySelector(":scope > [data-arrows]");
+  const pills = [...shelf.querySelectorAll(":scope > [data-filters] > button[data-filter]")];
+  if (stage && items.length > 0 && panel && body) start();
 
-  /** Whether the shelves are packed into bookcases, as on a wide screen, or each is a case of its own. */
-  const packed = () => matchMedia("(min-width: 76rem)").matches;
-  const remPx = () => parseFloat(getComputedStyle(document.documentElement).fontSize);
-  const isShown = (book) => !book.hidden && book.offsetWidth > 0;
+  function start() {
+    const n = items.length;
+    const spines = items.map((li) => parseFloat(li.style.getPropertyValue("--t")) || 0.15);
+    const pillList = pills.map((p) => ({ key: p.dataset.filter, first: Number(p.dataset.first) }));
 
-  /** The books beside which a book makes room: its case on a wide screen, else its own shelf. */
-  const scopeOf = (lead) => (packed() ? lead.closest(".bookcase") : lead.parentElement);
-  const scopeBooks = (lead) => [...scopeOf(lead).querySelectorAll("[data-book]")].filter(isShown);
-  /** The width of a book's cover, and how far a neighbour goes aside for it (the styles use the same number). */
-  const coverOf = (book) => book.querySelector(".cover").offsetWidth;
-  const partOf = (lead) => (coverOf(lead) - lead.offsetWidth) / 2 + 0.55 * remPx();
+    // The geometry, as fractions of a book's height: how wide a cover is, the
+    // space the neighbours of the book in front leave, and between spines.
+    const COVER = 0.75;
+    const FIRST = 0.054;
+    const GAP = 0.03;
+    const PITCH = 0.18;
+    /** The book in front: a little up, forward, tilted, turned to show its cover (the same functions as a spine's, so it moves in one go). */
+    const FRONT = "translate3d(0, calc(var(--H) * -0.025), calc(var(--H) * 0.2)) rotateZ(-4.5deg) rotateY(-90deg)";
 
-  /**
-   * Pulling a book out (or opening it) makes room: the books on either side of
-   * it step aside, those before it one way and those after it the other, within
-   * the case it stands in. The styles do the moving; this only says who is where
-   * and how far.
-   */
-  function layout() {
-    const lead = open ?? pulled;
-    const scope = lead ? scopeBooks(lead) : [];
-    const at = scope.indexOf(lead);
-    if (lead && !reducedMotion.matches) {
-      shelf.style.setProperty("--p", `${Math.round(partOf(lead) * 100) / 100}px`);
-    }
-    for (const book of books) {
-      const i = scope.indexOf(book);
-      const side = i < 0 || i === at ? "" : i < at ? "before" : "after";
-      if (side) book.dataset.side = side;
-      else delete book.dataset.side;
-      book.classList.toggle("is-pulled", book === lead && book !== open);
-      book.classList.toggle("is-focus", book === focused);
-    }
-  }
+    const mod = (a, m) => ((a % m) + m) % m;
+    const heightPx = () => stage.offsetHeight / 1.3;
 
-  // ------------------------------------------------------------ books
+    // ---------------------------------------------------------- the tape
 
-  // Each cover becomes a button: one element to focus, to press and to name.
-  for (const book of shelf.querySelectorAll("[data-book]")) {
-    const vol = book.querySelector(".vol");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "hit";
-    button.setAttribute("aria-label", vol.dataset.label);
-    button.setAttribute("aria-expanded", "false");
-    button.setAttribute("aria-controls", panel.id);
-    button.tabIndex = -1;
-    button.append(vol);
-    book.prepend(button);
-  }
-  nameBooks();
-  const hitOf = (book) => book.querySelector(".hit");
-  const visibleBooks = (row) => [...row.querySelectorAll("[data-book]:not([hidden])")];
-  const bookOfEvent = (target) =>
-    target instanceof Element && target.closest(".hit") ? target.closest("[data-book]") : null;
+    const tape = document.createElement("div");
+    tape.className = "tape";
+    // Pictures only: what is read is the list of names below.
+    tape.setAttribute("aria-hidden", "true");
 
-  /** One tab stop per shelf; the arrow keys move along it. */
-  function rove(row, to) {
-    const books = visibleBooks(row);
-    const current = to ?? books.find((b) => hitOf(b).tabIndex === 0) ?? books[0];
-    for (const book of row.querySelectorAll("[data-book]")) {
-      hitOf(book).tabIndex = book === current ? 0 : -1;
-    }
-  }
-  rows.forEach((row) => rove(row));
+    const copyStyle = (from, to) => {
+      for (const name of from.style) to.style.setProperty(name, from.style.getPropertyValue(name));
+    };
+    const labelOf = (li) => {
+      const minutes = li.dataset.minutes;
+      const time = minutes ? `, about ${minutes} minutes` : "";
+      const locked = li.hasAttribute("data-locked") ? ". Locked" : "";
+      return `${li.querySelector(":scope > .vol").dataset.label}${time}${locked}`;
+    };
 
-  shelf.addEventListener("focusin", (event) => {
-    const book = event.target.closest?.("[data-book]");
-    if (!book || !event.target.classList.contains("hit")) return;
-    rove(book.parentElement, book);
-    if (event.target.matches(":focus-visible")) {
-      focused = pulled = book;
-      layout();
-    }
-  });
-  shelf.addEventListener("focusout", (event) => {
-    const book = event.target.closest?.("[data-book]");
-    if (book && book === focused) {
-      focused = undefined;
-      if (pulled === book) pulled = undefined;
-      layout();
-    }
-  });
+    /**
+     * What a screen reader and the keyboard meet: one button per book, in a list
+     * that is not drawn. The books on the tape are pictures of them, so which
+     * slot is in front never decides what can be focused or read.
+     */
+    // The book in front is turned edge-on to its own plane, which no browser can hit-test:
+    // a flat, invisible target stands over its cover, and a press on it opens the book.
+    const front = document.createElement("div");
+    front.className = "front";
+    front.setAttribute("aria-hidden", "true");
 
-  // ------------------------------------------------------------ the pointer
-  //
-  // Which book the pointer means is worked out from where the books WILL stand
-  // once they have settled around the one that is out, not from where they are
-  // drawn this instant. A book's slot never moves; the book that is pulled
-  // out covers a span of its own, and the books on either side are shifted by
-  // the same amount the styles shift them. So the answer does not depend on
-  // how far a move has got, a book that is still sliding is not mistaken for
-  // the one under the pointer, and sweeping along the row cannot make the books
-  // chase the pointer. A touch has no hover: it only opens.
+    const names = document.createElement("ul");
+    names.className = "names visually-hidden";
+    names.setAttribute("role", "list");
+    names.setAttribute("aria-label", "Courses");
+    const buttons = items.map((li, i) => {
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.index = String(i);
+      button.setAttribute("aria-label", labelOf(li));
+      button.setAttribute("aria-expanded", "false");
+      button.setAttribute("aria-controls", panel.id);
+      button.tabIndex = -1;
+      item.append(button);
+      names.append(item);
+      return button;
+    });
 
-  /** The latest mouse position, and how fast it is moving (px per ms). */
-  let pointer;
-  let frame = 0;
-  let retry = 0;
-  const FAST = 1.6;
+    /** The tape: a picture of each book at every slot, the faces moved out of the card for the first. */
+    let copies = 0;
+    let slots = []; // the elements, by slot
+    const faces = items.map((li) => [...li.querySelector(":scope > .vol").children]);
+    const copiesNeeded = () =>
+      Math.max(1, Math.ceil((stage.clientWidth / (PITCH * heightPx()) + 4) / n));
 
-  /** The book at (x, y) with `lead` out, or `lead` when the pointer is in a gap beside it, or nothing. */
-  function bookAt(x, y, lead) {
-    const rem = remPx();
-    // With reduced motion nothing moves: a book is where its slot is.
-    const moves = !reducedMotion.matches;
-    const slot = (book) => book.getBoundingClientRect();
-    let scope = [];
-    let at = -1;
-    let part = 0;
-    if (lead) {
-      scope = scopeBooks(lead);
-      at = scope.indexOf(lead);
-      part = moves ? partOf(lead) : 0;
-      const r = slot(lead);
-      const half = moves ? coverOf(lead) * 0.56 : r.width / 2;
-      const mid = (r.left + r.right) / 2;
-      const top = r.top - (moves ? 4.2 : 0.4) * rem;
-      if (x >= mid - half && x <= mid + half && y >= top && y <= r.bottom) return lead;
-    }
-    for (const book of books) {
-      if (!isShown(book)) continue;
-      const r = slot(book);
-      const i = scope.indexOf(book);
-      const shift = i < 0 || i === at ? 0 : i < at ? -part : part;
-      if (x >= r.left + shift && x <= r.right + shift && y >= r.top - 0.4 * rem && y <= r.bottom) {
-        return book;
-      }
-    }
-    if (lead && moves) {
-      // In the gap between the span of the book that is out and its neighbours: stay.
-      const edge = scopeOf(lead).getBoundingClientRect();
-      const r = slot(lead);
-      if (x >= edge.left && x <= edge.right && y >= r.top - 4.2 * rem && y <= r.bottom + 0.8 * rem) {
-        return lead;
-      }
-    }
-    return undefined;
-  }
-
-  function update() {
-    frame = 0;
-    if (!pointer || open) return;
-    const target = bookAt(pointer.x, pointer.y, pulled);
-    if (target === pulled) return;
-    if (target && pointer.v > FAST) {
-      // Sweeping past: wait until the pointer slows or stops before pulling the next book.
-      clearTimeout(retry);
-      retry = setTimeout(() => {
-        pointer.v = 0;
-        update();
-      }, 70);
-      return;
-    }
-    clearTimeout(retry);
-    if (target) pulled = target;
-    else if (pulled !== focused) pulled = undefined; // the keyboard's book stays out
-    else return;
-    layout();
-  }
-  const reconsider = () => {
-    if (!frame) frame = requestAnimationFrame(update);
-  };
-
-  shelf.addEventListener(
-    "pointermove",
-    (event) => {
-      if (event.pointerType === "touch") return;
-      const dt = pointer ? Math.max(1, event.timeStamp - pointer.t) : 1000;
-      const v = pointer ? Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) / dt : 0;
-      pointer = {
-        x: event.clientX,
-        y: event.clientY,
-        t: event.timeStamp,
-        v: pointer ? pointer.v * 0.4 + v * 0.6 : 0,
-        // The book the browser found under it, as it was drawn this instant.
-        over: bookOfEvent(event.target),
-      };
-      reconsider();
-    },
-    { passive: true },
-  );
-  shelf.addEventListener("pointerleave", (event) => {
-    if (event.pointerType === "touch") return;
-    pointer = undefined;
-    clearTimeout(retry);
-    if (pulled && pulled !== focused) {
-      pulled = undefined;
-      layout();
-    }
-  });
-  // A page that scrolls under a still pointer changes what is under it.
-  addEventListener("scroll", () => pointer && reconsider(), { passive: true });
-
-  shelf.addEventListener("keydown", (event) => {
-    const hit = event.target;
-    if (!(hit instanceof Element) || !hit.classList.contains("hit")) return;
-    const book = hit.closest("[data-book]");
-    const row = book.parentElement;
-    const books = visibleBooks(row);
-    const at = books.indexOf(book);
-    let next;
-    switch (event.key) {
-      case "ArrowRight":
-        next = books[at + 1];
-        break;
-      case "ArrowLeft":
-        next = books[at - 1];
-        break;
-      case "Home":
-        next = books[0];
-        break;
-      case "End":
-        next = books.at(-1);
-        break;
-      case "ArrowDown":
-      case "ArrowUp": {
-        const shown = rows.filter((r) => visibleBooks(r).length > 0);
-        const other = shown[shown.indexOf(row) + (event.key === "ArrowDown" ? 1 : -1)];
-        if (other) {
-          const there = visibleBooks(other);
-          next = there[Math.min(at, there.length - 1)];
+    function build() {
+      copies = copiesNeeded();
+      for (const el of slots.slice(n)) el.remove();
+      slots = slots.slice(0, n);
+      for (let c = 0; c < copies; c++) {
+        for (let i = 0; i < n; i++) {
+          const s = c * n + i;
+          if (slots[s]) continue;
+          const book = document.createElement("span");
+          book.className = "tb";
+          book.setAttribute("aria-hidden", "true");
+          copyStyle(items[i], book);
+          // The first copy takes the card's own faces; the rest are drawn alike.
+          for (const face of faces[i]) book.append(c === 0 ? face : face.cloneNode(true));
+          slots[s] = book;
         }
-        break;
       }
-      default:
-        return;
-    }
-    event.preventDefault();
-    if (next) {
-      hitOf(next).focus();
-      hitOf(next).scrollIntoView({
-        inline: "center",
-        block: "nearest",
-        behavior: reducedMotion.matches ? "auto" : "smooth",
+      slots.forEach((el, s) => {
+        el.dataset.slot = String(s);
+        tape.append(el);
       });
     }
-  });
 
-  // ------------------------------------------------------------ panel
+    // ------------------------------------------------------ positions
 
-  const THEME = ["--b-color", "--b-accent", "--b-ink", "--b-soft", "--b-mark"];
+    let pos = 0; // the slot in front
+    let first = true;
+    const N = () => slots.length;
 
-  function fill(book) {
-    const copy = book.querySelector("[data-detail]").cloneNode(true);
-    const list = copy.querySelector(".d-list");
-    const main = document.createElement("div");
-    main.className = "panel-main";
-    for (const node of [...copy.children]) if (node !== list) main.append(node);
-    const cover = document.createElement("div");
-    cover.className = "panel-cover";
-    cover.setAttribute("aria-hidden", "true");
-    cover.append(book.querySelector(".cover").cloneNode(true));
-    const side = document.createElement("div");
-    side.className = "panel-side";
-    side.append(cover, main);
-    body.replaceChildren(side, list);
-    panel.setAttribute("aria-label", main.querySelector(".d-title").textContent);
-    for (const name of THEME) {
-      panel.style.setProperty(name, book.style.getPropertyValue(name));
+    /** The x of the book at offset d from the one in front (d from -N/2), in book heights, and a table of them. */
+    function placeAll() {
+      const total = N();
+      const half = Math.floor(total / 2);
+      const t = (d) => spines[mod(pos + d, total) % n];
+      const xs = new Map([[0, 0]]);
+      let x = COVER / 2 + FIRST + t(1) / 2;
+      for (let d = 1; d <= total - 1 - half; d++) {
+        if (d > 1) x += t(d - 1) / 2 + GAP + t(d) / 2;
+        xs.set(d, x);
+      }
+      x = -(COVER / 2 + FIRST + t(-1) / 2);
+      for (let d = -1; d >= -half; d--) {
+        if (d < -1) x -= t(d + 1) / 2 + GAP + t(d) / 2;
+        xs.set(d, x);
+      }
+      return { total, half, xs };
     }
-  }
 
-  /**
-   * Brings the book along its row and the panel into view, as part of the
-   * opening: the panel is already in the page at its full height, so the least
-   * scroll that shows its foot (never pushing the book's top under the bar) can
-   * start at once and is one smooth move beside the book coming forward.
-   */
-  function reveal(book) {
-    const behavior = reducedMotion.matches ? "auto" : "smooth";
-    if (book.parentElement.scrollWidth > book.parentElement.clientWidth + 4) {
-      hitOf(book).scrollIntoView({ inline: "center", block: "nearest", behavior });
-    }
-    const rem = remPx();
-    const bar = document.querySelector(".topbar")?.getBoundingClientRect().bottom ?? 0;
-    // The panel starts a little above its place (it settles down into it).
-    const foot = panel.getBoundingClientRect().bottom + (reducedMotion.matches ? 0 : 1.1 * rem);
-    let by = foot - (innerHeight - rem);
-    by = Math.min(by, book.getBoundingClientRect().top - (bar + rem));
-    if (by > 1) scrollBy({ top: by, behavior });
-  }
-
-  /** The last case on the same row of the wall as this book's: the panel opens after it. */
-  function anchorOf(book) {
-    if (packed()) return book.closest(".bookcase");
-    const section = book.closest("section");
-    const top = Math.round(section.getBoundingClientRect().top);
-    return sections
-      .filter((s) => !s.hidden && Math.round(s.getBoundingClientRect().top) === top)
-      .at(-1);
-  }
-
-  /** After the wall reflows (a resize, a filter) the open book's row may have changed: follow it. */
-  function placePanel() {
-    if (!open || panel.hidden) return;
-    const anchor = anchorOf(open);
-    if (panel.previousElementSibling === anchor) return;
-    const focused =
-      panel.contains(document.activeElement) || document.activeElement === panel;
-    anchor.after(panel);
-    if (focused) panel.focus({ preventScroll: true });
-  }
-
-  /** Lets the panel arrive: it starts from where it settles from, then goes to its place. */
-  function arrive() {
-    panel.hidden = false;
-    panel.classList.remove("is-open");
-    panel.style.transition = "none";
-    void panel.offsetHeight;
-    panel.style.transition = "";
-    panel.classList.add("is-open");
-  }
-
-  function openBook(book) {
-    if (open === book) return;
-    const anchor = anchorOf(book);
-    if (open) markClosed(open);
-    open = book;
-    pulled = undefined;
-    shelf.classList.add("has-open");
-    book.classList.add("is-open");
-    layout();
-    hitOf(book).setAttribute("aria-expanded", "true");
-    fill(book);
-    if (panel.previousElementSibling !== anchor) anchor.after(panel);
-    arrive();
-    panel.focus({ preventScroll: true });
-    reveal(book);
-  }
-
-  function markClosed(book) {
-    book.classList.remove("is-open");
-    hitOf(book).setAttribute("aria-expanded", "false");
-  }
-
-  function closeBook(returnFocus) {
-    if (!open) return;
-    const book = open;
-    open = undefined;
-    markClosed(book);
-    shelf.classList.remove("has-open");
-    layout();
-    panel.classList.remove("is-open");
-    if (reducedMotion.matches) panel.hidden = true;
-    else {
-      const done = () => {
-        if (!open) panel.hidden = true;
-      };
-      panel.addEventListener("transitionend", (e) => e.target === panel && e.propertyName === "opacity" && done(), { once: true });
-      setTimeout(done, 520);
-    }
-    if (returnFocus) hitOf(book).focus();
-    // The pointer is probably still over it: it comes straight back out.
-    reconsider();
-  }
-
-  // The book the pointer pressed is the one that opens, however far it has
-  // moved by the time the button comes up. What is under the pointer at the
-  // press is what the reader sees (the browser hit-tests the drawn,
-  // part-way-through-its-move books), so that is the pressed book; the release
-  // or the click may land on a gap or on another book, as a book slides, and
-  // does not matter. A book that slides away between the pointer's last move
-  // and the press leaves a gap under it: the book the pointer was over a
-  // moment before is the one. Only when there was none is it worked out from
-  // where the books will stand.
-  let pressed;
-  shelf.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
-    const recent =
-      pointer?.over &&
-      event.timeStamp - pointer.t < 250 &&
-      Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) < 6
-        ? pointer.over
-        : null;
-    const book =
-      bookOfEvent(event.target) ??
-      recent ??
-      bookAt(event.clientX, event.clientY, open ?? pulled);
-    pressed = book ? { book, x: event.clientX, y: event.clientY } : undefined;
-  });
-  /** The click events already acted on, so the click-away rule below skips them. */
-  const handled = new WeakSet();
-  shelf.addEventListener("click", (event) => {
-    let book = null;
-    if (event.detail === 0) book = bookOfEvent(event.target); // the keyboard, or a screen reader
-    else if (pressed && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) < 24) {
-      book = pressed.book;
-    }
-    pressed = undefined;
-    if (!book) return;
-    handled.add(event);
-    if (open === book) closeBook(false);
-    else openBook(book);
-  });
-  shelf
-    .querySelector("[data-panel-close]")
-    .addEventListener("click", () => closeBook(true));
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape" || !open) return;
-    const at = document.activeElement;
-    if (at === document.body || panel.contains(at) || at === hitOf(open)) {
-      event.preventDefault();
-      closeBook(true);
-    }
-  });
-  // Clicking away closes it; clicking a book, the panel or a pill does not.
-  document.addEventListener("click", (event) => {
-    if (!open || handled.has(event) || !(event.target instanceof Element)) return;
-    if (!event.target.closest("[data-panel], .hit, [data-filters], .topbar"))
-      closeBook(false);
-  });
-
-  // ------------------------------------------------------------ filters
-
-  const pills = [...shelf.querySelectorAll("[data-filter]")];
-
-  function applyFilter(key) {
-    const filter = filterFromKey(key);
-    let shown = 0;
-    for (const section of sections) {
-      let here = 0;
-      for (const book of section.querySelectorAll("[data-book]")) {
-        const match = matchesFilter(
-          { shelf: book.dataset.shelf, videos: Number(book.dataset.videos) },
-          filter,
+    function layout() {
+      const { total, half, xs } = placeAll();
+      const hpx = heightPx();
+      const reach = stage.clientWidth / 2 + hpx * 0.8;
+      for (let s = 0; s < total; s++) {
+        const el = slots[s];
+        const d = mod(s - pos + half, total) - half;
+        const x = xs.get(d) ?? 0;
+        const jumped = el._d !== undefined && Math.abs(d - el._d) > total / 2;
+        if (jumped || first) {
+          // Off the screen at both ends of its move: it only changes sides.
+          el.classList.add("is-still");
+          requestAnimationFrame(() => el.classList.remove("is-still"));
+        }
+        el.classList.toggle("is-selected", d === 0);
+        el.classList.toggle(
+          "is-gone",
+          Math.abs(x * hpx) > reach && (el._x === undefined || Math.abs(el._x * hpx) > reach),
         );
-        if (match && book.hidden && !reducedMotion.matches) {
-          book.classList.add("is-in");
-          book.addEventListener("animationend", () => book.classList.remove("is-in"), {
-            once: true,
-          });
-        }
-        book.hidden = !match;
-        if (match) here += 1;
+        // The whole transform is set on the element itself, not through a custom property:
+        // a custom property inherits, so changing one makes the browser recalculate the style
+        // of every element inside the book, hundreds of them, for each book at each step.
+        el.style.transform = d === 0 ? FRONT : `translate3d(calc(var(--H) * ${x.toFixed(4)}), 0, 0) rotateZ(0deg) rotateY(0deg)`;
+        el.style.zIndex = String(d === 0 ? 100 : Math.max(1, 96 - 4 * (Math.abs(d) - 1)));
+        el._d = d;
+        el._x = x;
       }
-      section.hidden = here === 0;
-      section.querySelector(".shelf-count").textContent =
-        `${here} course${here === 1 ? "" : "s"}`;
-      shown += here;
-    }
-    for (const bookcase of cases) {
-      bookcase.hidden = [...bookcase.querySelectorAll("[data-shelf-section]")].every(
-        (s) => s.hidden,
-      );
-    }
-    if (open?.hidden) closeBook(false);
-    if (pulled?.hidden) pulled = undefined;
-    rows.forEach((row) => {
-      rove(row);
-      row.scrollTo({ left: 0 });
-    });
-    measure();
-    layout();
-    placePanel();
-    if (status) status.textContent = `Showing ${shown} course${shown === 1 ? "" : "s"}.`;
-  }
-
-  for (const pill of pills) {
-    pill.addEventListener("click", () => {
-      for (const other of pills) {
-        other.setAttribute("aria-pressed", String(other === pill));
-      }
-      applyFilter(pill.dataset.filter);
-    });
-  }
-
-  // ------------------------------------------------------------ scroll arrows
-
-  const pairs = sections.map((section) => ({
-    row: section.querySelector("[data-row]"),
-    arrows: section.querySelector("[data-arrows]"),
-  }));
-
-  function measure() {
-    for (const { row, arrows } of pairs) {
-      const overflows = row.scrollWidth > row.clientWidth + 4;
-      arrows.hidden = !overflows;
-      if (!overflows) continue;
-      const [left, right] = arrows.querySelectorAll("button");
-      left.disabled = row.scrollLeft <= 2;
-      right.disabled = row.scrollLeft + row.clientWidth >= row.scrollWidth - 2;
-    }
-  }
-  for (const { row, arrows } of pairs) {
-    arrows.addEventListener("click", (event) => {
-      const button =
-        event.target instanceof Element && event.target.closest("[data-scroll]");
-      if (!button) return;
-      row.scrollBy({
-        left: Number(button.dataset.scroll) * row.clientWidth * 0.8,
-        behavior: reducedMotion.matches ? "auto" : "smooth",
+      first = false;
+      const at = mod(pos, n);
+      buttons.forEach((b, i) => {
+        b.tabIndex = i === at ? 0 : -1;
+        if (i === at) b.setAttribute("aria-current", "true");
+        else b.removeAttribute("aria-current");
       });
-    });
-  }
-  let queued = false;
-  const queue = () => {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      measure();
+      const lit = litPill(pillList, at);
+      for (const pill of pills) {
+        if (pill.dataset.filter === lit) pill.setAttribute("aria-current", "true");
+        else pill.removeAttribute("aria-current");
+      }
+    }
+
+    /** The slot of book `i` nearest to the one in front. */
+    function nearest(i) {
+      let best = i;
+      for (let c = 0; c < copies; c++) {
+        const s = c * n + i;
+        const dist = (a) => Math.min(mod(a - pos, N()), mod(pos - a, N()));
+        if (dist(s) < dist(best)) best = s;
+      }
+      return best;
+    }
+
+    let focusAfter = false;
+    function select(slot) {
+      const next = mod(slot, N());
+      if (next === pos) return;
+      const was = mod(pos, n);
+      pos = next;
+      if (open && mod(pos, n) !== was) close(false);
       layout();
-      placePanel();
-      if (pointer) reconsider();
+      const at = mod(pos, n);
+      if (status) status.textContent = `${items[at].dataset.index * 1 + 1} of ${n}: ${items[at].querySelector(".d-title")?.textContent ?? ""}`;
+      if (focusAfter) buttons[at].focus({ preventScroll: true });
+    }
+    const step = (by) => select(pos + by);
+
+    // ----------------------------------------------------- the panel
+
+    let open; // the button of the open book
+
+    function fill(li) {
+      const copy = li.querySelector(":scope > [data-detail]").cloneNode(true);
+      const list = copy.querySelector(".d-list");
+      const main = document.createElement("div");
+      main.className = "panel-main";
+      for (const node of [...copy.children]) if (node !== list) main.append(node);
+      const side = document.createElement("div");
+      side.className = "panel-side";
+      side.append(main);
+      body.replaceChildren(side, list);
+      panel.setAttribute("aria-label", main.querySelector(".d-title").textContent);
+    }
+
+    function openBook() {
+      const at = mod(pos, n);
+      if (open === buttons[at]) return;
+      if (open) open.setAttribute("aria-expanded", "false");
+      open = buttons[at];
+      open.setAttribute("aria-expanded", "true");
+      fill(items[at]);
+      panel.hidden = false;
+      // The animation runs again each time it is shown.
+      panel.style.animation = "none";
+      void panel.offsetHeight;
+      panel.style.animation = "";
+      panel.focus({ preventScroll: true });
+      panel.scrollIntoView({ block: "nearest", behavior: reduced.matches ? "auto" : "smooth" });
+    }
+
+    function close(returnFocus) {
+      if (!open) return;
+      const book = open;
+      open = undefined;
+      book.setAttribute("aria-expanded", "false");
+      panel.hidden = true;
+      if (returnFocus) book.focus();
+    }
+
+    shelf
+      .querySelector("[data-panel-close]")
+      ?.addEventListener("click", () => close(true));
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !open) return;
+      const at = document.activeElement;
+      if (at === document.body || panel.contains(at) || at === open) {
+        event.preventDefault();
+        close(true);
+      }
     });
-  };
-  for (const { row } of pairs) row.addEventListener("scroll", queue, { passive: true });
-  new ResizeObserver(queue).observe(shelf);
-  measure();
+
+    // ----------------------------------------------------- the stage
+
+    let dragged = false;
+    stage.addEventListener("click", (event) => {
+      if (dragged) {
+        dragged = false;
+        return;
+      }
+      if (!(event.target instanceof Element)) return;
+      if (event.target.closest(".front")) return pressBook(pos);
+      const target = event.target.closest(".tb");
+      if (!target || !tape.contains(target)) return;
+      pressBook(Number(target.dataset.slot));
+    });
+
+    /** A press on a book: the one in front opens (or closes); any other comes to the front. */
+    function pressBook(slot) {
+      if (slot === pos) {
+        if (open === buttons[mod(pos, n)]) close(false);
+        else openBook();
+      } else select(slot);
+    }
+
+    // The names are buttons too: a screen reader or the keyboard presses them.
+    names.addEventListener("click", (event) => {
+      const button = event.target instanceof Element ? event.target.closest("button[data-index]") : null;
+      if (button) pressBook(nearest(Number(button.dataset.index)));
+    });
+    // The front book is ringed when the keyboard has its name.
+    names.addEventListener("focusin", (event) => {
+      stage.classList.toggle("is-keyboard", event.target.matches(":focus-visible"));
+    });
+    names.addEventListener("focusout", () => stage.classList.remove("is-keyboard"));
+
+    // A drag along the row moves it a book at a time; a touch has no hover, only this and taps.
+    let drag;
+    stage.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      drag = { id: event.pointerId, x: event.clientX };
+    });
+    stage.addEventListener("pointermove", (event) => {
+      if (!drag || event.pointerId !== drag.id) return;
+      const dx = event.clientX - drag.x;
+      if (Math.abs(dx) > heightPx() * 0.14) {
+        dragged = true;
+        step(dx < 0 ? 1 : -1);
+        drag.x = event.clientX;
+      }
+    });
+    const endDrag = () => {
+      drag = undefined;
+      // A click that follows the drag is not a press on a book.
+      if (dragged) setTimeout(() => (dragged = false), 0);
+    };
+    stage.addEventListener("pointerup", endDrag);
+    stage.addEventListener("pointercancel", endDrag);
+
+    // A sideways wheel or trackpad swipe, a book at a time; the page's own scroll is left alone.
+    let wheel = 0;
+    let lastWheel = 0;
+    stage.addEventListener(
+      "wheel",
+      (event) => {
+        if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+        event.preventDefault();
+        wheel += event.deltaX;
+        if (Math.abs(wheel) > 60 && event.timeStamp - lastWheel > 260) {
+          lastWheel = event.timeStamp;
+          step(wheel > 0 ? 1 : -1);
+          wheel = 0;
+        }
+      },
+      { passive: false },
+    );
+
+    names.addEventListener("keydown", (event) => {
+      let to;
+      switch (event.key) {
+        case "ArrowRight":
+        case "ArrowDown":
+          to = pos + 1;
+          break;
+        case "ArrowLeft":
+        case "ArrowUp":
+          to = pos - 1;
+          break;
+        case "Home":
+          to = nearest(0);
+          break;
+        case "End":
+          to = nearest(n - 1);
+          break;
+        default:
+          return;
+      }
+      event.preventDefault();
+      focusAfter = true;
+      select(to);
+      focusAfter = false;
+    });
+
+    arrows?.addEventListener("click", (event) => {
+      const button = event.target instanceof Element ? event.target.closest("button[data-step]") : null;
+      if (button) step(Number(button.dataset.step));
+    });
+    if (arrows) arrows.hidden = false;
+
+    for (const pill of pills) {
+      pill.addEventListener("click", () => select(nearest(Number(pill.dataset.first))));
+    }
+
+    // ------------------------------------------------- the ring
+
+    // Over the books the pointer is a ring; over the book in front it says "Open".
+    if (matchMedia("(hover: hover) and (pointer: fine)").matches && !reduced.matches) {
+      const ring = document.createElement("div");
+      ring.className = "ring";
+      ring.setAttribute("aria-hidden", "true");
+      document.body.append(ring);
+      document.documentElement.classList.add("has-ring");
+      let at;
+      let queued = 0;
+      const draw = () => {
+        queued = 0;
+        if (at) ring.style.transform = `translate(${at.x}px, ${at.y}px)`;
+      };
+      stage.addEventListener("pointermove", (event) => {
+        if (event.pointerType !== "mouse") return;
+        at = { x: event.clientX, y: event.clientY };
+        ring.classList.add("is-over");
+        ring.classList.toggle("is-open", event.target instanceof Element && Boolean(event.target.closest(".front")));
+        if (!queued) queued = requestAnimationFrame(draw);
+      });
+      stage.addEventListener("pointerleave", () => ring.classList.remove("is-over", "is-open"));
+    }
+
+    // ------------------------------------------------- start
+
+    build();
+    layout();
+    let observed = stage.clientWidth;
+    new ResizeObserver(() => {
+      const needed = copiesNeeded();
+      if (needed !== copies) {
+        const front = mod(pos, n);
+        build();
+        pos = front;
+        first = true;
+      }
+      if (stage.clientWidth !== observed || needed !== copies) {
+        observed = stage.clientWidth;
+        layout();
+      }
+    }).observe(stage);
+    stage.append(tape, front, names);
+  }
 }

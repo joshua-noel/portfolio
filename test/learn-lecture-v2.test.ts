@@ -370,3 +370,48 @@ test("a bad cover.svg is an error strictly and a left-out course leniently", asy
     assert.equal(lenient.problemCount, 1);
   }
 });
+
+test("the outline reads a heading's formulas, and the anchor's id is still made from its prose", async () => {
+  const built = await build(
+    lectureV2((list) =>
+      list.map(([h, body]) =>
+        h === "3. Section 3"
+          ? ["3. Why the hidden size is $d_{\\text{model}}$, and why not $\\frac{8}{3}d$", body]
+          : [h, body],
+      ),
+    ),
+  );
+  const heading = built.toc.find((h) => h.number === 3)!;
+  assert.equal(heading.text, "Why the hidden size is d_model, and why not 8/3d");
+  // The id is what it was when formulas were left out, so links written against it keep working.
+  assert.equal(heading.id, "why-the-hidden-size-is--and-why-not");
+  assert.ok(built.html.includes('id="why-the-hidden-size-is--and-why-not"'));
+});
+
+test("a formula KaTeX cannot read, and a malformed diagram line, are errors of the file with their line, never a crash", async () => {
+  const formula = await issuesOf(lectureV2(withBody("1. Section 1", `${words(450)} A bad formula $\\badcommand{x}$ here.`)));
+  assert.match(formula, /line \d+: the formula "\\badcommand\{x\}" does not parse: Undefined control sequence: \\badcommand/);
+  assert.doesNotMatch(formula, /position|KaTeX parse error/);
+  for (const line of ["![[diagram: 01-one | caption without a close", "![[diagram: ]]"]) {
+    const found = await issuesOf(lectureV2(withBody("1. Section 1", `${words(450)}\n\n${line}`)));
+    assert.match(found, /line \d+: a diagram line is !\[\[diagram: NN-name \| Caption\.\]\]/);
+  }
+});
+
+test("figures on one page do not share ids: each label names its own figure's title, and its markers are its own", async () => {
+  const svg = (n: string): string =>
+    `<svg viewBox="0 0 10 10" role="img" aria-labelledby="t d"><title id="t">Title ${n}</title><desc id="d">Desc ${n}</desc><defs><marker id="ah" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto"><path d="M0 0L4 2L0 4z" fill="var(--c1)"/></marker><linearGradient id="g"><stop offset="0" stop-color="var(--c1)"/></linearGradient></defs><line x1="0" y1="0" x2="9" y2="9" stroke="var(--border)" marker-end="url(#ah)"/><rect width="5" height="5" fill="url(#g)"/><use href="#ah"/></svg>`;
+  const built = await build(lectureV2(), new Map([["01-one", svg("1")], ["02-two", svg("2")], ["03-three", svg("3")], ["04-four", svg("4")]]));
+  const ids = [...built.html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]!);
+  assert.equal(new Set(ids).size, ids.length, "no id is on the page twice");
+  for (const [stem, n] of [["01-one", "1"], ["02-two", "2"]] as const) {
+    const figure = new RegExp(`<figure[^>]*data-diagram="${stem}"[\\s\\S]*?</figure>`).exec(built.html)![0];
+    assert.match(figure, new RegExp(`aria-labelledby="fig-${stem}-t fig-${stem}-d"`));
+    assert.match(figure, new RegExp(`<title id="fig-${stem}-t">Title ${n}`));
+    assert.match(figure, new RegExp(`marker-end="url\\(#fig-${stem}-ah\\)"`));
+    assert.match(figure, new RegExp(`fill="url\\(#fig-${stem}-g\\)"`));
+    assert.match(figure, new RegExp(`href="#fig-${stem}-ah"`));
+    // Nothing still points at a bare id.
+    assert.doesNotMatch(figure, /url\(#(?:ah|g)\)|href="#ah"|labelledby="t d"/);
+  }
+});

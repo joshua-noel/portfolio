@@ -68,6 +68,8 @@ export interface CoverStyle {
   inkSoft: string;
   /** For drawings: the accent when it can be seen on `color`, else `ink`. */
   mark: string;
+  /** Text on a spine's number band: whichever of light and dark reads better on the accent. */
+  bandInk: string;
   /** The motif that is drawn: the one named, or one chosen from its name. */
   motif: string;
 }
@@ -89,6 +91,7 @@ export function coverStyle(cover: {
     ink,
     inkSoft: contrast(soft, color) >= 4.5 ? soft : ink,
     mark: contrast(accent, color) >= 3 ? accent : ink,
+    bandInk: pickInk(accent),
     motif: resolveMotif(cover.motif),
   };
 }
@@ -103,58 +106,45 @@ export function splitTitle(title: string): { main: string; sub?: string } {
     : { main: title.slice(0, at).trim(), sub };
 }
 
-/** What a lecture is assumed to take when its minutes are not shown: a typical one at Abyss. */
+/** What a lecture is assumed to take when its minutes are not shown: a typical one. */
 export const NOMINAL_LECTURE_MINUTES = 26;
 
-export const THICKNESS = { min: 2.6, max: 6, perMinute: 0.018 } as const;
+/** A spine's thickness as a fraction of the book's height: all of one series are close to the same, the longer courses a little thicker. */
+export const THICKNESS = { min: 0.125, max: 0.17, minutesForMax: 700 } as const;
 
-/** Spine width in rem for a course of `minutes` reading: proportional, within limits that keep a book findable and a shelf unbroken. */
-export function thicknessRem(minutes: number): number {
-  const raw = Math.max(0, minutes) * THICKNESS.perMinute;
-  return Math.round(Math.min(THICKNESS.max, Math.max(THICKNESS.min, raw)) * 100) / 100;
+/** Spine thickness (a fraction of the book's height) for a course of `minutes` reading. */
+export function thickness(minutes: number): number {
+  const share = Math.min(1, Math.max(0, minutes) / THICKNESS.minutesForMax);
+  return Math.round((THICKNESS.min + share * (THICKNESS.max - THICKNESS.min)) * 1000) / 1000;
 }
 
-/** A small fixed number from a name, so a book always looks the same. */
-export function hashName(name: string): number {
-  let h = 2166136261;
-  for (const ch of name) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
-  return h;
-}
+/** The two digits on a spine and a cover: a course's place on the shelf, from 1. */
+export const numberOf = (index: number): string => String(index + 1).padStart(2, "0");
 
-/** Spine height in rem: books on a shelf differ a little, and always the same little. */
-export function heightRem(slug: string, base = 17): number {
-  const wobble = (hashName(slug) % 1000) / 1000; // 0 to 1
-  return Math.round(base * (0.94 + wobble * 0.06) * 100) / 100;
-}
+/** The room (a fraction of the book's height) for a title down a spine: between the number band and the foot. */
+export const SPINE_ROOM = 0.62;
 
 /**
- * How a title is set down a spine: the biggest type that fits in one, two or
- * three lines of the room there is between the motif and the count, and the
- * number of lines that gives it. Widths are estimates for a bold serif, kept
- * on the cautious side so a title is cut by its ellipsis rather than overflows.
+ * How a title is set down a spine, as fractions of the book's height: the
+ * biggest type that fits in one or two columns of the room between the number
+ * band and the foot, and the number of columns that gives. Widths are for a
+ * bold sans, estimated on the cautious side so a title is cut by its ellipsis
+ * rather than overflowing.
  */
-export function spineTitle(
-  main: string,
-  thickness: number,
-  height: number,
-): { size: number; lines: number } {
-  const room = height - 7.4;
+export function spineTitle(main: string, spine: number): { size: number; lines: number } {
   let best = { size: 0, lines: 1 };
-  for (const lines of [1, 2, 3]) {
+  for (const lines of [1, 2]) {
     const perLine = Math.ceil(main.length / lines);
-    const size = Math.min(
-      room / (perLine * 0.58),
-      (thickness - 0.9) / (lines * 1.15),
-      1.1,
-    );
-    if (size > best.size + 0.001) best = { size, lines };
+    const size = Math.min(SPINE_ROOM / (perLine * 0.58), (spine - 0.05) / (lines * 1.12), 0.04);
+    if (size > best.size + 0.0005) best = { size, lines };
   }
-  return { size: Math.round(Math.max(0.64, best.size) * 100) / 100, lines: best.lines };
+  return { size: Math.round(Math.max(0.022, best.size) * 10000) / 10000, lines: best.lines };
 }
 
-/** Size in rem of a title on a cover, from how long it is. */
+/** Size of a title on a cover, as a fraction of the book's height, from how long it is. */
 export function coverTitleSize(main: string): number {
-  if (main.length > 40) return 0.98;
-  if (main.length > 26) return 1.1;
-  return 1.28;
+  if (main.length > 34) return 0.044;
+  if (main.length > 26) return 0.05;
+  if (main.length > 18) return 0.058;
+  return 0.066;
 }

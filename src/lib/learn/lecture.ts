@@ -9,7 +9,7 @@ import {
   type Section,
 } from "./blocks.ts";
 import { DEPTHS, type Depth } from "./depth.ts";
-import { FRAMES_V2, Renderer, suspectMaths, type Facts, type Heading } from "./render.ts";
+import { FormulaError, FRAMES_V2, Renderer, suspectMaths, type Facts, type Heading } from "./render.ts";
 import { sanitizeSvg } from "./svg.ts";
 
 /**
@@ -440,7 +440,7 @@ export function readCover(source: string): { html: string; issues: string[] } {
     issues.push('cover.svg: the <svg> has viewBox="0 0 240 320"');
   }
   if (/<(?:text|tspan)[\s>]/i.test(source)) issues.push("cover.svg: a cover has no text");
-  const clean = sanitizeSvg(source);
+  const clean = sanitizeSvg(source, { kind: "cover" });
   issues.push(...clean.issues.map((issue) => `cover.svg: ${issue}`));
   return { html: issues.length === 0 ? clean.html : "", issues };
 }
@@ -539,6 +539,30 @@ export interface BuildOptions {
  * problem found, so one build shows them all rather than one at a time.
  */
 export async function buildLecture(
+  file: SourceFile,
+  course: string,
+  diagrams: Diagrams,
+  media: ReadonlySet<string>,
+  options: BuildOptions,
+): Promise<Lecture> {
+  try {
+    return await buildLectureUnguarded(file, course, diagrams, media, options);
+  } catch (error) {
+    if (error instanceof LectureError) throw error;
+    // A formula KaTeX cannot read, a malformed line: an error of this file, with its line, never a crash.
+    if (error instanceof FormulaError) {
+      const at = file.raw.indexOf(error.source);
+      const line = at < 0 ? "" : `line ${file.raw.slice(0, at).split("\n").length}: `;
+      throw new LectureError(file.path, [
+        `${line}the formula "${error.source.trim().slice(0, 70)}" does not parse: ${error.message}`,
+      ]);
+    }
+    if (error instanceof BlockError) throw new LectureError(file.path, [error.message]);
+    throw new LectureError(file.path, [error instanceof Error ? error.message : String(error)]);
+  }
+}
+
+async function buildLectureUnguarded(
   file: SourceFile,
   course: string,
   diagrams: Diagrams,
@@ -770,7 +794,29 @@ export async function buildLecture(
   return lecture;
 }
 
-function figureHtml(id: string, svg: string, caption: string): string {
+/**
+ * Gives every id in one figure's SVG a prefix of that figure, and every
+ * reference to one (`url(#…)`, `href`, `aria-labelledby`, `aria-describedby`)
+ * the same, so several figures on one page do not share `t`, `d` or `ah`: a
+ * label then names its own figure's title, and a marker is its own.
+ */
+export function prefixIds(svg: string, prefix: string): string {
+  const ids = new Set([...svg.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]!));
+  if (ids.size === 0) return svg;
+  const renamed = (id: string): string => (ids.has(id) ? prefix + id : id);
+  return svg
+    .replace(/(\sid=")([^"]+)(")/g, (_, open: string, id: string, close: string) => open + prefix + id + close)
+    .replace(/url\(\s*(["']?)#([\w-]+)\1\s*\)/g, (_, quote: string, id: string) => `url(${quote}#${renamed(id)}${quote})`)
+    .replace(/((?:xlink:)?href=")#([\w-]+)(")/g, (_, open: string, id: string, close: string) => `${open}#${renamed(id)}${close}`)
+    .replace(
+      /(aria-(?:labelledby|describedby)=")([^"]*)(")/g,
+      (_, open: string, value: string, close: string) =>
+        open + value.split(/\s+/).map(renamed).join(" ") + close,
+    );
+}
+
+function figureHtml(id: string, source: string, caption: string): string {
+  const svg = prefixIds(source, `fig-${id}-`);
   const width =
     /\sviewBox="\s*[\d.-]+\s+[\d.-]+\s+([\d.]+)\s+[\d.]+\s*"/.exec(svg)?.[1] ?? "600";
   const interactive = /data-interactive="([a-z0-9-]+)"/.exec(svg)?.[1];

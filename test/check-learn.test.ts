@@ -189,3 +189,23 @@ test("cover.svg beside course.md is checked: viewBox, no text, nothing that runs
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("a formula that does not parse and a malformed diagram line are reported with their file and line, not a stack trace", () => {
+  for (const [body, expected] of [
+    [`${words(450)} A bad formula $\\badcommand{x}$.`, /^ {4}error: line \d+: the formula "\\badcommand\{x\}" does not parse: Undefined control sequence/m],
+    [`${words(450)}\n\n![[diagram: 01-one | no close`, /^ {4}error: line \d+: a diagram line is /m],
+  ] as const) {
+    const root = mkdtempSync(join(tmpdir(), "check-learn-"));
+    try {
+      courseV2(root, lectureV2(withBody("1. Section 1", body)));
+      const all = run(root);
+      assert.equal(all.status, 1, all.text);
+      assert.match(all.text, /^c\n {2}01-a-lecture\.md\n/m);
+      assert.match(all.text, expected);
+      assert.doesNotMatch(all.text, /\n\s+at .*(node:internal|\.mjs|\.ts):\d+/, "no stack trace");
+      assert.doesNotMatch(all.text, /ParseError|BlockError/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
