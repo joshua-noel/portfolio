@@ -32,6 +32,7 @@ import { parse } from "yaml";
 import { contrast, mix } from "../../src/lib/learn/cover.ts";
 
 const PAPER = "#fbfaf7";
+const DARK = "#15161a";
 /** The stroke weight, in canvas units, on every cover. */
 export const SW = 3.2;
 /** The art frame on the 240 x 320 canvas. */
@@ -43,12 +44,14 @@ const n = (v) => String(Math.round(v * 100) / 100);
 function palette(cover) {
   const bg = cover.color.toLowerCase();
   const accent = cover.accent.toLowerCase();
-  const ink = mix(PAPER, bg, 0.94);
+  // Soft white on a dark field, near-black on a light one: whichever reads better.
+  const base = contrast(PAPER, bg) >= contrast(DARK, bg) ? PAPER : DARK;
+  const ink = mix(base, bg, 0.94);
   return {
     bg,
     ink,
-    mid: mix(PAPER, bg, 0.55),
-    tint: mix(PAPER, bg, 0.2),
+    mid: mix(base, bg, 0.55),
+    tint: mix(base, bg, base === PAPER ? 0.2 : 0.14),
     // The accent, unless it cannot be seen on the cover colour.
     hot: contrast(accent, bg) >= 3 ? accent : ink,
   };

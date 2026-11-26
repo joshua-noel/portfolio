@@ -15,6 +15,7 @@ import Learn from "../layouts/Learn.astro";
 import { buildShelves, type Book } from "../lib/learn/bookshelf.ts";
 import { bookStyle } from "../lib/learn/book-style.ts";
 import {
+  contrast,
   coverStyle,
   coverTitleSize,
   numberOf,
@@ -81,6 +82,26 @@ const scales = [
       Dev only. The book as an object: closed, lifted, turned; 1x and 2x; dark and light.
     </p>
 
+    <section class="theme-scope palette" data-theme="dark" aria-label="The series palette">
+      <h2>The series palette</h2>
+      <p class="lede">
+        Nine fields, each with the accent of its band, and the text colours worked out from them: contrast of the text on its field, and of the number on its band (at least 4.5).
+      </p>
+      <ul class="lab-palette">
+        {
+          real.map((book) => (
+            <li style={bookStyle(book)}>
+              <span class="sw field" style="color:var(--b-ink)">{book.number} {book.main}</span>
+              <span class="sw band" style="color:var(--b-band-ink)">{book.number}</span>
+              <span class="sw-note">
+                {book.cover.color} on text {contrast(book.cover.ink, book.cover.color).toFixed(1)}:1 · band {book.cover.accent} on number {contrast(book.cover.bandInk, book.cover.accent).toFixed(1)}:1
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
     {
       (["dark", "light"] as const).map((theme) => (
         <section class="theme-scope" data-theme={theme} aria-label={`${theme} page`}>
@@ -119,7 +140,7 @@ const scales = [
           real.map((book) => (
             <figure class="bookshelf" style={bookStyle(book)}>
               <div class="lab-art-field" style="--H:24rem">
-                <span class="cover"><span class="c-art" set:html={book.art} /></span>
+                <span class="art" set:html={book.art} />
               </div>
               <figcaption>{book.slug}</figcaption>
             </figure>

@@ -506,9 +506,12 @@ export function proseWords(markdown: string): number {
     if (inMath || line.startsWith("![[")) continue;
     kept.push(line);
   }
+  // A backslash-dollar is a dollar sign, not the edge of a formula: "costs \\$5 and \\$7" is words.
   const plain = kept
     .join(" ")
+    .replace(/\\\$/g, "\u0000")
     .replace(/\$[^$]*\$/g, " ")
+    .replace(/\u0000/g, "$")
     .replace(/<[^>]*>/g, " ")
     .replace(/\]\([^)]*\)/g, " ");
   return (plain.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? []).length;

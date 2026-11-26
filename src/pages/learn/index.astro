@@ -18,13 +18,7 @@ const signin = `/signin?next=${encodeURIComponent(here.pathname + here.search)}`
 
 <Learn title="Learn · Joshua Noel" canonical={`${learnUrl}/`} layout="plain">
   <main class="page shelf-page" id="main">
-    <div class="intro">
-      <h1>Learn</h1>
-      <p class="lede">
-        Lectures on computer science, system design, language models and agents.
-      </p>
-      <p class="resume" data-resume hidden></p>
-    </div>
+    <h1 class="visually-hidden">Learn</h1>
 
     {
       shelves.length > 0 ? (

@@ -1,12 +1,12 @@
 ---
 // The two faces of a book: its spine and its front cover. One component for
 // the landing page and for the design page (src/lab/books.astro), so a book
-// is drawn in one place. Text is real text; the illustration is the course's
-// own `cover.svg` (sanitised by the loader, empty for a locked course).
-// Sizes are fractions of the book's height (`--H`), so a book is the same
-// object at any size.
+// is drawn in one place. The spine is a few boxes of real text; the cover is
+// ONE image (src/lib/learn/cover-image.ts), the course's own `cover.svg`
+// inside the series' layout, so the browser rasterises it once. Sizes are
+// fractions of the book's height (`--H`), so a book is the same object at any size.
 import Lock from "./Lock.astro";
-import BookMotif from "./BookMotif.astro";
+import { coverImageUrl } from "../../lib/learn/cover-image.ts";
 import type { Book } from "../../lib/learn/bookshelf.ts";
 
 interface Props {
@@ -23,26 +23,4 @@ const lectures = `${book.lectures.length} lecture${book.lectures.length === 1 ? 
   {book.locked && <Lock />}
   <span class="s-foot">{lectures}</span>
 </span>
-<span class="face cover">
-  {book.art && <span class="c-art" set:html={book.art} />}
-  {
-    book.locked && (
-      <span class="c-lock">
-        <Lock />
-      </span>
-    )
-  }
-  {!book.art && !book.locked && <BookMotif class="c-motif" name={book.cover.motif} />}
-  <span class="c-top">
-    <span class="c-series">Learn</span>
-    <span class="c-num">{book.number}</span>
-  </span>
-  <span class="c-head">
-    <span class="c-title">{book.main}</span>
-    <span class="c-sub">{book.promise}</span>
-  </span>
-  <span class="c-foot">
-    <span>{book.shelfTitle}</span>
-    <span>{lectures}</span>
-  </span>
-</span>
+<span class="face cover" style={`background-image:${coverImageUrl(book)}`}></span>
