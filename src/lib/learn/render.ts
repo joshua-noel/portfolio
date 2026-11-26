@@ -8,6 +8,7 @@ import rehypeShiki from "@shikijs/rehype";
 import rehypeStringify from "rehype-stringify";
 import GithubSlugger from "github-slugger";
 import katex from "katex";
+import { texToText } from "./tex-text.ts";
 import { visit, SKIP } from "unist-util-visit";
 import type { Depth } from "./depth.ts";
 import { sanitize } from "./sanitize.ts";
@@ -100,6 +101,22 @@ function proseText(node: HNode): string {
   if (node.tagName === "pre") return "";
   if (node.tagName === "code" && classesOf(node).includes("language-math")) return "";
   return (node.children ?? []).map(proseText).join("");
+}
+
+/**
+ * The text of a heading as a reader would say it: prose as it is, formulas in
+ * a readable plain form (`tex-text.ts`), code left out. The outline shows
+ * this; the anchor's id is still made from the prose alone, so links written
+ * against it keep working.
+ */
+function readableText(node: HNode): string {
+  if (node.type === "text") return node.value ?? "";
+  if (node.type !== "element") return "";
+  if (node.tagName === "pre") return "";
+  if (node.tagName === "code" && classesOf(node).includes("language-math")) {
+    return ` ${texToText(rawText(node))} `;
+  }
+  return (node.children ?? []).map(readableText).join("");
 }
 
 function rawText(node: HNode): string {
@@ -283,9 +300,13 @@ export class Renderer {
     }
 
     const numbered = /^(\d+)\.\s+(.+)$/.exec(label);
+    const readable = readableText(node)
+      .replace(/\s+/g, " ")
+      .replace(/\s+([,.;:!?)])/g, "$1")
+      .trim();
     const heading: Heading = {
       id: "",
-      text: numbered ? numbered[2]! : label,
+      text: numbered ? readable.replace(/^\d+\.\s+/, "") : readable,
       depth: depth as 2 | 3 | 4,
       ...(this.layer ? { layer: this.layer } : {}),
     };
@@ -314,7 +335,7 @@ export class Renderer {
       }
     }
 
-    heading.id = this.slugger.slug(heading.text);
+    heading.id = this.slugger.slug(numbered ? numbered[2]! : label);
     node.properties = { ...node.properties, id: heading.id, className: classes };
     node.children = [
       ...(node.children ?? []),
@@ -352,18 +373,39 @@ export function smarten(node: HNode): void {
   });
 }
 
+/** A formula KaTeX could not read: the TeX, and what it said, without its position marks. */
+export class FormulaError extends Error {
+  readonly source: string;
+
+  constructor(source: string, message: string) {
+    super(message);
+    this.source = source;
+  }
+}
+
 /** remark-math leaves `<code class="language-math">`; KaTeX turns it into markup. */
 function renderMath(tree: HNode): void {
-  const render = (source: string, displayMode: boolean): HNode => ({
-    type: "raw",
-    value: katex.renderToString(source, {
-      displayMode,
-      throwOnError: true,
-      strict: "error",
-      trust: false,
-      output: "htmlAndMathml",
-    }),
-  });
+  const render = (source: string, displayMode: boolean): HNode => {
+    try {
+      return {
+        type: "raw",
+        value: katex.renderToString(source, {
+          displayMode,
+          throwOnError: true,
+          strict: "error",
+          trust: false,
+          output: "htmlAndMathml",
+        }),
+      };
+    } catch (error) {
+      // KaTeX underlines the place with combining marks; the message is what matters.
+      const said = error instanceof Error ? error.message : String(error);
+      throw new FormulaError(
+        source,
+        said.replace(/^KaTeX parse error: /, "").replace(/ at position \d+:[\s\S]*$/, ""),
+      );
+    }
+  };
 
   visit(tree as never, "element", (node: HNode, index, parent: HNode | null) => {
     if (!parent || index === undefined) return;
