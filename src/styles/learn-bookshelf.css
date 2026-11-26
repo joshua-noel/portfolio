@@ -76,7 +76,7 @@
 }
 /* Where the reader left off: under the books, above the buttons, small and quiet. */
 .resume {
-  margin: 0.25rem 0 0;
+  margin: 3.5rem 0 0;
   text-align: center;
   font-size: 0.8125rem;
   color: var(--muted);
@@ -537,7 +537,11 @@
   display: flex;
   justify-content: center;
   gap: 0.75rem;
-  margin-top: 2.5rem;
+  margin-top: 0.75rem;
+}
+/* With no line of where the reader left off, the buttons keep the same distance from the books. */
+.js .resume[hidden] + .arrows:not([hidden]) {
+  margin-top: 4.25rem;
 }
 .round {
   display: grid;

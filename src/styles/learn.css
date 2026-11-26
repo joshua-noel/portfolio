@@ -1323,7 +1323,7 @@ button.signin {
 .footer {
   flex: none;
   margin-top: auto;
-  padding: 1.25rem 1.5rem 1.75rem;
+  padding: 0.6rem 1.5rem 0.7rem;
   border-top: 1px solid var(--line);
   color: var(--text-3);
   font-size: 0.8125rem;
