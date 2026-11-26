@@ -1,9 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  applyRequestOrigin,
   clientIp,
   isForbiddenCrossOriginRequest,
   mayServeLocal,
+  RESERVED_SEGMENTS,
   resolveRoute,
 } from "../src/lib/routing.ts";
 
@@ -222,4 +224,50 @@ test("a cross-site form post is refused; same-origin, safe methods and non-form 
   assert.equal(post("https://evil.test", form, "GET"), false);
   assert.equal(post("https://evil.test", form, "HEAD"), false);
   assert.equal(post("https://evil.test", form, "DELETE"), true);
+});
+
+test("the request URL takes the Host header, and https only from X-Forwarded-Proto", () => {
+  const at = (host: string | null, proto: string | null) => {
+    const url = new URL("http://localhost:4321/a?b=1");
+    applyRequestOrigin(url, host, proto);
+    return url.href;
+  };
+  // The port of the socket's own URL does not outlive the Host header's.
+  assert.equal(at("learn.example.com", null), "http://learn.example.com/a?b=1");
+  assert.equal(at("learn.example.com", "https"), "https://learn.example.com/a?b=1");
+  assert.equal(at("learn.example.com", "https, http"), "https://learn.example.com/a?b=1");
+  assert.equal(at("learn.example.com", " HTTPS "), "https://learn.example.com/a?b=1");
+  assert.equal(at("learn.localhost:4321", null), "http://learn.localhost:4321/a?b=1");
+  assert.equal(at("[::1]:4321", null), "http://[::1]:4321/a?b=1");
+  // Nothing but https is taken from the proxy.
+  for (const proto of ["http", "ftp", "ws", "https:", "", "javascript"])
+    assert.equal(at("example.com", proto), "http://example.com/a?b=1", proto);
+  // A Host that is not a name and a port leaves the URL as it was.
+  for (const host of [
+    "",
+    "a@b.example",
+    "example.com/path",
+    "example.com?x",
+    "example.com#x",
+    "exa mple.com",
+    "example.com:99999999",
+    "example.com:80:81",
+    "%65xample.com",
+    "evil.example\\@good.example",
+  ])
+    assert.equal(at(host, null), "http://localhost:4321/a?b=1", JSON.stringify(host));
+  assert.equal(at(null, "https"), "https://localhost:4321/a?b=1");
+});
+
+test("the image endpoint's name is not reserved: a mapped host answers it as it answers any slug", () => {
+  assert.equal(RESERVED_SEGMENTS.has("_image"), false);
+  assert.deepEqual(route("blog.example.com", "/_image", "?href=/x.css"), {
+    kind: "rewrite",
+    path: "/blog/_image?href=/x.css",
+  });
+  assert.deepEqual(route("learn.example.com", "/_image"), {
+    kind: "rewrite",
+    path: "/learn/_image",
+  });
+  assert.deepEqual(route("example.com", "/_image"), { kind: "pass" });
 });
