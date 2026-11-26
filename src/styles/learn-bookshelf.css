@@ -387,9 +387,9 @@
 
 .js .bookshelf {
   /* As tall as lets the bar, the capsule, the row, the line of where the reader left off and the
-     two buttons fit the window at once (22.5rem is what they and the room around the row take,
+     two buttons fit the window at once (24.5rem is what they and the room around the row take,
      besides the row's 1.24 heights): the buttons are always in view. */
-  --H: clamp(16rem, calc((100svh - 22.5rem) / 1.3), 44rem);
+  --H: clamp(16rem, calc((100svh - 24.5rem) / 1.3), 44rem);
   --duration: 0.7s;
   --gap: 0.045;
 }
@@ -399,7 +399,7 @@
 .js .stage {
   position: relative;
   height: calc(var(--H) * 1.24);
-  margin-top: 2.5rem;
+  margin-top: 4.5rem;
   overflow-x: clip;
   touch-action: pan-y;
   user-select: none;
