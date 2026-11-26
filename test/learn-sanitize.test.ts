@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkDiagram } from "../src/lib/learn/lecture.ts";
-import { sanitizeSvg } from "../src/lib/learn/svg.ts";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { checkDiagram, readCover } from "../src/lib/learn/lecture.ts";
+import { DIAGRAM_DATA, sanitizeSvg } from "../src/lib/learn/svg.ts";
 import { Renderer } from "../src/lib/learn/render.ts";
 
 const OK = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50" role="img" aria-labelledby="t d"><title id="t">T</title><desc id="d">D</desc><defs><marker id="m" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto"><path d="M0 0L4 2L0 4z" fill="currentColor"/></marker><linearGradient id="g"><stop offset="0" stop-color="var(--c1)"/></linearGradient></defs><g transform="translate(1 1)"><rect x="1" y="1" width="9" height="9" rx="2" fill="var(--c1)" stroke="var(--border)" style="fill:var(--surface);stroke-width:2"/><text x="5" y="5" font-size="3" text-anchor="middle">Hi<tspan dy="1">there</tspan></text><line x1="0" y1="0" x2="9" y2="9" marker-end="url(#m)"/><use href="#m"/><circle cx="5" cy="5" r="2" fill="url(#g)" data-k="3" class="a b"/></g></svg>`;
@@ -137,4 +139,55 @@ test("ordinary links and images keep working", async () => {
   assert.match(html, /href="#x"/);
   assert.match(html, /href="mailto:a@b\.test"/);
   assert.match(html, /<img src="\/media\/c\/01-l\.png" alt="alt">/);
+});
+
+// ---------------------------------------------------------------------------
+// Attributes the page's own scripts look for
+
+const COVER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" fill="none" stroke-width="2.6"><g><rect x="1" y="1" width="9" height="9" rx="2" fill="#112233"/></g></svg>`;
+
+test("a cover with a hook the page's scripts look for is refused: nothing it carries can reach them", () => {
+  assert.deepEqual(readCover(COVER).issues, []);
+  for (const hook of ["data-book", "data-mark-toggle", "data-search", "data-bookshelf", "data-stage", "data-slot", "data-filter", "data-theme-toggle"]) {
+    const { issues: found, html } = readCover(COVER.replace("<svg ", `<svg ${hook}="1" `));
+    assert.match(found.join("\n"), new RegExp(`${hook} is not allowed on a cover`), hook);
+    assert.equal(html, "", `${hook}: nothing is inlined`);
+    // On any element, not only the root.
+    const inner = readCover(COVER.replace("<rect ", `<rect ${hook}="1" `));
+    assert.notEqual(inner.issues.length, 0, `${hook} on a shape`);
+  }
+});
+
+test("a cover's id and class are removed, so it cannot clash with the page or be styled by it; the old mark box is dropped", () => {
+  const { html, issues: found } = readCover(
+    COVER.replace("<svg ", '<svg id="main" class="bookshelf" data-mark="40 120 80 80" ').replace("<rect ", '<rect id="a" class="panel" '),
+  );
+  assert.deepEqual(found, []);
+  assert.doesNotMatch(html, /\sid=|\sclass=|data-mark/);
+  assert.match(html, /<rect /);
+  // A malformed mark box is an error, not something to strip.
+  assert.notEqual(readCover(COVER.replace("<svg ", '<svg data-mark="1 2 3 4; x" ')).issues.length, 0);
+  // With the ids gone nothing may point at one.
+  for (const reference of ['fill="url(#g)"', 'stroke="url(#g)"']) {
+    assert.match(readCover(COVER.replace("<rect ", `<rect ${reference} `)).issues.join("\n"), /reference/);
+  }
+  assert.match(readCover(COVER.replace("<g>", '<g><use href="#a"/>')).issues.join("\n"), /reference/);
+});
+
+test("a diagram may carry only the data attributes its own script reads", () => {
+  for (const hook of ["data-mark", "data-mark-toggle", "data-book", "data-search", "data-theme-toggle", "data-lecture", "data-toc"]) {
+    assert.match(issues(OK.replace("<svg ", `<svg ${hook}="1" `)), new RegExp(`${hook} is not allowed`), hook);
+  }
+  assert.deepEqual(checkDiagram("01-d", OK.replace("<svg ", '<svg data-interactive="trifecta" ')), []);
+});
+
+test("every data attribute a diagram script reads is one the sanitiser lets a diagram carry", () => {
+  const read = new Set<string>();
+  for (const name of readdirSync("src/scripts/learn-diagrams")) {
+    const source = readFileSync(join("src/scripts/learn-diagrams", name), "utf8");
+    for (const m of source.matchAll(/dataset\.([a-zA-Z]+)/g)) read.add("data-" + m[1]!.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase()));
+    for (const m of source.matchAll(/data-[a-z0-9-]+/g)) read.add(m[0]);
+  }
+  assert.ok(read.size > 5);
+  for (const name of read) assert.ok(DIAGRAM_DATA.has(name), `${name} is read by a diagram script`);
 });

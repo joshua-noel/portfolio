@@ -109,7 +109,7 @@ Course intro ${secret}.
  * (viewBox, no text) and a mark of its own, so a test can tell whose it is.
  */
 export const coverArt = (slug: string): string =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" data-art="ART-${slug}" data-mark="40 120 80 80" fill="none" stroke="#e8e8e8" stroke-width="2.5"><g><rect class="m" x="40" y="120" width="80" height="80" rx="4"/><circle cx="160" cy="160" r="20"/></g></svg>`;
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320" aria-label="ART-${slug}" data-mark="40 120 80 80" fill="none" stroke="#e8e8e8" stroke-width="2.5"><g><rect x="40" y="120" width="80" height="80" rx="4"/><circle cx="160" cy="160" r="20"/></g></svg>`;
 
 export interface FixtureCourse {
   slug: string;
