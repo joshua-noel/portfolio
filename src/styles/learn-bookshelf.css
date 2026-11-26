@@ -646,9 +646,12 @@
   border-radius: 1.25rem;
   background: var(--surface);
 }
-.panel:focus-visible .panel-inner {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+/* The panel takes focus from script when a book opens (so the next Tab lands on its first link).
+   It is never reached by Tab itself, so it draws no focus ring; the links and buttons inside do.
+   The site-wide :focus-visible rule would otherwise ring the panel itself. */
+.panel:focus,
+.panel:focus-visible {
+  outline: none;
 }
 .panel-body {
   display: grid;
