@@ -785,11 +785,10 @@ test("the landing page lists the right books and locks for every reader, with th
 
     // A cover illustration is drawn, once, for a course the reader may open, and for no other: a locked book is a plain cover.
     for (const v of ["public", "members", "friends"] as const) {
-      const open = readable.includes(v);
-      const art = res.text.split(`ART-c-${v}`).length - 1;
-      assert.equal(art, open ? 1 : 0, `${where}: cover art of ${v}`);
+      // The page names each cover's own image and holds none of its art.
+      assert.equal(res.text.includes(`ART-c-${v}`), false, `${where}: the art of ${v} is not in the page`);
+      assert.ok(res.text.includes(`data-cover="/covers/c-${v}.svg"`), `${where}: the cover of ${v} is its own image`);
       const book = new RegExp(`<li class="book"[^>]*data-slug="c-${v}"[\\s\\S]*?<div class="detail"`).exec(res.text)?.[0] ?? "";
-      assert.equal(/class="face cover" style="background-image:url\((?:&#34;|&quot;|")data:image\/svg\+xml/.test(book), true, `${where}: the cover of ${v} is one image`);
       assert.equal(/class="c-art"|class="s-art"|class="c-motif"/.test(book), false, `${where}: nothing else drawn for ${v}`);
     }
     assert.doesNotMatch(res.text, /ART-c-local/, `${where}: no art of the local course`);
@@ -1101,6 +1100,14 @@ test(
     const page = await landing("visitor");
     try {
       await page.waitFor("document.querySelectorAll('.names button').length === 3", "books");
+      // After a moment of idle every cover on the tape has been drawn once to a bitmap: this
+      // fails if the step that does it produces nothing (it once cut each address short).
+      await page.waitFor(
+        "[...document.querySelectorAll('.tb:not(.is-gone) .cover')].length >= 3 && [...document.querySelectorAll('.tb:not(.is-gone) .cover')].every((c) => getComputedStyle(c).backgroundImage.startsWith('url(\"data:image/webp'))",
+        "every cover drawn once to a bitmap",
+        20000,
+        "[...document.querySelectorAll('.tb .cover')].map((c) => getComputedStyle(c).backgroundImage.slice(0, 40)).join(' | ')",
+      );
       const state = await page.evaluate<Record<string, Record<string, unknown>>>(`(() => {
         const out = {};
         [['c-public', '01'], ['c-members', '02'], ['c-friends', '03']].forEach(([slug, n]) => {
@@ -1120,8 +1127,7 @@ test(
         });
         return out;
       })()`);
-      // The cover is the SVG with the illustration, or, once the page has had a moment, that SVG drawn once to a bitmap.
-      assert.ok(state["c-public"]!.art || state["c-public"]!.baked, "the open book has its cover image");
+      for (const slug of ["c-public", "c-members", "c-friends"]) assert.equal(state[slug]!.baked, true, `${slug}: its cover is a bitmap`);
       assert.equal(state["c-public"]!.children, 0, "a cover is one image, with nothing in it");
       assert.ok(Math.abs((state["c-public"]!.ratio as number) - 0.75) < 0.01, "a cover is three quarters as wide as it is tall");
       for (const [slug, n] of [["c-public", "01"], ["c-members", "02"], ["c-friends", "03"]] as const) {
@@ -1314,6 +1320,24 @@ test("the build output holds no non-public text, and no lecture at all", () => {
     [],
     "the library was configured at build time; none of it may be in the output",
   );
+});
+
+test("a cover is its own image, from the reader's own catalog: art for a course they may open, a padlock for one they may not, nothing for one they are not told of", async () => {
+  for (const [role, readable] of Object.entries(READS)) {
+    for (const v of ["public", "members", "friends"] as const) {
+      const res = await server.request("learn", "GET", `/covers/c-${v}.svg`, { cookie: sessions[role] });
+      const where = `${role} on the cover of ${v}`;
+      assert.equal(res.status, 200, where);
+      assert.match(String(res.headers["content-type"]), /^image\/svg\+xml/, where);
+      assert.match(String(res.headers["cache-control"]), /private/, where);
+      assert.match(res.text, /^<svg /, where);
+      assert.equal(res.text.includes(`ART-c-${v}`), readable.includes(v), `${where}: the art`);
+      for (const secret of VISIBILITIES) assert.equal(res.text.includes(SECRET[secret]), false, `${where}: canary of ${secret}`);
+    }
+    for (const missing of ["/covers/c-local.svg", "/covers/nope.svg", "/covers/..%2Fc-public.svg", "/covers/c-public.png", "/covers/C-public.svg"]) {
+      assert.equal((await server.request("learn", "GET", missing, { cookie: sessions[role] })).status, 404, `${role}: ${missing}`);
+    }
+  }
 });
 
 test("the design page for the books is a route of the dev server only: a build has no trace of it and the lecture host answers 404 for it", async () => {

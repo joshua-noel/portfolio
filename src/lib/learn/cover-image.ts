@@ -107,7 +107,3 @@ export function coverSvgText(book: Book): string {
   );
   return parts.join("");
 }
-
-/** The `background-image` value for a book's cover. */
-export const coverImageUrl = (book: Book): string =>
-  `url("data:image/svg+xml,${encodeURIComponent(coverSvgText(book))}")`;

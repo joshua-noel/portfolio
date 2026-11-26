@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { coverImageUrl, coverSvgText, wrap } from "../src/lib/learn/cover-image.ts";
+import { coverSvgText, wrap } from "../src/lib/learn/cover-image.ts";
 import { coverStyle, coverTitleSize, numberOf, spineTitle, thickness } from "../src/lib/learn/cover.ts";
 import { readCover } from "../src/lib/learn/lecture.ts";
 import { coverSvg } from "../tools/learn-covers/generate.mjs";
@@ -41,10 +41,7 @@ test("a locked cover has no illustration, only a padlock; one with no illustrati
   assert.match(plain, /<g transform="translate\(/);
 });
 
-test("the image is a data URL the page's policy allows, and long titles and promises are wrapped and cut", () => {
-  const url = coverImageUrl(book());
-  assert.match(url, /^url\("data:image\/svg\+xml,%3Csvg%20/);
-  assert.equal(/["<>]/.test(url.slice(5, -2)), false, "nothing in the data that could end the url or the attribute");
+test("long titles and promises are wrapped and cut", () => {
   assert.deepEqual(wrap("one two three four", 9), ["one two", "three", "four"]);
   const cut = wrap("aaaa bbbb cccc dddd eeee ffff", 9, 2);
   assert.equal(cut.length, 2);
