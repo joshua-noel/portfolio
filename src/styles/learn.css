@@ -245,23 +245,6 @@ details.load-notice {
 .topbar .spacer {
   flex: 1;
 }
-.parts-nav {
-  display: flex;
-  gap: 1.5rem;
-  min-width: 0;
-  overflow: hidden;
-}
-.parts-nav a {
-  color: var(--fg);
-  text-decoration: none;
-  font-size: 0.875rem;
-  white-space: nowrap;
-  padding-block: 0.4rem;
-}
-.parts-nav a:hover {
-  color: var(--accent);
-}
-
 .search {
   position: relative;
   width: min(18rem, 30vw);
@@ -1340,8 +1323,7 @@ button.signin {
     grid-template-columns: var(--rail-l) minmax(0, 1fr);
     grid-template-areas: "nav main";
   }
-  .toc,
-  .parts-nav {
+  .toc {
     display: none;
   }
 }
