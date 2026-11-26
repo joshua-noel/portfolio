@@ -182,14 +182,13 @@ button {
   padding: 0.3rem 0.8rem;
   background: var(--bg-sunken);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius);
   color: var(--fg);
   font-size: 0.75rem;
 }
 details.load-notice {
   right: auto;
   left: 0.75rem;
-  border-radius: 0.75rem;
 }
 .load-notice pre {
   margin: 0.5rem 0 0;
