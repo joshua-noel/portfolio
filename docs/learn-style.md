@@ -25,7 +25,7 @@ All text is at least 4.5:1 on `--bg`, `--surface` and `--bg-sunken`, in both the
 
 One sans family (the system UI stack) for chrome and prose; one mono family for code. No font downloads. The serif is only for book covers.
 
-- Root 16px below 1100 px wide; from 1100 px it is 15px, growing smoothly to 18.5px at 2560 px (`clamp(0.9375rem, 0.7727rem + 0.2397vw, 1.15625rem)`). Everything is in rem, so the whole site scales with it.
+- Root 16px below 1100 px wide; from 1100 px it is 14px, growing smoothly to 16.5px at 2560 px (`clamp(0.875rem, 0.7573rem + 0.1712vw, 1.03125rem)`). Everything is in rem, so the whole site scales with it.
 - Body 1rem, line height 1.75. Prose measure 38rem (70 to 80 characters).
 - h1 `clamp(1.75rem, 1.4rem + 1vw, 2.25rem)`, weight 600. h2 1.5rem with a hairline above. h3 1.1875rem. h4 1rem. All weight 600.
 - Chrome 0.875rem; right rail 0.8125rem; code 0.85rem.

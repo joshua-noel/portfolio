@@ -389,9 +389,9 @@
   /* As tall as lets the bar, the capsule, the row, the line of where the reader left off and the
      two buttons fit the window at once (18rem is what they take besides the row's 1.24
      heights): the buttons are always in view, and the footer is below the fold by design. */
-  --H: clamp(18rem, calc((100svh - 18rem) / 1.24), 46rem);
+  --H: clamp(16rem, calc((100svh - 18rem) / 1.5), 40rem);
   --duration: 0.7s;
-  --gap: 0.03;
+  --gap: 0.045;
 }
 .js .row {
   display: none;

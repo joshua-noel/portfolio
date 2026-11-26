@@ -111,7 +111,7 @@ html {
 }
 @media (min-width: 1100px) {
   html {
-    font-size: clamp(0.9375rem, 0.7727rem + 0.2397vw, 1.15625rem);
+    font-size: clamp(0.875rem, 0.7573rem + 0.1712vw, 1.03125rem);
   }
 }
 html.js {
