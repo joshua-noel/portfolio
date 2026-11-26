@@ -814,6 +814,9 @@ test("the landing page lists the right books and locks for every reader, with th
     assert.match(res.text, /<h1[^>]*>Learn<\/h1>/, where);
     assert.doesNotMatch(res.text, /depth|Waterline|Abyss|data-d=/i, `${where}: no depth wording`);
     assert.match(res.text, /role="search"/, where);
+    // The top bar has no links to the shelves; "Learn" goes to the landing page.
+    assert.doesNotMatch(res.text, /parts-nav|aria-label="Shelves"/, where);
+    assert.match(res.text, /<header class="topbar"[\s\S]*?<a [^>]*href="\/"[^>]*>[\s\S]*?Learn/, where);
   }
 });
 
@@ -1030,6 +1033,31 @@ test(
 );
 
 test(
+  "in a browser: the arrows are in view and the closed page does not scroll, at every window height from 700 to 1440, signed in and out",
+  { skip: NO_BROWSER },
+  async () => {
+    for (const role of ["visitor", "friend"]) {
+      for (const [width, height] of [[1440, 700], [1440, 800], [1440, 900], [1920, 1080], [2560, 1300], [2560, 1440]] as const) {
+        const page = await landing(role, { width, height });
+        try {
+          await page.waitFor("document.querySelectorAll('.tb').length > 3", "books");
+          await page.settle();
+          const fit = await page.evaluate<{ arrows: number; scroll: number; inner: number }>(`(() => ({
+            arrows: Math.round(document.querySelector('.arrows').getBoundingClientRect().bottom),
+            scroll: document.documentElement.scrollHeight,
+            inner: innerHeight,
+          }))()`);
+          assert.ok(fit.arrows <= fit.inner, `${role} ${width}x${height}: the arrows end at ${fit.arrows} of ${fit.inner}`);
+          assert.ok(fit.scroll <= fit.inner + 1, `${role} ${width}x${height}: the page is ${fit.scroll} high in a window of ${fit.inner}`);
+        } finally {
+          await page.close();
+        }
+      }
+    }
+  },
+);
+
+test(
   "in a browser: a press that comes while the tape is still moving brings forward the book that was under the pointer",
   { skip: NO_BROWSER },
   async () => {
@@ -1080,7 +1108,8 @@ test(
           const cover = book.querySelector('.cover');
           const image = getComputedStyle(cover).backgroundImage;
           out[slug] = {
-            image: image.startsWith('url("data:image/svg+xml'),
+            image: image.startsWith('url("data:image/svg+xml') || image.startsWith('url("data:image/webp'),
+            baked: image.startsWith('url("data:image/webp'),
             art: image.includes('ART-' + slug),
             spineLock: Boolean(book.querySelector('.spine .lock')),
             title: book.querySelector('.s-title').textContent,
@@ -1091,7 +1120,8 @@ test(
         });
         return out;
       })()`);
-      assert.equal(state["c-public"]!.art, true, "the open book has its illustration in its cover image");
+      // The cover is the SVG with the illustration, or, once the page has had a moment, that SVG drawn once to a bitmap.
+      assert.ok(state["c-public"]!.art || state["c-public"]!.baked, "the open book has its cover image");
       assert.equal(state["c-public"]!.children, 0, "a cover is one image, with nothing in it");
       assert.ok(Math.abs((state["c-public"]!.ratio as number) - 0.75) < 0.01, "a cover is three quarters as wide as it is tall");
       for (const [slug, n] of [["c-public", "01"], ["c-members", "02"], ["c-friends", "03"]] as const) {
