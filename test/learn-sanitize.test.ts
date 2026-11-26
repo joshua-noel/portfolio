@@ -191,3 +191,50 @@ test("every data attribute a diagram script reads is one the sanitiser lets a di
   assert.ok(read.size > 5);
   for (const name of read) assert.ok(DIAGRAM_DATA.has(name), `${name} is read by a diagram script`);
 });
+
+// ---------------------------------------------------------------------------
+// Depth, ids on the tree, colours in attributes
+
+const nest = (n: number, inner = ""): string => "<g>".repeat(n) + inner + "</g>".repeat(n);
+
+test("a file nested thousands deep is refused by its depth, for a cover and for a diagram, without recursing", () => {
+  const cover = COVER.replace("<g>", nest(5000, "<g>")).replace("</g>", "</g>");
+  const deepCover = readCover(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320">${nest(5000)}</svg>`);
+  assert.match(deepCover.issues.join("\n"), /nested more than 64 deep/);
+  assert.equal(deepCover.html, "");
+  assert.ok(cover.length > 30000);
+  const deepDiagram = OK.replace("</svg>", `${nest(5000)}</svg>`);
+  assert.match(issues(deepDiagram), /nested more than 64 deep/);
+  assert.equal(sanitizeSvg(deepDiagram).html, "");
+  // A sane depth is fine.
+  assert.deepEqual(readCover(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 320">${nest(40)}</svg>`).issues, []);
+});
+
+test("ids are renamed on the parsed tree: only ids and what points at them, and a figure may point at no one else's", () => {
+  const text = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" role="img" aria-labelledby="t d"><title id="t">id="t" and url(#g) and href="#t" in words</title><desc id="d">D</desc><defs><linearGradient id="g"><stop offset="0" stop-color="var(--c1)"/></linearGradient></defs><rect width="5" height="5" fill="url(#g)"/><use href="#g"/></svg>`;
+  const { html, issues: found } = sanitizeSvg(text, { idPrefix: "f1-" });
+  assert.deepEqual(found, []);
+  assert.match(html, /aria-labelledby="f1-t f1-d"/);
+  assert.match(html, /<title id="f1-t">id="t" and url\(#g\) and href="#t" in words<\/title>/, "text that looks like an id is left alone");
+  assert.match(html, /fill="url\(#f1-g\)"/);
+  assert.match(html, /<use href="#f1-g">/);
+  // Pointing at an id the figure does not define (another figure's, or the page's) is refused.
+  for (const stray of ['<use href="#main"/>', '<rect width="1" height="1" fill="url(#elsewhere)"/>']) {
+    assert.match(sanitizeSvg(text.replace("</svg>", `${stray}</svg>`), { idPrefix: "f1-" }).issues.join("\n"), /does not define/);
+  }
+  assert.match(sanitizeSvg(text.replace('aria-labelledby="t d"', 'aria-labelledby="t main"')).issues.join("\n"), /#main, which this diagram does not define/);
+});
+
+test("the literal-colour check reads attributes and style values, not the words of a title or description", () => {
+  const withDesc = OK.replace("<desc id=\"d\">D</desc>", '<desc id="d">Each node gets a color: red or blue, fill: #fff and stroke: black.</desc>');
+  assert.deepEqual(checkDiagram("01-d", withDesc), []);
+  assert.match(issues(OK.replace('<rect ', '<rect fill="#ff0000" ').replace('fill="var(--c1)"', '')), /fill:#ff0000 is not allowed/);
+  assert.match(issues(OK.replace('style="fill:var(--surface);stroke-width:2"', 'style="fill:#fff"')), /fill:#fff is not allowed/);
+});
+
+test("a cover over 100 KB is refused, however plain", () => {
+  const big = COVER.replace("<g>", "<g>" + '<rect x="1" y="1" width="9" height="9" rx="2" fill="#112233"/>'.repeat(2000));
+  assert.ok(big.length > 100 * 1024);
+  assert.match(readCover(big).issues.join("\n"), /a cover is at most 100 KB/);
+  assert.equal(readCover(big).html, "");
+});

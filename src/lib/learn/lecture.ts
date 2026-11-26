@@ -10,7 +10,7 @@ import {
 } from "./blocks.ts";
 import { DEPTHS, type Depth } from "./depth.ts";
 import { FormulaError, FRAMES_V2, Renderer, suspectMaths, type Facts, type Heading } from "./render.ts";
-import { sanitizeSvg } from "./svg.ts";
+import { literalColour, sanitizeSvg } from "./svg.ts";
 
 /**
  * One lecture: its front matter, its body rendered to one page of HTML, and
@@ -426,6 +426,9 @@ export function readLecture(
 // ---------------------------------------------------------------------------
 // A course's cover
 
+/** A cover.svg may be this big; a drawing of a few dozen shapes is a few KB. */
+export const MAX_COVER_BYTES = 100 * 1024;
+
 /**
  * Checks `cover.svg` beside `course.md`: the sanitiser's rules (nothing that
  * runs or fetches), `viewBox="0 0 240 320"` and no text. Literal colours are
@@ -440,19 +443,21 @@ export function readCover(source: string): { html: string; issues: string[] } {
     issues.push('cover.svg: the <svg> has viewBox="0 0 240 320"');
   }
   if (/<(?:text|tspan)[\s>]/i.test(source)) issues.push("cover.svg: a cover has no text");
-  const clean = sanitizeSvg(source, { kind: "cover" });
-  issues.push(...clean.issues.map((issue) => `cover.svg: ${issue}`));
-  return { html: issues.length === 0 ? clean.html : "", issues };
+  if (source.length > MAX_COVER_BYTES) {
+    issues.push(`cover.svg: ${Math.round(source.length / 1024)} KB; a cover is at most ${MAX_COVER_BYTES / 1024} KB`);
+  }
+  try {
+    const clean = sanitizeSvg(source, { kind: "cover" });
+    issues.push(...clean.issues.map((issue) => `cover.svg: ${issue}`));
+    return { html: issues.length === 0 ? clean.html : "", issues };
+  } catch (error) {
+    // Whatever a file does to the parser, it costs that cover alone, never the catalog.
+    return { html: "", issues: [...issues, `cover.svg: could not be read (${error instanceof Error ? error.message : String(error)})`] };
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Diagrams
-
-/** Colours a diagram may use: the theme's own variables, and nothing literal. */
-const ALLOWED_COLOUR =
-  /^(?:none|currentColor|transparent|inherit|url\(#[\w-]+\)|var\(--(?:fg|muted|border|surface|accent|c[1-6])\))$/;
-const COLOUR_PROPERTY =
-  /(?:^|[\s;"'])(fill|stroke|stop-color|flood-color|color)\s*[:=]\s*"?([^;"'>]*)/g;
 
 export function checkDiagram(id: string, source: string): string[] {
   const issues: string[] = [];
@@ -469,14 +474,11 @@ export function checkDiagram(id: string, source: string): string[] {
   if (/\s(?:xlink:)?href\s*=\s*(?!["']?#)/i.test(source)) bad("no external links");
   if (/@font-face|font-family\s*[:=]\s*"?[^;"]*url\(/i.test(source))
     bad("no embedded fonts");
-  for (const [, property, raw] of source.matchAll(COLOUR_PROPERTY)) {
-    const value = raw!.trim();
-    if (value !== "" && !ALLOWED_COLOUR.test(value)) {
-      bad(
-        `${property}:${value} is not allowed; use currentColor or var(--fg), --muted, --border, --surface, --accent, --c1 to --c6`,
-      );
-      break;
-    }
+  const literal = literalColour(source);
+  if (literal !== undefined) {
+    bad(
+      `${literal} is not allowed; use currentColor or var(--fg), --muted, --border, --surface, --accent, --c1 to --c6`,
+    );
   }
   // The real check: the file is parsed as a browser would and every element
   // and attribute must be on the list (src/lib/learn/svg.ts). The lint above
@@ -653,7 +655,7 @@ async function buildLectureUnguarded(
     const caption = await renderer.renderInline(block.caption, layer);
     // What is inlined is the sanitiser's output, never the file's own text.
     // With any issue the lecture fails to build, so the empty string goes nowhere.
-    return figureHtml(block.id, sanitizeSvg(source).html, caption);
+    return figureHtml(block.id, sanitizeSvg(source, { idPrefix: `fig-${block.id}-` }).html, caption);
   };
 
   const question = async (
@@ -812,29 +814,7 @@ async function buildLectureUnguarded(
   return lecture;
 }
 
-/**
- * Gives every id in one figure's SVG a prefix of that figure, and every
- * reference to one (`url(#…)`, `href`, `aria-labelledby`, `aria-describedby`)
- * the same, so several figures on one page do not share `t`, `d` or `ah`: a
- * label then names its own figure's title, and a marker is its own.
- */
-export function prefixIds(svg: string, prefix: string): string {
-  const ids = new Set([...svg.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]!));
-  if (ids.size === 0) return svg;
-  const renamed = (id: string): string => (ids.has(id) ? prefix + id : id);
-  return svg
-    .replace(/(\sid=")([^"]+)(")/g, (_, open: string, id: string, close: string) => open + prefix + id + close)
-    .replace(/url\(\s*(["']?)#([\w-]+)\1\s*\)/g, (_, quote: string, id: string) => `url(${quote}#${renamed(id)}${quote})`)
-    .replace(/((?:xlink:)?href=")#([\w-]+)(")/g, (_, open: string, id: string, close: string) => `${open}#${renamed(id)}${close}`)
-    .replace(
-      /(aria-(?:labelledby|describedby)=")([^"]*)(")/g,
-      (_, open: string, value: string, close: string) =>
-        open + value.split(/\s+/).map(renamed).join(" ") + close,
-    );
-}
-
-function figureHtml(id: string, source: string, caption: string): string {
-  const svg = prefixIds(source, `fig-${id}-`);
+function figureHtml(id: string, svg: string, caption: string): string {
   const width =
     /\sviewBox="\s*[\d.-]+\s+[\d.-]+\s+([\d.]+)\s+[\d.]+\s*"/.exec(svg)?.[1] ?? "600";
   const interactive = /data-interactive="([a-z0-9-]+)"/.exec(svg)?.[1];
