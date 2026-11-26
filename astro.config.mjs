@@ -6,7 +6,21 @@ import node from "@astrojs/node";
 // `astro build` is the one that produces the shipped server bundle.
 const building = process.argv.slice(2).includes("build");
 
+// The design page for the books (src/lab/books.astro) is a route of the dev
+// server only: it is injected here when the command is `dev` and never in a
+// build, so the production bundle has no trace of it.
+const learnLab = {
+  name: "learn-lab",
+  hooks: {
+    "astro:config:setup": ({ command, injectRoute }) => {
+      if (command === "dev")
+        injectRoute({ pattern: "/learn/lab/books", entrypoint: "./src/lab/books.astro" });
+    },
+  },
+};
+
 export default defineConfig({
+  integrations: [learnLab],
   // Blog routes read SQLite, and canonical URLs use runtime configuration.
   // Nothing is prerendered, so the build never touches a database.
   output: "server",

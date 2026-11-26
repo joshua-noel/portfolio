@@ -1,51 +1,33 @@
 /* ============================================================
-   Learn: the bookshelf on the landing page.
+   Learn: the shelf on the landing page.
 
    One markup, two looks (src/components/learn/Bookshelf.astro).
    Without JavaScript every course is a card: its cover, its text and its
-   lecture links. With it (`html.js`, set before first paint) the cover
-   becomes a book standing on a shelf, and the text moves into a panel.
-   The books are real elements turned with CSS 3D transforms: text stays text,
-   the illustration is the course's own cover.svg inlined, and the
-   Content-Security-Policy is not touched. Only `translate`, `rotate`,
-   `transform` and `opacity` change when a book moves, and a book's hit area
-   never moves: only what is drawn in it.
+   lecture links. With it (`html.js`, set before first paint) the covers
+   become books on a tape that wraps around the page: spines in a row, the
+   book in front turned to show its cover, a click or an arrow turning the
+   next one to the front.
 
-   The page around it is bare and nearly monochrome. The bookcase is the one
-   rich object on it, so it is lit like a real one in a dim room: wood with a
-   fine grain, a wall that falls off softly, a lip on the shelf, and a contact
-   shadow under every book. Nothing glows and nothing bounces.
+   The books are real elements in one 3D scene: a book is a spine and a cover
+   as two faces of a box, moved by `transform` alone, so a step is done by the
+   compositor and nothing is measured while it runs. Text stays text; the
+   illustration is the course's own cover.svg inlined. No filters, no
+   textures, no blur: every surface is a flat colour with a plain gradient,
+   drawn once. The Content-Security-Policy is not touched.
 
-   Colours of a book come from its course (`--b-*`, set inline). The wall and
-   the panel take the site's own variables in both themes.
+   Everything about a book is a fraction of its height (`--H`), so a book is
+   the same object at any size. A book's colours come from its course
+   (`--b-*`, set inline).
    ============================================================ */
 
-:root {
-  /* The room. */
-  --wall-top: #0d0e11;
-  --wall-mid: #1b1c22;
-  --wall-low: #121317;
-  --wall-light: rgba(255, 236, 210, 0.07);
-  /* The wood: top surface of a shelf, its lip, an upright. */
-  --wood-top-a: #8b6f56;
-  --wood-top-b: #5e4838;
-  --wood-lip-a: #55402f;
-  --wood-lip-b: #3c2c21;
-  --wood-lip-c: #2a1f17;
-  --wood-edge: rgba(255, 232, 200, 0.34);
-  --wood-under: rgba(0, 0, 0, 0.55);
-  --upright-a: #46352a;
-  --upright-b: #2f231b;
-  --grain-dark: 0.5;
-  --grain-light: 0.2;
-  --book-shadow: rgba(0, 0, 0, 0.62);
-  --bookend: #5c606c;
-  --engrave: #e3cfae;
-  --engrave-edge: rgba(0, 0, 0, 0.7);
-  /* How a book moves: critically damped springs, so a move starts softly, is
-     quick through the middle and settles without overshoot. Each is `linear()`
-     points of 1 - (1 + wt) e^-wt; the time given beside it is the whole move,
-     and a book is within a hair of rest after about two thirds of it. */
+.bookshelf {
+  /* A card's cover size without JavaScript; the shelf sets its own. */
+  --H: 17rem;
+  --shadow: rgba(0, 0, 0, 0.5);
+  /* A critically damped spring as `linear()` points of 1 - (1 + wt) e^-wt:
+     a move starts softly, is quick through the middle and settles without
+     overshoot. The time given beside it is the whole move; it is within a
+     hair of rest after about two thirds of it. */
   --spring: linear(
     0,
     0.013 2%,
@@ -67,72 +49,28 @@
     0.998 90%,
     1
   );
-  --spring-soft: linear(
-    0,
-    0.009 2%,
-    0.033 4%,
-    0.067 6%,
-    0.11 8%,
-    0.157 10%,
-    0.233 13%,
-    0.311 16%,
-    0.411 20%,
-    0.526 25%,
-    0.625 30%,
-    0.722 36%,
-    0.808 43%,
-    0.87 50%,
-    0.929 60%,
-    0.963 70%,
-    0.983 80%,
-    0.994 90%,
-    1
-  );
-  /* Textures, as data: URLs (img-src allows them; nothing is fetched). The grain
-     of wood is fractal noise as a small SVG, drawn on parts that never move;
-     the specks of cloth, which is on every book that does, are a small PNG made
-     by tools/learn-covers/cloth-texture.mjs (an SVG filter there costs a long
-     frame whenever a book is drawn again). */
-  --tex-grain-h: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='96'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.0045 0.3' numOctaves='4' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.25 0 0 0 -0.46'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
-  --tex-grain-l: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='80'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.003 0.42' numOctaves='3' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.93 0 0 0 0 0.82 1.3 0 0 0 -0.6'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
-  --tex-grain-v: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='520'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.3 0.0045' numOctaves='4' seed='8' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.25 0 0 0 -0.46'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
-  --tex-cloth: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAPf0lEQVR42k1Zh5LbuhYD1WVLttx77/b+/+/hDUDlztuZJBsXkTwF5RAErgzMWCIgYeCOLWY4o2RAgykBcI01Uw75IDACUDBH4AcfZqwBArn+JpgyAdjgyMAWFyyZcoOEE2yYs2ZC8IoLKwQAgSnYMQXw4IILvzTlHWBAygHWTFBjjD2BBDXBHcADOi86INAy5xIBBTNtVT/eiDY0gDbTosXUv1V4co8WD+4BrJgxwUNLgQlHyNGho07n13DBhp0ehjuPBHb8Y4GcK7boeAG4ojYM3n3qG4KPMEDrqJ1RY8cdbwQbxQYBRwApEqacoAaQYQBmiI/ZYaKT801w0x8msNA5CSyxwpQLbKGlO06Q8euAbqjF9IQjBggMHDBAZ9M2xgRrzBlYOSbQcxCQ4ciEK31mD+1uhTNX+GKFBWrOUOn0yJhzwIRnlkyZUo8fcYQvJ9TGVt7yxWFfY86jY1f774xH5JiwYMklgw7FwJQfpLijcsICcnDOgMCaevmJLRKdRsGhsvYCMINCD14YmLsIM4wJXAgO0XqxmhcEjqFa+QOYcc7CEVJKG0UNAaq2o2ukxsqJU04Ifr27BClm3v2LsZiObJCjQaYiwpYN367xCi1CX2TaroowcImcCeZIOcILhRbADEADYMOENVKc/VylY6RvarUMqsaEO859+oIfzvFDyhQfjnFgg4cfNuEWqu+EQI01jqhw5dw982POxI9cu2MSfDnAiAEbB1sJTbHBGGsE7FwfASWS2AXgH+4+9Uto0JfgiQFbBswVAabYux7eKDmEaj/lEEEBxxB3JFwrlWjQsPP3VftKrkqtxZQXrxAYm/rGgIwPZeGIE47UBtaskKFlG7MT846UUw6VX569OX0CrAks/Jn46gIDbPjrkcC1hAsTDJ2eMXduRf2plQJU3DsGPPEPwc2YYecKKGIZGnAGqhF3doEp9yorgFsucYUK8IEnh7zgijVOrnQvwqFLDUYCQVeuvuedIxfk3JVz9Wr+Sb2kimmLsZGxMczkXi5Fi5Z76KE5U5+v4BQHV/TMJx4w8IAbJ1624tLlpvR+sMCIKTNFAkNmzPDiEkckyJCqpgWlBwMrOIea8ipMZ8CdOTJhmd89YoeENwGre6ZAhhmn+OCHiikqlk7dHwRfQpIrUkewYmCH0siZuO9UvjqOIk/V+tiLVFxwxlYEgyeAMXK+mauXscWTyv7BERrzSjGIYDgYXhts3Kq1s38whSlhTgfeLr/CCJEYWV/8+btYYoqRTz/Cgj8XmNDs7u7OWUEc2PVUc0DCjh+DrZpuzBErznw6hRQs8XFShBPTWDMQgCXIof5/ovW5FZmn3n0gh7p14/0mPMKhEW3yoB3yzLFDDpTMsWQpfEPODWrDc4pI2Q1E6oWbdG80rVkgxZKisBXcW2aHFfSZioa9HLn7ET33Twyg6Eso0suee14wVm51Sqz9/ke0wpvPAk5x5gxCjbeyLoBDyhfeYn3DbsEaNQdYOpYlT9ipajrULN3JU85Y8OCU/DDCjnOm2h6W2BsjBTQDVg5n/f/tpo6mADphgoZLPv3qmzN+WRFc8tDT/BAdSzwoonPTClyV0Tkqyw+dP+OAAz88OBLBvQy/t+XQZ1AdbF0VjfN8cqgn3Dht6vED5ypgiD1bphhibs0kTCm4UAt7S1FQoUOOGSyVeHetRkGiTdXmvm2EGbxZIjfJXlGjcAUckWKBJTbc48shO7RUZxjWJO+YCF+1hnFESNO46mL4hIXskPIckR8BS9f1AgXFjTcGPiWw6AWxo/By1Ie64QFbY79k24pLLKIGInDgjhvD14Qj6yex78iVNuAArlawZMIvJg6J+vri5su9vTc6i6o5F2z86J1x8uWu1rcfKla3l6I1ZBAvoMJJ9Gx4Erc2kiWMDW2450AKYWRNOBVjcYmU5jqUzmxm4mm41Y59nqs/t/BGE5aWIKlkGTIz35OBRy6QQGWsZ7/7wovyY/1PQeOP8Gb44B1/hqIGO0hkvVgxZ8DUy6lAV0ixMhnHqAhmVuiY44XSwWxVghaaik9l8fbkgLmVZuqCS6yTMnywUuUwoONTQRSQjoxVI06pCniyc4Wv1EKqB/z4ZMq19yxx3fihSxx6RZT2VTP0BnLVuM/ZMvXvSU/ve8XAOCN6uuKusqqc4R+u0n4uNC09kwnhxEDUYOESEwidcReVOLyTHu9EwwVa3njECBcn8Y8bvnCIoIYTSx4UDZNdCqHD0KaFmbt6Z87es0Vw06380Xd/CngTWwNpx9qnTtjwhisCxpi60abMeMOSW592iRQlVagnE1GLTKhrVEysGhrbFnF01DDW8zeUPGMQ/Q1y/YbWYhyYomCLxNpgga9VUOrgZn7/0usnyZbSxBvcASfW0hIAfgQ2ePlTT6zZopaIrDDAHD+DaE0V3s/nv+PCA4f4w5pPJFibjGqlDMdIQcgszAJbKiULS9QZM04dam2g4971AsyYcy4DwD2vyK2pvzAFC6ujP7pgzopPjpDGmsbS3D5Gha/POnGDKl1q362h6MUb614hRgS5+F39X/yYMHN1KR6b6JXkoqKVHKHBDQc8jfmpZGl0xJQQj7x+lTtC4QjEhFVuySg8gwXK0paus6eY9YjxFcl7ldJxKjnknNFNnHqdYKmV4ieZhVMMKBamDLniqF8rSKAueOYQM7ebrPzY76549gkL7LU4A2qos0of42a3kFImbGOzntgVVqg5Z+ft8c63s7RBgcqUkSGWnX4GZsK5AutmjROCxOf8w4NT97S+/5R+tDTZ4cA3M9fBoHfNUt4NJVeskyzHrEO156+4wGD6D6eljEpGoTV2Ta/dWrV5rLXZTi1KxCMfWRRrndybdoGpmnDGhZlFzBBDbqGeC7GNsUOBBt7zjBMMe0cU5Hb8AWlX1bcytjbCBdvRwIcsB7Nou5ji6s0k/oTKNHEVSB31zssdEoFrj53HF7mVVAC+vRueOlM/S4WEJ+ZUA2WSo0zZ4oWOQw6xRyo32StBUbno+IWxw51bLx4k771sw5Mdw9XbGOLUE/GQJTOLW1usYBsp7hZzb1ia2bTfGTa8927Yj+DQp81wggTpzGS+ch/8eYqQU9qxNrQZ97F3NKWW5BfGGAhvravViiIUpDwg49aaxmGxYV9whnOP5VvbrMrnqKMth3pe29bs58sauTWwVOHawlW0VlqqjplbK18M71cNN5BBUboDczT+UoacP+duHUnDOP6zVpyw1dm5Y+a8JpzyaiyXmY/CNDOjBPudkc2YyjmSliC9xlRA1JdgrJ2xIiBFIAt94olvLq3xvpjJLZjV1tjyh9LuSAh5wAhbREqZioJsUQJ2nrKImlI2nplNEG2tkEbxDUaZqSXMzD50ylHkqcQTwNRmZNEP3G4484ezpYN2evcYaoIt1QHRSUq+DLjkx86olKTtC6zD1WUaJMcFbVE7M8EYHT682aSfLEqdR3FzgQi+jaS1oXbNl4dMT4dbBdtA0N3aI2wtMNS2R1vSB1Kc7Ci1YNJL8IHUlYku62F5ZNDKLf9DtKSpNUDHMRqL6Iwn6ZWIBm5MkY2adCcIRdK7oZMniPIEBd+SdVHreFSlZlSBVp6bZGg8fQvm2qrX1naTWT/hcCyovOU+nbalZbbsjIU7f6L0Ims3bWqBFiy0bVQYeoEWPP5b2UWWvfQfKVocYWDGgKtHgo+F7IVt0hyJ/kWGyrJEc64XzzzQCjkqOya4WTt8sTdRJ05a3o9p9xahwF5FCs2e/uHruCeoBz2T7r1oIRxYoUY80cfl5oGkmsrVPfaDUgfU9WsqLQxSRZ+IymEPnoyeIkr2IlTxbDBmhoWfqj6Kx4zvr2BEL+EJFiJrOa+sRZ6mmqstusTU0afouETHShoIbwv4ygupLVPOuRcB9bVQetr4M2CLpsds+bFUS4Q7Nv38wq6YhXenfS0iQPuUkzi2RCe4Yqahk1vz5FMeeqNxNjyPNYbmyJJOY+sj0PfCC3sNLVk4BRv5aMR6wUoSA19LK/H3vN97NF0vxnnHhjPjhFLQeGCtuWot2d5LN416+smYB7xL44W2UXkYAc8JNUmSHn4zd3Q6sXb+jzR5wEITEktujWIeUT7hpxL0Z0Yc0baNqg1ZugtiuUU9KDga+4YAjsnoP32g3ip5sT7O3V3zWAmphyutzdMZcX6uAfPHCCC8dsfaWKJPkSYKjYgEZd++hQfZcYZ4xgUHXGxgPAHgmzccsffG1YDzfsLitpeHExJWZnKNXFomWFGn/VP4PPHJ2fDCCVOX5EbjBsPM3OrYp2Xl+ZLAuNQYw+r/3w1K6jRUkaJYaJDBgp3s+b8RZcRxxaHz+GUqX4wxEyfj6SaTg3iy5MnUcpY1xcjThaNH3rc4c4/3SOaCrK/4lGOzhsaTa19cBIkVbOGrqdahTOwO0Id8wYNnxvde+STOtsh16mqZ+PH/wGns+IyjWWWOi7ElYmKNUnrRXaSZiQRcx85j7hBl5QNT3NDZhGxQ4q4rFoe2wBkyr8veLyf9ZtDbCp1habcf+tlf4qU3usZStKyY0F8EbPC2MhjJGzsmmfJV+MUl0ev9htJtY0XFnP8V1GCAC6eRulh4C7XnpxbrGr71yVxx4qRouvbRhFFOGXKdEXM0azh7SJv7nqUfn4h6g68tRtYsuSXW1EPMJHoELjGSOnb+ZL3E5vKMV5uX3EN5bWLJHUtOeYJ0g8fbkh8O/93D+39XZQbt0hJxgZ2no6rsX3+xkPSFdDYaHA00IQoXy84rbv14Otos+P6osHR/9Eg39TO/jKyy/a8rlrp7xISdtb99zsatlGo8Y0aTiT545LRFzptvVAoW+GLh2t4b82IHnfmnsb3FSubFLpYbEi66dep6PV1joRa30CtRcsa9CDTai8xQG3lQNu3iW1T55olbMEdEyxdzyU4WkQv9auqJ+hQFlsYChXbOPb8e/ZT4uDk7X2KpDO3D/skSTTaf2HLCFxP3hEzXFm8UGOOL1mDU6d2e/a9xIui4BN8ir12uXw8sA05Yu0CdUurCU0A8ECn3lv3NKbXZHZawRFCb/NzdZ9b9pVJukdI4kxWGvgWcQtOdueeiyn+BBXPbU80QF9xpPoIhFB9R0NbFN0SUe6VZwaN79Zkt7UKhlyiLxXR1CanMbixw0TAVFTb8OtAfo8OsFxtDjxoOMpvGvtaOqeHVA56hR7Lf3mHOdNNCNfvHE3Mp8RVXTjj/FCCpYaPcDF+pAhwxsWMeSv/waGq94+hHrqyiS2x8B3RDgSHP1oMvq8CMK4uVrTiRv3422mrcicz3KgPTtOA5/A8TnaZ7GyjYDgAAAABJRU5ErkJggg==");
 }
-:root[data-theme="light"] {
-  --wall-top: #e3dfd5;
-  --wall-mid: #f1eee7;
-  --wall-low: #e6e2d8;
-  --wall-light: rgba(255, 255, 255, 0.5);
-  --wood-top-a: #eadbc0;
-  --wood-top-b: #d5c09d;
-  --wood-lip-a: #d9c6a4;
-  --wood-lip-b: #c6ae88;
-  --wood-lip-c: #b19872;
-  --wood-edge: rgba(255, 255, 255, 0.8);
-  --wood-under: rgba(70, 48, 24, 0.4);
-  --upright-a: #dcc9a6;
-  --upright-b: #c4ab84;
-  --grain-dark: 0.3;
-  --grain-light: 0.28;
-  --book-shadow: rgba(52, 34, 14, 0.5);
-  --bookend: #9a9da6;
-  --engrave: #5a4630;
-  --engrave-edge: rgba(255, 255, 255, 0.7);
-  --tex-grain-h: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='96'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.0045 0.3' numOctaves='4' seed='5' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.28 0 0 0 0 0.16 0 0 0 0 0.04 0.9 0 0 0 -0.4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
-  --tex-grain-v: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='520'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.3 0.0045' numOctaves='4' seed='8' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.28 0 0 0 0 0.16 0 0 0 0 0.04 0.9 0 0 0 -0.4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
-  --tex-grain-l: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='80'%3E%3Cfilter id='f' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.003 0.42' numOctaves='3' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 0.95 1.2 0 0 0 -0.55'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E");
+:root[data-theme="light"] .bookshelf,
+.theme-scope[data-theme="light"] .bookshelf {
+  --shadow: rgba(20, 16, 10, 0.55);
 }
+
+/* ---------- The page around it ---------- */
 
 .plain .page.shelf-page {
-  max-width: 76rem;
+  max-width: none;
+  padding-inline: 0;
 }
-
-/* ---------- Introduction ---------- */
-
-.intro {
-  max-width: 42rem;
+.shelf-page > .intro,
+.bookshelf .filters,
+.bookshelf .arrows,
+.bookshelf .panel,
+.bookshelf .empty {
+  width: min(76rem, 100% - 2 * clamp(1.25rem, 3vw, 3rem));
   margin-inline: auto;
-  text-align: center;
+}
+.intro {
+  text-align: left;
 }
 .resume {
   margin: 1rem 0 0;
@@ -146,84 +84,48 @@
   color: var(--muted);
 }
 
-/* ---------- Filters ---------- */
+/* ---------- The capsule ---------- */
 
 .filters {
   display: none;
 }
 .js .filters {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.25rem 1.5rem;
-  margin: 2.25rem auto 0;
+  width: fit-content;
+  max-width: calc(100% - 2rem);
+  gap: 0.125rem;
+  margin: 1.75rem auto 0;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
 }
-.filter-option {
-  padding: 0.35rem 0;
+.pill {
+  height: 2.25rem;
+  padding: 0 0.95rem;
   border: 0;
+  border-radius: 999px;
   background: transparent;
   color: var(--muted);
-  font-size: 0.875rem;
-  white-space: nowrap;
-}
-.filter-option:hover {
-  color: var(--fg);
-}
-.filter-option[aria-pressed="true"] {
-  color: var(--accent);
-}
-
-/* ---------- A shelf ---------- */
-
-.shelf-head {
-  display: flex;
-  align-items: baseline;
-  gap: 0.9rem;
-  padding-bottom: 0.65rem;
-}
-.shelf-head h2 {
-  margin: 0;
-  font-size: 1rem;
+  font: inherit;
+  font-size: 0.9375rem;
   font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+}
+.pill:hover {
   color: var(--fg);
 }
-.shelf-count {
-  color: var(--text-3);
-  font-size: 0.82rem;
+.pill[aria-current="true"] {
+  background: var(--fg);
+  color: var(--bg);
 }
-.shelf-arrows {
-  display: none;
-  margin-left: auto;
-  gap: 0.35rem;
-  align-self: center;
-}
-.shelf-arrows[hidden] {
-  display: none;
-}
-.js .shelf-arrows:not([hidden]) {
-  display: flex;
-}
-.shelf-arrows button {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--fg);
-}
-.shelf-arrows button:hover {
-  border-color: var(--border);
-}
-.shelf-arrows button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-.shelf-arrows svg {
-  width: 1rem;
-  height: 1rem;
+.pill:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
 }
 
 /* ---------- Without JavaScript: cards ---------- */
@@ -231,109 +133,146 @@
 .bookshelf .row {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 31rem), 1fr));
-  gap: 2rem 2.5rem;
-  margin: 0;
-  padding: 1rem 0 0;
+  gap: 2.5rem 2.5rem;
+  width: min(76rem, 100% - 2 * clamp(1.25rem, 3vw, 3rem));
+  margin: 2rem auto 0;
+  padding: 0;
   list-style: none;
 }
 .book {
-  --b-d: 11.5rem;
   display: grid;
-  grid-template-columns: var(--b-d) minmax(0, 1fr);
-  gap: 1.4rem;
+  grid-template-columns: calc(var(--H) * 0.75) minmax(0, 1fr);
+  gap: 1.5rem;
   align-items: start;
 }
 .vol {
   position: relative;
   display: block;
-  width: var(--b-d);
-  height: 17rem;
+  width: calc(var(--H) * 0.75);
+  height: var(--H);
 }
-.face {
-  display: flex;
-  flex-direction: column;
-}
-.vol .spine,
-.vol .edge,
-.vol .top {
+.vol .spine {
   display: none;
 }
-.cover {
+.vol .cover {
   position: absolute;
   inset: 0;
 }
 
-/* ---------- The cover: the same face on a card and on a book ---------- */
+/* ---------- The two faces ---------- */
 
-/* A book's cloth: its colour, a speck of texture, the joint where the board
-   meets the spine, a soft light from the top left, and a blind-stamped frame. */
+.face {
+  display: block;
+  font-family: var(--font-ui);
+}
+
+/* The front cover: a flat colour, the series' grid. Series mark and number at
+   the top, the title and the promise below them, the illustration in the
+   lower half (the art frame of tools/learn-covers/generate.mjs), the shelf
+   and the lecture count at the foot. */
 .cover {
-  display: flex;
-  flex-direction: column;
-  padding: 1.05rem 0.9rem 0.85rem 1.3rem;
+  position: relative;
+  width: calc(var(--H) * 0.75);
+  height: var(--H);
   overflow: hidden;
   color: var(--b-ink);
   background:
     linear-gradient(
       90deg,
-      rgba(0, 0, 0, 0.34) 0,
-      rgba(0, 0, 0, 0.12) 0.55rem,
-      rgba(255, 255, 255, 0.1) 0.62rem,
-      rgba(255, 255, 255, 0) 0.95rem
+      rgba(0, 0, 0, 0.2) 0,
+      rgba(0, 0, 0, 0) 1.6%,
+      rgba(255, 255, 255, 0.08) 2.4%,
+      rgba(255, 255, 255, 0) 4%
     ),
-    linear-gradient(150deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 38%, rgba(0, 0, 0, 0.22)),
-    var(--tex-cloth) 0 0 / 64px 64px,
+    linear-gradient(120deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 45%),
     var(--b-color);
-  border-radius: 0.1rem 0.28rem 0.28rem 0.1rem;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-    inset 0 0 0 0.45rem transparent;
-}
-.cover::after {
-  /* The blind-stamped frame. */
-  content: "";
-  position: absolute;
-  inset: 0.5rem 0.5rem 0.5rem 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 0.08rem;
-  pointer-events: none;
+  border-radius: calc(var(--H) * 0.004);
 }
 .c-art {
   position: absolute;
   inset: 0;
+  display: block;
   pointer-events: none;
 }
-.c-art svg,
-.c-motif {
-  display: block;
-}
 .c-art svg {
+  display: block;
   width: 100%;
   height: 100%;
 }
-.c-head,
-.c-promise,
-.c-foot {
-  position: relative;
-  z-index: 1;
+.c-motif {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: calc(var(--H) * 0.3);
+  height: calc(var(--H) * 0.3);
+  margin: calc(var(--H) * -0.15) 0 0 calc(var(--H) * -0.15);
+  color: var(--b-mark);
+  opacity: 0.9;
+}
+.c-lock {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  display: grid;
+  place-items: center;
+  width: calc(var(--H) * 0.26);
+  height: calc(var(--H) * 0.26);
+  margin: calc(var(--H) * -0.13) 0 0 calc(var(--H) * -0.13);
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  color: var(--b-ink);
+  opacity: 0.8;
+}
+.c-lock .lock {
+  width: 46%;
+  height: 46%;
+  stroke-width: 1.6;
+}
+.c-top {
+  position: absolute;
+  left: calc(var(--H) * 0.067);
+  right: calc(var(--H) * 0.067);
+  top: calc(var(--H) * 0.056);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: max(0.6875rem, calc(var(--H) * 0.024));
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.c-series {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+}
+.c-series::before {
+  /* The series mark: three bars, the first in the accent. */
+  content: "";
+  width: 1.1em;
+  height: 1.1em;
+  background:
+    linear-gradient(var(--b-mark), var(--b-mark)) 0 0 / 100% 0.28em no-repeat,
+    linear-gradient(currentColor, currentColor) 0 0.41em / 76% 0.28em no-repeat,
+    linear-gradient(currentColor, currentColor) 0 0.82em / 52% 0.28em no-repeat;
+}
+.c-num {
+  font-variant-numeric: tabular-nums;
 }
 .c-head {
+  position: absolute;
+  left: calc(var(--H) * 0.067);
+  right: calc(var(--H) * 0.067);
+  top: calc(var(--H) * 0.125);
   display: block;
-  padding-bottom: 0.55rem;
-  background:
-    linear-gradient(90deg, var(--b-accent) 0 1.7rem, transparent 1.7rem) left bottom / 100% 1px no-repeat,
-    linear-gradient(90deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)) left bottom / 100% 1px no-repeat;
 }
 .c-title {
   display: block;
-  font-family: var(--font-text);
-  font-size: var(--b-cs, 1.28rem);
-  font-weight: 650;
-  line-height: 1.1;
-  letter-spacing: -0.005em;
+  font-size: calc(var(--H) * var(--b-cs, 0.066));
+  font-weight: 750;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
   text-wrap: balance;
   overflow-wrap: anywhere;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
 .c-sub {
   display: -webkit-box;
@@ -341,71 +280,104 @@
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
-  margin-top: 0.35rem;
-  font-family: var(--font-text);
-  font-style: italic;
-  font-size: 0.68rem;
-  line-height: 1.3;
-  color: var(--b-soft);
-}
-.c-motif {
-  position: absolute;
-  left: 50%;
-  top: 41%;
-  width: 4.4rem;
-  height: 4.4rem;
-  margin-left: -2.2rem;
-  color: var(--b-mark);
-  opacity: 0.85;
-}
-.c-promise {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  overflow: hidden;
-  margin-top: auto;
-  font-size: 0.64rem;
-  line-height: 1.42;
+  max-width: 92%;
+  margin-top: calc(var(--H) * 0.02);
+  font-size: max(0.6875rem, calc(var(--H) * 0.0225));
+  line-height: 1.36;
   color: var(--b-soft);
 }
 .c-foot {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-top: 0.5rem;
-  padding-top: 0.45rem;
-  font-size: 0.58rem;
-  font-weight: 650;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--b-ink);
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
-}
-/* A locked book has no picture: its cloth, its title, and a thin padlock where the picture would be. */
-.c-lock {
   position: absolute;
-  left: 50%;
-  top: 43%;
-  display: grid;
-  place-items: center;
-  width: 3.2rem;
-  height: 3.2rem;
-  margin-left: -1.6rem;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 50%;
-  color: var(--b-ink);
-  opacity: 0.85;
+  left: calc(var(--H) * 0.067);
+  right: calc(var(--H) * 0.067);
+  bottom: calc(var(--H) * 0.05);
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5em;
+  padding-top: calc(var(--H) * 0.014);
+  border-top: 1px solid rgba(255, 255, 255, 0.24);
+  font-size: max(0.5625rem, calc(var(--H) * 0.0185));
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
-.c-lock .lock {
-  width: 1.3rem;
-  height: 1.3rem;
-  stroke-width: 1.5;
+
+/* The spine: a flat colour, the number on a band at the head, the title down
+   it, the lecture count at the foot. */
+.spine {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: calc(var(--H) * var(--t, 0.15));
+  height: var(--H);
+  overflow: hidden;
+  color: var(--b-ink);
+  background:
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.22),
+      rgba(0, 0, 0, 0) 16%,
+      rgba(255, 255, 255, 0.07) 50%,
+      rgba(0, 0, 0, 0) 84%,
+      rgba(0, 0, 0, 0.26)
+    ),
+    var(--b-color);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.18);
+}
+.s-band {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: calc(var(--H) * 0.12);
+  background: var(--b-accent);
+  color: var(--b-band-ink);
+  font-size: max(0.6875rem, calc(var(--H) * 0.03));
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.s-title {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  max-height: 100%;
+  padding: calc(var(--H) * 0.014) 0;
+  overflow: hidden;
+  writing-mode: vertical-rl;
+  font-size: calc(var(--H) * var(--b-fs, 0.038));
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.005em;
+}
+.s-title[data-cols="1"] {
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .spine .lock {
-  width: 0.7rem;
-  height: 0.7rem;
-  color: inherit;
+  flex: none;
+  width: calc(var(--H) * 0.026);
+  height: calc(var(--H) * 0.026);
+  margin-bottom: calc(var(--H) * 0.01);
+}
+.s-foot {
+  flex: none;
+  writing-mode: vertical-rl;
+  padding-bottom: calc(var(--H) * 0.03);
+  font-size: max(0.5625rem, calc(var(--H) * 0.0185));
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--b-soft);
 }
 
 /* ---------- The text of a course: a card, or the panel ---------- */
@@ -422,7 +394,6 @@
 }
 .d-title {
   margin: 0.3rem 0 0;
-  font-family: var(--font-text);
   font-size: 1.55rem;
   line-height: 1.15;
   letter-spacing: -0.015em;
@@ -441,14 +412,14 @@
   height: 2.5rem;
   margin-top: 1rem;
   padding: 0 1.2rem;
-  border-radius: 0.4rem;
-  background: var(--accent);
-  color: var(--on-accent);
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg);
   font-weight: 650;
   text-decoration: none;
 }
 .d-open:hover {
-  filter: brightness(1.08);
+  opacity: 0.88;
 }
 .d-locked {
   margin-top: 0.9rem;
@@ -525,257 +496,63 @@
 }
 
 /* ============================================================
-   With JavaScript: books on a shelf
+   With JavaScript: books on a tape
    ============================================================ */
 
 .js .bookshelf {
-  --b-d: 11.5rem;
-  --k: 1;
-  --plank: 1.15rem;
-  /* How far a book that is pulled out comes toward the reader (in front of the
-     shelf's face) and how far it is lifted, so its lower edge clears the board. */
-  --reach: 4.2rem;
-  --lift: 0.7rem;
-  /* The books' eye: far enough for a gentle foreshortening, and the same in rem
-     so the look does not change with the size of the type. */
-  --eye: 64rem;
+  /* About half the window's height: the row is the main thing under the heading. */
+  --H: clamp(21rem, 54svh, 46rem);
+  --duration: 0.7s;
+  --gap: 0.03;
 }
-/* The shelves stand side by side while the page is wide enough, as a wall of
-   cases; one with too many books to fit in half the page takes the whole row,
-   and so does the panel, which opens under the row of the book that opened it. */
-.js .shelves {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 2.25rem;
-  margin-top: 2.25rem;
-}
-/* Below the width that shows bookcases, the shelves are cases of their own. */
-.js .bookcase {
-  display: contents;
-}
-.js .bookcase[hidden] {
+.js .row {
   display: none;
 }
-.js .shelf {
-  /* As wide as its books, never wider than the page; a wide one is the page. */
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 100%;
-  margin-top: 0;
-}
-.js .shelf[data-wide] {
-  flex-basis: 100%;
-}
-.js .shelf[hidden] {
-  display: none;
-}
-
-/* The case: a back wall lit from above and a little in front, with the light
-   falling off toward the sides and the foot; an upright down each side and a
-   top board, each throwing a soft shadow on the wall; and a plank. */
-.js .case,
-.js .bookcase {
+.js .stage {
   position: relative;
-  --strip: calc(var(--plank) * 0.28);
-  background:
-    radial-gradient(
-      90% 70% at 50% 38%,
-      var(--wall-light),
-      rgba(255, 255, 255, 0) 72%
-    ),
-    linear-gradient(180deg, var(--wall-top), var(--wall-mid) 30%, var(--wall-mid) 58%, var(--wall-low));
+  height: calc(var(--H) * 1.3);
+  margin-top: 0.5rem;
+  overflow-x: clip;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.js .case::before,
-.js .bookcase::before {
-  /* The uprights and the top board. */
-  content: "";
+/* The eye: one for the whole row, level with the middle of the books, over the
+   middle of the page; so books on the left show their right sides and books on
+   the right their left, as on a shelf seen from where you stand. */
+.tape {
   position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    /* top board: its face, its lit lower edge, the shadow it throws */
-    linear-gradient(180deg, rgba(0, 0, 0, 0.26), rgba(0, 0, 0, 0) 0.3rem) left top / 100% 1.1rem no-repeat,
-    linear-gradient(180deg, var(--wood-edge), rgba(255, 255, 255, 0) 1px) left 0.98rem / 100% 2px no-repeat,
-    var(--tex-grain-h) left top / 520px 1.1rem repeat-x,
-    linear-gradient(180deg, var(--upright-a), var(--upright-b)) left top / 100% 1.1rem no-repeat,
-    linear-gradient(180deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0)) left 1.1rem / 100% 2.6rem no-repeat,
-    /* left upright */
-    linear-gradient(90deg, rgba(255, 255, 255, 0) 0, var(--wood-edge) 0, rgba(255, 255, 255, 0) 1px) 0.94rem 0 / 2px 100% no-repeat,
-    var(--tex-grain-v) left top / 1rem 520px repeat-y,
-    linear-gradient(90deg, var(--upright-a), var(--upright-b)) left top / 1rem 100% no-repeat,
-    linear-gradient(90deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0)) 1rem 0 / 2.4rem 100% no-repeat,
-    /* right upright */
-    linear-gradient(270deg, rgba(255, 255, 255, 0) 0, var(--wood-edge) 0, rgba(255, 255, 255, 0) 1px) calc(100% - 0.94rem) 0 / 2px 100% no-repeat,
-    var(--tex-grain-v) right top / 1rem 520px repeat-y,
-    linear-gradient(270deg, var(--upright-a), var(--upright-b)) right top / 1rem 100% no-repeat,
-    linear-gradient(270deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0)) calc(100% - 1rem) 0 / 2.4rem 100% no-repeat;
-}
-.js .case::after,
-.js .bookcase::after {
-  /* The shadow the board throws on the page below it. */
-  content: "";
-  position: absolute;
-  inset: 100% 0.4rem auto;
-  height: 1.3rem;
-  background: radial-gradient(
-    60% 100% at 50% 0,
-    var(--wood-under),
-    rgba(0, 0, 0, 0) 100%
-  );
-  opacity: 0.6;
-  pointer-events: none;
-}
-/* The pseudo-elements of a display: contents case would still be drawn. */
-.js .bookcase::before,
-.js .bookcase::after {
-  content: none;
-}
-.js .bookshelf .row,
-.js .bookcase {
-  /* The plank. Its top surface, a lit edge, then its lip, with the grain of the
-     wood over both; the books stand on the top surface. The board does not
-     scroll: the books slide along it. */
-  --plank-bg:
-    linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0) calc(var(--strip) - 1px),
-        var(--wood-edge) calc(var(--strip) - 1px),
-        var(--wood-edge) calc(var(--strip) + 1px),
-        rgba(255, 255, 255, 0) calc(var(--strip) + 1px)
-      )
-      left bottom / 100% var(--plank) no-repeat,
-    linear-gradient(
-        180deg,
-        rgba(0, 0, 0, 0) calc(100% - 2px),
-        rgba(0, 0, 0, 0.5) calc(100% - 2px)
-      )
-      left bottom / 100% var(--plank) no-repeat,
-    var(--tex-grain-l) 37px bottom / 640px var(--plank) repeat-x,
-    var(--tex-grain-h) left bottom / 520px var(--plank) repeat-x,
-    linear-gradient(
-        180deg,
-        var(--wood-top-a) 0,
-        var(--wood-top-b) var(--strip),
-        var(--wood-lip-a) var(--strip),
-        var(--wood-lip-b) 62%,
-        var(--wood-lip-c) 100%
-      )
-      left bottom / 100% var(--plank) no-repeat;
-}
-.js .bookshelf .row {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  /* Room at both ends for a cover to swing out, so that nothing moves when
-     the script runs; a row with more books than room scrolls inside it. */
-  padding: 2.8rem calc(var(--b-d) * 0.66 + 0.3rem) var(--plank);
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-  background: var(--plank-bg);
-}
-.js .row::-webkit-scrollbar {
-  display: none;
-}
-.js .row::after {
-  /* A bookend: a block of the same wood, so the books stand and the end of the row is a thing. */
-  content: "";
-  flex: none;
-  align-self: flex-end;
-  width: 0.85rem;
-  height: calc(6.4rem * var(--k));
-  margin: 0 0 calc(var(--strip) * -0.4 - 0.1rem) 0.55rem;
-  border-radius: 0.2rem 0.2rem 0 0;
-  background:
-    linear-gradient(90deg, var(--wood-edge) 0, rgba(255, 255, 255, 0) 2px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.32)),
-    var(--tex-grain-v) 0 0 / 0.85rem 520px repeat-y,
-    linear-gradient(90deg, var(--upright-a), var(--upright-b));
-  box-shadow: 0.25rem 0 0.4rem -0.1rem rgba(0, 0, 0, 0.5);
+  left: 50%;
+  top: calc(var(--H) * 0.64);
+  width: 0;
+  height: 0;
+  perspective: calc(var(--H) * 2.77);
 }
 
-/* A book's slot never moves: it is as wide as the spine and as tall as the
-   book, and stands on the board. The button inside it steps aside for a book
-   that is pulled out; what turns and slides out is `.vol`, inside the button. */
-.js .book {
-  --t: calc(var(--b-t) * var(--k));
-  --h: calc(var(--b-h) * var(--k));
-  position: relative;
-  display: block;
-  flex: none;
-  width: var(--t);
-  height: var(--h);
-  /* Stands on the top face of the board, not at its front edge. */
-  margin-bottom: calc(var(--strip) * -0.55);
-  /* Above its neighbours while it is pulled out, and for a moment after it is
-     put back, so it does not slip behind the next book while it turns. */
-  z-index: 1;
-  transition: z-index 0s linear 0.7s;
-  /* The slot is only a place: the pointer finds what is drawn, which is the
-     button (and what is turned inside it), wherever it has stepped to. */
-  pointer-events: none;
-}
-.js .book::before {
-  /* The book's footing: a contact shadow on the board, darkest at the spine. */
-  content: "";
+/* The target over the cover of the book in front (see index.js). */
+.front {
   position: absolute;
-  left: -5%;
-  right: -5%;
-  bottom: calc(var(--strip) * -0.45);
-  height: calc(var(--strip) * 0.95);
-  background:
-    radial-gradient(60% 55% at 50% 30%, var(--book-shadow), rgba(0, 0, 0, 0) 100%);
-  pointer-events: none;
-  transition: opacity 0.5s var(--spring);
-}
-.js .book::after {
-  /* What it throws when it is pulled out: it slides toward the reader along
-     the board, so the shadow grows and softens and comes forward with it. */
-  content: "";
-  z-index: -1;
-  position: absolute;
-  left: calc(50% - var(--b-d) * 0.62);
-  width: calc(var(--b-d) * 1.24);
-  bottom: calc(var(--strip) * -0.5);
-  height: calc(var(--strip) * 1.5);
-  background: radial-gradient(
-    50% 50% at 50% 45%,
-    var(--book-shadow),
-    rgba(0, 0, 0, 0) 100%
-  );
-  opacity: 0;
-  transform: translate3d(0, 0, 0) scale(0.4, 0.5);
-  transform-origin: 50% 40%;
-  pointer-events: none;
-  transition:
-    opacity 0.55s var(--spring),
-    transform 0.8s var(--spring);
-}
-.js .book[hidden] {
-  display: none;
-}
-.js .book.is-in {
-  animation: book-in 0.6s both var(--spring);
-}
-@keyframes book-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.6rem);
-  }
-}
-.js .detail {
-  display: none;
+  left: 50%;
+  top: calc(var(--H) * 0.1);
+  z-index: 101;
+  width: calc(var(--H) * 0.78);
+  height: calc(var(--H) * 1.06);
+  transform: translateX(-50%);
+  cursor: pointer;
 }
 
-.hit {
-  pointer-events: auto;
-  display: block;
+/* A book is a box as deep as its cover is wide, centred on the middle of the
+   tape's stage; its spine is the face towards the reader, its cover the face
+   on the right, hinged at the spine's edge. A book's slot is set by `--x`
+   (a fraction of the height); the book in front turns about its middle until
+   its cover faces the reader, comes forward and tilts a little. */
+.tb {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  left: 0;
+  top: 0;
+  display: block;
+  width: 0;
+  height: 0;
   margin: 0;
   padding: 0;
   border: 0;
@@ -784,486 +561,175 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  /* The eye is level with the book, in front of its middle. */
-  perspective: var(--eye);
-  perspective-origin: 50% 50%;
-}
-.hit:focus-visible {
-  outline: none;
-}
-.hit::before {
-  /* What a book that is out throws on the back of the case: the cover's shape,
-     soft, a little down and to the right. It grows and darkens as the book comes out. */
-  content: "";
-  position: absolute;
-  left: calc(50% - var(--b-d) * 0.5);
-  width: var(--b-d);
-  top: 4%;
-  height: 92%;
-  border-radius: 0.3rem;
-  background: var(--book-shadow);
-  filter: blur(1rem);
-  opacity: 0;
-  transform: translate3d(0.3rem, 0.5rem, 0) scale(0.86);
-  pointer-events: none;
-}
-
-.js .vol {
-  position: absolute;
-  inset: 0;
-  width: auto;
-  height: auto;
   transform-style: preserve-3d;
-  /* The book turns about its own middle: the middle of the spine, half its depth back. */
-  transform-origin: 50% 50% calc(var(--b-d) * -0.5);
+  -webkit-tap-highlight-color: transparent;
 }
-.js .vol .spine,
-.js .vol .edge,
-.js .vol .top {
-  display: flex;
+/* Where a book stands is set by the script as its `transform` (see index.js); a book
+   under the pointer is lifted with `translate`, a separate property, so the two compose. */
+.tb:not(.is-selected):hover {
+  translate: 0 calc(var(--H) * -0.045);
 }
-.js .face {
-  position: absolute;
-  backface-visibility: hidden;
-}
-
-/* Spine: cloth with a little grain, a round that catches the light at the
-   left edge, gilt bands, and a sheen that moves a little when the book turns. */
-.js .spine {
-  inset: 0;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.85rem 0 0.7rem;
-  overflow: hidden;
-  color: var(--b-ink);
-  background:
-    /* the gilt: a double rule near each end */
-    linear-gradient(180deg, var(--b-accent) 0 0) 0 0.5rem / 100% 1px no-repeat,
-    linear-gradient(180deg, var(--b-accent) 0 0) 0 0.68rem / 100% 1px no-repeat,
-    linear-gradient(180deg, var(--b-accent) 0 0) 0 calc(100% - 0.5rem) / 100% 1px no-repeat,
-    linear-gradient(180deg, var(--b-accent) 0 0) 0 calc(100% - 0.68rem) / 100% 1px no-repeat,
-    /* the round of the spine: light at the left edge, falling away to a shaded right */
-    linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0.24) 0,
-      rgba(255, 255, 255, 0.08) 12%,
-      rgba(255, 255, 255, 0) 38%,
-      rgba(0, 0, 0, 0) 62%,
-      rgba(0, 0, 0, 0.34)
-    ),
-    /* the foot, in the shade of the board; the head, lit */
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 12%, rgba(0, 0, 0, 0) 80%, rgba(0, 0, 0, 0.28)),
-    var(--tex-cloth) 0 0 / 64px 64px,
-    var(--b-color);
-  border-radius: 0.12rem 0.12rem 0 0;
-  box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.28),
-    inset -1px 0 0 rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
-}
-.js .spine::before {
-  /* The sheen: a soft band of light that slides across as the book turns. */
-  content: "";
-  position: absolute;
-  inset: 0 -90%;
-  background: linear-gradient(
-    100deg,
-    rgba(255, 244, 220, 0) 38%,
-    rgba(255, 244, 220, 0.2) 50%,
-    rgba(255, 244, 220, 0) 62%
-  );
-  transform: translateX(-30%);
-  pointer-events: none;
-  transition: transform 1s var(--spring-soft);
-}
-.js .spine::after,
-.js .hit::after {
-  /* The shade of a book that is pulled out, on the spines beside it: one
-     overlay for each side, always drawn the same, and only its opacity changes,
-     so putting it on or off repaints nothing under it. */
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 0.12rem 0.12rem 0 0;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.6s var(--spring);
-}
-.js .spine::after {
-  background: linear-gradient(270deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0) 90%);
-}
-.js .hit::after {
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0) 90%);
-}
-.js .book[data-side="before"] .spine::after,
-.js .book[data-side="after"] .hit::after {
-  opacity: 1;
-}
-.s-motif {
-  flex: none;
-  width: min(1.5rem, calc(var(--t) - 1rem));
-  height: auto;
-  margin-top: 0.4rem;
-  color: var(--b-mark);
-}
-/* The spine's mark: the part of the cover art the course names, nothing else of it, drawn finer. */
-.s-art {
-  position: relative;
-  flex: none;
-  display: block;
-  width: min(calc(var(--t) - 1.1rem), 1.9rem, calc(2.6rem * var(--mw) / var(--mh)));
-  aspect-ratio: var(--mw) / var(--mh);
-  margin-top: 0.35rem;
-  overflow: hidden;
-}
-.s-art svg {
-  position: absolute;
-  display: block;
-  width: calc(240 / var(--mw) * 100%);
-  height: calc(320 / var(--mh) * 100%);
-  left: calc(var(--mx) / var(--mw) * -100%);
-  top: calc(var(--my) / var(--mh) * -100%);
-  overflow: hidden;
-}
-.s-art svg > g > :not(.m) {
+.tb.is-gone {
+  /* Off the screen at both ends of its move: no layers, nothing drawn. */
   display: none;
 }
-.s-art svg * {
-  stroke-width: 1.6px;
-  vector-effect: non-scaling-stroke;
+.tb .face {
+  position: absolute;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
-.s-title {
-  flex: 1 1 0;
-  min-height: 0;
-  max-height: 100%;
-  overflow: hidden;
-  writing-mode: vertical-rl;
-  font-family: var(--font-text);
-  font-size: calc(var(--b-fs) * var(--k));
-  font-weight: 650;
-  line-height: 1.1;
-  letter-spacing: 0.012em;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+.tb .spine {
+  left: calc(var(--H) * var(--t) * -0.5);
+  top: calc(var(--H) * -0.5);
+  transform: translateZ(calc(var(--H) * 0.375));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.18),
+    0 calc(var(--H) * 0.02) calc(var(--H) * 0.05) calc(var(--H) * -0.02) var(--shadow);
 }
-.s-title[data-lines="1"] {
-  white-space: nowrap;
-  text-overflow: ellipsis;
+.tb .cover {
+  left: calc(var(--H) * -0.375);
+  top: calc(var(--H) * -0.5);
+  transform: translateX(calc(var(--H) * var(--t) * 0.5)) rotateY(90deg);
+  box-shadow: 0 calc(var(--H) * 0.038) calc(var(--H) * 0.076) calc(var(--H) * -0.035) var(--shadow);
 }
-.s-title:not([data-lines="1"]) {
-  text-wrap: balance;
-}
-.s-count {
-  flex: none;
-  min-width: 1.35rem;
-  margin-bottom: 0.55rem;
-  padding: 0.18rem 0 0;
-  border-top: 1px solid var(--b-accent);
-  font-size: 0.66rem;
-  font-weight: 650;
-  line-height: 1.2;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.92;
-}
-
-/* The front cover is the right face, hinged on the spine's right edge. */
-.js .vol .cover {
-  inset: auto;
-  top: 0;
-  left: 100%;
-  width: var(--b-d);
-  height: 100%;
-  transform-origin: 0 50%;
-  transform: rotateY(90deg);
-}
-/* The block of pages: its fore-edge, the far face, and the head you see
-   from above. The boards of the cover frame the leaves; the leaves are lines. */
-.js .edge {
+/* Shade: the cover of the book in front is lit; every other cover is turned away. One overlay,
+   and only its opacity moves. */
+.tb .cover::after {
+  content: "";
+  position: absolute;
   inset: 0;
-  transform: translateZ(calc(var(--b-d) * -1)) rotateY(180deg);
-  background:
-    linear-gradient(90deg, var(--b-color) 0 0.16rem, rgba(0, 0, 0, 0) 0.16rem calc(100% - 0.16rem), var(--b-color) calc(100% - 0.16rem)),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.12)),
-    repeating-linear-gradient(90deg, #f1ecdf 0 2px, #d3ccb8 2px 3px);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16);
+  background: #000;
+  opacity: 0.5;
+  pointer-events: none;
 }
-.js .top {
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: var(--b-d);
-  transform-origin: 50% 0;
-  transform: translateZ(calc(var(--b-d) * -1)) rotateX(90deg);
-  background:
-    linear-gradient(90deg, var(--b-color) 0 0.16rem, rgba(0, 0, 0, 0) 0.16rem calc(100% - 0.16rem), var(--b-color) calc(100% - 0.16rem)),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.1)),
-    repeating-linear-gradient(90deg, #f4f0e6 0 2px, #d3ccb8 2px 3px);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16);
+.tb.is-selected .cover::after {
+  opacity: 0;
+}
+/* The keyboard has the name of the book in front: its cover is ringed. */
+.is-keyboard .tb.is-selected .cover {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
 }
 
-/* Pulled out (pointer, keyboard) and opened: a book slides out of the row, lifts
-   a little and turns its cover to you, and the books beside it step aside. The
-   script marks them: .is-pulled, .is-open, and data-side="before" or "after" on
-   the others, and says in `--p` how far a neighbour has to go. */
 @media (prefers-reduced-motion: no-preference) {
-  .js .hit {
-    /* A neighbour steps aside as a whole, eye and all: its own perspective
-       goes with it, so it is not seen from the side when it has moved. */
-    transition: translate 0.8s var(--spring);
-  }
-  .js .vol {
-    /* Three moves, each with its own time: the slide, the lean and the turn. */
+  .tb {
     transition:
-      translate 0.8s var(--spring),
-      rotate 0.75s var(--spring),
-      transform 0.9s var(--spring-soft);
+      transform var(--duration) var(--spring),
+      translate 0.45s var(--spring);
   }
-  .js .book[data-side="before"] .hit {
-    translate: calc(var(--p, 0px) * -1) 0 0;
+  .tb.is-still {
+    transition: none;
   }
-  .js .book[data-side="after"] .hit {
-    translate: var(--p, 0px) 0 0;
-  }
-  .js .hit::before {
-    transition:
-      opacity 0.6s var(--spring),
-      transform 0.9s var(--spring);
-  }
-  .js .book.is-pulled .hit::before,
-  .js .book.is-open .hit::before {
-    opacity: 1;
-    transform: translate3d(0.7rem, 1.1rem, 0) scale(1.02);
-  }
-  .js .book.is-open .hit::before {
-    transform: translate3d(1rem, 1.6rem, 0) scale(1.06);
-  }
-  .js .book.is-pulled,
-  .js .book.is-open {
-    transition-delay: 0s;
-  }
-  .js .book.is-pulled {
-    z-index: 3;
-  }
-  .js .book.is-open {
-    z-index: 5;
-  }
-  .js .book.is-pulled .vol {
-    /* Slid out so that the cover's plane is `--reach` in front of the board,
-       lifted, leaned back a little so its head shows, and turned a little past square. */
-    translate: 0 calc(var(--lift) * -1) calc(var(--b-d) * 0.5 - var(--t) * 0.5 + var(--reach));
-    rotate: 1 0 0 -5deg;
-    transform: rotateY(-97deg);
-  }
-  .js .book.is-open .vol {
-    translate: 0 calc(var(--lift) * -1.35)
-      calc(var(--b-d) * 0.5 - var(--t) * 0.5 + var(--reach) * 1.7);
-    rotate: 1 0 0 -4deg;
-    transform: rotateY(-94deg);
-  }
-  .js .book.is-pulled .spine::before,
-  .js .book.is-open .spine::before {
-    transform: translateX(30%);
-  }
-  .js .book.is-pulled::before,
-  .js .book.is-open::before {
-    opacity: 0.25;
-  }
-  .js .book.is-pulled::after,
-  .js .book.is-open::after {
-    opacity: 1;
-    transform: translate3d(0, calc(var(--strip) * 0.9), 0) scale(1, 1);
-  }
-  .js .book.is-open::after {
-    transform: translate3d(0, calc(var(--strip) * 1.3), 0) scale(1.1, 1.25);
+  .tb .cover::after {
+    transition: opacity var(--duration) var(--spring);
   }
 }
 
-/* Focus: a ring on the cover when it is turned out. */
-.js .book.is-focus .vol .cover {
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 0 0 2px var(--wall-mid),
-    0 0 0 4px var(--focus);
-}
-.js .book.is-open .vol .cover {
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-    0 0 0 1px var(--wall-mid),
-    0 0 0 2px var(--b-accent);
-}
+/* ---------- The two round buttons ---------- */
 
-/* Reduced motion: nothing tilts or slides; the book is lit, and ringed for the keyboard. */
-@media (prefers-reduced-motion: reduce) {
-  .js .vol {
-    transform: none;
-  }
-  .js .spine {
-    transition: filter 0.15s linear;
-  }
-  .js .book.is-pulled .spine {
-    filter: brightness(1.22);
-  }
-  .js .book.is-focus .spine {
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-      0 0 0 2px var(--focus);
-  }
-  .js .book.is-open .spine {
-    filter: brightness(1.22);
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-      0 0 0 3px var(--b-accent);
-  }
-  .js .vol .cover,
-  .js .vol .edge,
-  .js .vol .top,
-  .js .spine::before {
-    display: none;
-  }
-  .js .book.is-in {
-    animation: none;
-  }
+.arrows {
+  display: none;
+}
+.js .arrows:not([hidden]) {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: calc(var(--H) * 0.01);
+}
+.round {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.round:hover {
+  background: var(--surface);
+}
+.round:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.round svg {
+  width: 1.125rem;
+  height: 0.625rem;
 }
 
-/* A locked book looks like the others, a little quieter. */
-.js .book[data-locked] .s-title {
-  opacity: 0.88;
+/* ---------- The ring that follows the pointer over the books ---------- */
+
+.ring {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: -2.25rem 0 0 -2.25rem;
+  border: 1.5px solid var(--fg);
+  border-radius: 50%;
+  color: var(--fg);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 0.2s,
+    background-color 0.2s,
+    color 0.2s;
+}
+.ring::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ring.is-over {
+  opacity: 1;
+}
+.ring.is-open {
+  background: var(--fg);
+  color: var(--bg);
+}
+.ring.is-open::before {
+  content: "Open";
+  width: auto;
+  height: auto;
+  background: none;
+  border-radius: 0;
+}
+.js.has-ring .stage {
+  cursor: none;
+}
+.js.has-ring .stage .tb,
+.js.has-ring .stage .front {
+  cursor: none;
 }
 
-/* ---------- Bookcases ---------- */
+/* ---------- The panel: the lectures of the book in front ---------- */
 
-/* On a wide screen the shelves are packed into bookcases, as many to a case as
-   fit the page, each shelf a group of books with a bookend after it and its name
-   lettered into the board below. A case is as wide as its books. */
-@media (min-width: 76rem) {
-  .js .shelves {
-    display: block;
-  }
-  .js .bookcase {
-    --k: var(--kc, 1);
-    --b-d: calc(11.5rem + (var(--k) - 1) * 7.5rem);
-    --plank: 2.8rem;
-    display: flex;
-    align-items: flex-end;
-    width: 100%;
-    justify-content: center;
-    max-width: 100%;
-    margin-top: 2.25rem;
-    /* Room at both ends for the books to slide when one is pulled out. */
-    padding: 3.7rem calc(var(--b-d) * 0.66 + 0.3rem) var(--plank);
-    background:
-      var(--plank-bg),
-      radial-gradient(90% 70% at 50% 38%, var(--wall-light), rgba(255, 255, 255, 0) 72%),
-      linear-gradient(180deg, var(--wall-top), var(--wall-mid) 30%, var(--wall-mid) 58%, var(--wall-low));
-    border-radius: 0.2rem 0.2rem 0 0;
-  }
-  .js .bookcase[hidden],
-  .js .bookcase .shelf[hidden] {
-    display: none;
-  }
-  .js .bookcase::before,
-  .js .bookcase::after {
-    content: "";
-  }
-  .js .bookcase .shelf {
-    display: flex;
-    flex: none;
-    flex-direction: column;
-    margin: 0;
-  }
-  .js .bookcase .shelf + .shelf:not([hidden]) {
-    margin-left: 1.6rem;
-  }
-  .js .bookcase .case {
-    background: none;
-  }
-  .js .bookcase .case::before,
-  .js .bookcase .case::after {
-    content: none;
-  }
-  .js .bookcase .row {
-    padding: 0;
-    overflow: visible;
-    background: none;
-  }
-  /* A shelf wider than the page scrolls inside its case. */
-  .js .bookcase[data-scrolls] {
-    padding-inline: 0;
-  }
-  .js .bookcase[data-scrolls] .shelf {
-    min-width: 0;
-    max-width: 100%;
-  }
-  .js .bookcase[data-scrolls] .row {
-    padding-inline: calc(var(--b-d) * 0.66 + 0.3rem);
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-  /* The name of the group, lettered into the board it stands on: the heading
-     takes no height of its own and hangs below the books, over the board. */
-  .js .bookcase .shelf-head {
-    order: 2;
-    display: flex;
-    height: 0;
-    padding: 0;
-    overflow: visible;
-  }
-  .js .bookcase[data-scrolls] .shelf-head {
-    padding-inline: 1.6rem;
-  }
-  .js .bookcase .shelf-head h2 {
-    display: flex;
-    align-items: center;
-    height: calc(var(--plank) - var(--strip) - 0.1rem);
-    margin-top: var(--strip);
-    font-size: 0.74rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--engrave);
-    opacity: 0.8;
-    text-shadow: 0 1px 0 var(--engrave-edge);
-    white-space: nowrap;
-  }
-  .js .bookcase .shelf-count,
-  .js .bookcase:not([data-scrolls]) .shelf-arrows {
-    display: none;
-  }
-}
-
-/* ---------- The panel ---------- */
-
-/* It is in the page at its full height from the first frame, so nothing is
-   measured while it arrives; what arrives is the panel itself: it settles down
-   out of the case, in the same gesture as the book coming forward. */
 .panel {
   scroll-margin-block: 1.5rem;
-  flex: 0 0 100%;
-  margin-top: 1.1rem;
+  margin-top: 1.5rem;
   outline: none;
-  opacity: 0;
-  transform: translate3d(0, -1.1rem, 0);
-  transition:
-    opacity 0.7s var(--spring-soft),
-    transform 0.9s var(--spring);
 }
 .panel[hidden] {
   display: none;
 }
-.panel.is-open {
-  opacity: 1;
-  transform: none;
-}
-.panel-clip {
-  min-height: 0;
-}
 .panel-inner {
   position: relative;
-  padding: 1.6rem clamp(3.4rem, 5vw, 4rem) 1.5rem clamp(1rem, 3vw, 2rem);
+  padding: 1.75rem clamp(3.4rem, 5vw, 4rem) 1.6rem clamp(1.25rem, 3vw, 2.25rem);
   border: 1px solid var(--line);
-  border-top: 3px solid var(--b-accent, var(--accent));
-  border-radius: 0.4rem;
+  border-radius: 1.25rem;
   background: var(--surface);
 }
 .panel:focus-visible .panel-inner {
@@ -1298,45 +764,10 @@
 .panel-body .d-list a {
   padding-block: 0.5rem;
 }
-.panel-cover {
-  display: none;
-}
-.panel-cover .cover {
-  inset: 0;
-}
-@media (prefers-reduced-motion: reduce) {
-  .panel-cover {
-    display: block;
-    position: relative;
-    width: var(--b-d);
-    height: 17rem;
-    margin-bottom: 1rem;
-  }
-  .panel-cover .cover {
-    display: flex;
-    position: absolute;
-    inset: 0;
-  }
-  .panel,
-  .panel.is-open {
-    transform: none;
-    transition: none;
-  }
-  /* Cover, text and list side by side. */
-  .panel-side {
-    display: contents;
-  }
-  .panel-body {
-    grid-template-columns: var(--b-d) minmax(14rem, 20rem) minmax(0, 1fr);
-  }
-  .panel-cover {
-    margin-bottom: 0;
-  }
-}
 .panel-close {
   position: absolute;
-  top: 0.7rem;
-  right: 0.7rem;
+  top: 0.9rem;
+  right: 0.9rem;
   display: grid;
   place-items: center;
   width: 2.25rem;
@@ -1346,6 +777,7 @@
   border-radius: 50%;
   background: var(--bg);
   color: var(--fg);
+  cursor: pointer;
 }
 .panel-close:hover {
   border-color: var(--border);
@@ -1353,6 +785,17 @@
 .panel-close svg {
   width: 1rem;
   height: 1rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .panel {
+    animation: panel-in 0.5s var(--spring) both;
+  }
+}
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.6rem);
+  }
 }
 
 /* ---------- Smaller screens ---------- */
@@ -1362,28 +805,19 @@
     grid-template-columns: 1fr;
   }
   .js .bookshelf {
-    --b-d: 10rem;
-    --plank: 1rem;
-    --reach: 3.4rem;
+    --H: clamp(19rem, 46svh, 30rem);
   }
-  .js .shelf {
-    flex-basis: 100%;
+  .js .filters {
+    max-width: calc(100% - 1.5rem);
+    overflow-x: auto;
+    scrollbar-width: none;
   }
-  .js .bookshelf .row {
-    scroll-snap-type: x proximity;
-  }
-  .js .book {
-    scroll-snap-align: center;
-  }
-  .c-title {
-    font-size: 1.15rem;
+  .pill {
+    flex: none;
   }
   .panel-body,
-  .panel-body:has(.panel-cover) {
+  .panel-body:has(.panel-side) {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .panel-side {
-    display: block;
   }
   .panel-body .d-list {
     column-width: auto;
@@ -1391,23 +825,12 @@
   .panel-inner {
     padding: 3.4rem 1rem 1.25rem;
   }
-  .js .filters {
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .filter-option {
-    flex: none;
-  }
-  .intro {
-    gap: 0.5rem;
-  }
 }
 
 @media print {
   .filters,
-  .shelf-arrows,
+  .arrows,
+  .ring,
   .panel {
     display: none;
   }

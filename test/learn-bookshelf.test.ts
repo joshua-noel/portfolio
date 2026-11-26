@@ -1,40 +1,25 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { forViewer, loadCatalog, type Catalog } from "../src/lib/learn/catalog.ts";
-import {
-  buildShelves,
-  CASE_MAX_REM,
-  caseWidth,
-  markOf,
-  packCases,
-  standingWidth,
-  WIDE_SHELF_REM,
-  type ShelfView,
-} from "../src/lib/learn/bookshelf.ts";
-import {
-  ALL,
-  filterFromKey,
-  filterPills,
-  filterShelves,
-  matchesFilter,
-} from "../src/lib/learn/bookshelf-filter.ts";
+import { buildShelves } from "../src/lib/learn/bookshelf.ts";
+import { filterPills, litPill } from "../src/lib/learn/bookshelf-filter.ts";
 import {
   contrast,
   coverStyle,
   coverTitleSize,
-  heightRem,
   mix,
   NOMINAL_LECTURE_MINUTES,
+  numberOf,
+  SPINE_ROOM,
   spineTitle,
   splitTitle,
   THICKNESS,
-  thicknessRem,
+  thickness,
 } from "../src/lib/learn/cover.ts";
 import { MOTIFS, MOTIF_NAMES, resolveMotif } from "../src/lib/learn/motifs.ts";
 import { readCover, SHELVES } from "../src/lib/learn/lecture.ts";
-import { coverSvg, DRAWN } from "../tools/learn-covers/generate.mjs";
+import { coverBox, coverSvg, DRAWN, FRAME, SW } from "../tools/learn-covers/generate.mjs";
 import {
-  coverArt,
   SECRET,
   sources,
   visibilityLibrary,
@@ -179,54 +164,43 @@ test("a title with a colon is a title and a subtitle", () => {
 // ---------------------------------------------------------------------------
 // Thickness and type
 
-test("thickness grows with reading time inside its limits", () => {
-  assert.equal(thicknessRem(0), THICKNESS.min);
-  assert.equal(thicknessRem(1e6), THICKNESS.max);
-  assert.equal(thicknessRem(-5), THICKNESS.min);
+test("thickness, as a fraction of the height, grows with reading time inside its limits", () => {
+  assert.equal(thickness(0), THICKNESS.min);
+  assert.equal(thickness(1e6), THICKNESS.max);
+  assert.equal(thickness(-5), THICKNESS.min);
   let last = 0;
-  for (let minutes = 0; minutes <= 600; minutes += 10) {
-    const t = thicknessRem(minutes);
+  for (let minutes = 0; minutes <= 900; minutes += 10) {
+    const t = thickness(minutes);
     assert.ok(t >= last, `${minutes} minutes`);
     assert.ok(t >= THICKNESS.min && t <= THICKNESS.max);
     last = t;
   }
-  // Between the limits it is proportional: twice the minutes, twice the spine.
-  const a = thicknessRem(180);
-  const b = thicknessRem(270);
-  assert.ok(a > THICKNESS.min && b < THICKNESS.max);
-  assert.ok(Math.abs(b / a - 1.5) < 0.01);
+  // All of a series are close to one thickness: the thickest is under 40% wider than the thinnest.
+  assert.ok(THICKNESS.max / THICKNESS.min < 1.4);
 });
 
-test("a spine's height is a small fixed variation of the base", () => {
-  assert.equal(heightRem("agent-systems"), heightRem("agent-systems"));
-  for (const slug of ["a", "agent-systems", "how-language-models-work", "x".repeat(40)]) {
-    const h = heightRem(slug, 16);
-    assert.ok(h >= 16 * 0.94 - 0.01 && h <= 16 + 0.01, `${slug}: ${h}`);
-  }
+test("a book's place on the shelf is two digits from 01", () => {
+  assert.equal(numberOf(0), "01");
+  assert.equal(numberOf(8), "09");
+  assert.equal(numberOf(29), "30");
+  assert.equal(numberOf(99), "100");
 });
 
-test("a long title is set smaller or in more lines, never wider than the spine", () => {
-  const height = 17;
-  for (const title of [
-    "Agents",
-    "Agent Systems",
-    "System Design for Working Engineers",
-    "x".repeat(80),
-  ]) {
-    for (const thickness of [THICKNESS.min, 3.5, THICKNESS.max]) {
-      const { size, lines } = spineTitle(title, thickness, height);
-      assert.ok(size >= 0.64 && size <= 1.1, `${title}: ${size}`);
-      assert.ok(lines >= 1 && lines <= 3);
-      if (size > 0.64) {
-        assert.ok(
-          size * 1.15 * lines <= thickness - 0.9 + 0.01,
-          `${title} @ ${thickness}`,
-        );
+test("a long title is set smaller or in two columns, never wider than the spine or longer than its room", () => {
+  for (const title of ["Agents", "Agent Systems", "System Design for Working Engineers", "x".repeat(80)]) {
+    for (const spine of [THICKNESS.min, 0.15, THICKNESS.max]) {
+      const { size, lines } = spineTitle(title, spine);
+      assert.ok(size >= 0.022 && size <= 0.04, `${title}: ${size}`);
+      assert.ok(lines === 1 || lines === 2);
+      if (size > 0.022) {
+        assert.ok(size * 1.12 * lines <= spine - 0.05 + 0.001, `${title} @ ${spine}`);
+        const perLine = Math.ceil(title.length / lines);
+        assert.ok(size * perLine * 0.58 <= SPINE_ROOM + 0.001, `${title}: fits its room`);
       }
     }
   }
-  assert.equal(spineTitle("Agents", 3, 17).lines, 1);
-  assert.ok(spineTitle("System Design for Working Engineers", 3, 17).lines >= 2);
+  assert.equal(spineTitle("Agents", 0.15).lines, 1);
+  assert.equal(spineTitle("System Design for Working Engineers", 0.15).lines, 2);
   assert.ok(coverTitleSize("Agents") > coverTitleSize("x".repeat(30)));
   assert.ok(coverTitleSize("x".repeat(30)) > coverTitleSize("x".repeat(50)));
 });
@@ -266,148 +240,42 @@ test("a book is made from its course: counts, links, minutes, thickness from rea
   assert.equal(book.videos, 4);
   // The fixture's lectures read 25 minutes each (the four old layers added up).
   assert.equal(book.minutes, 100);
-  assert.equal(book.thickness, thicknessRem(4 * 25));
+  assert.equal(book.thickness, thickness(4 * 25));
+  assert.equal(book.number, "01");
+  assert.equal(book.index, 0);
   assert.equal(book.locked, false);
   assert.equal(book.cover.motif, "grid");
 });
 
-test("filters: all, one shelf, has video", async () => {
-  const library_ = library();
-  // One course has no video: a lecture of it is a stub, which says nothing of video.
-  const shelves = buildShelves(await load(library_));
-  const slugs = (s: ShelfView[]): string[] =>
-    s.flatMap((x) => x.books.map((b) => b.slug));
-  assert.deepEqual(slugs(filterShelves(shelves, ALL)), slugs(shelves));
-  assert.deepEqual(slugs(filterShelves(shelves, { kind: "shelf", id: "systems" })), [
-    "a-systems",
-    "b-systems",
-  ]);
-  assert.deepEqual(filterShelves(shelves, { kind: "shelf", id: "frontier" }), []);
-  // A shelf left with no book goes; the others keep their order.
-  const some = shelves.map((s) => ({
-    ...s,
-    books: s.books.map((b) => (b.slug === "z-agents" ? { ...b, videos: 0 } : b)),
-  }));
+test("books are numbered across the shelves in the catalog's order", async () => {
+  const books = buildShelves(await load(library())).flatMap((s) => s.books);
   assert.deepEqual(
-    filterShelves(some, { kind: "video" }).map((s) => s.id),
-    ["foundations", "systems"],
-  );
-  assert.equal(matchesFilter({ shelf: "x", videos: 0 }, { kind: "video" }), false);
-  assert.equal(matchesFilter({ shelf: "x", videos: 2 }, { kind: "video" }), true);
-  assert.equal(
-    matchesFilter({ shelf: "x", videos: 0 }, { kind: "shelf", id: "x" }),
-    true,
-  );
-  assert.equal(
-    matchesFilter({ shelf: "x", videos: 0 }, { kind: "shelf", id: "y" }),
-    false,
+    books.map((b) => [b.index, b.number, b.slug]),
+    [
+      [0, "01", "f-foundations"],
+      [1, "02", "a-systems"],
+      [2, "03", "b-systems"],
+      [3, "04", "z-agents"],
+    ],
   );
 });
 
-test("the pills are All, the shelves that have books, and Has video when something has", async () => {
+test("the capsule: All, then each shelf that has books, each going to the shelf's first book; the lit one follows the book in front", async () => {
   const shelves = buildShelves(await load(library()));
+  const pills = filterPills(shelves);
   assert.deepEqual(
-    filterPills(shelves).map((p) => p.label),
-    ["All", "Foundations", "Systems", "Agents", "Has video"],
+    pills.map((p) => [p.label, p.first]),
+    [["All", 0], ["Foundations", 0], ["Systems", 1], ["Agents", 3]],
   );
-  const noVideo = shelves.map((s) => ({
-    ...s,
-    books: s.books.map((b) => ({ ...b, videos: 0 })),
-  }));
   assert.deepEqual(
-    filterPills(noVideo).map((p) => p.label),
-    ["All", "Foundations", "Systems", "Agents"],
+    pills.map((p) => p.key),
+    ["all", "shelf:foundations", "shelf:systems", "shelf:agents"],
   );
-  // Each pill's key finds its filter again.
-  for (const pill of filterPills(shelves))
-    assert.deepEqual(filterFromKey(pill.key), pill.filter);
-  assert.deepEqual(filterFromKey(undefined), ALL);
-  assert.deepEqual(filterFromKey("nonsense"), ALL);
-});
-
-test("a shelf with more books than half the page holds takes the whole page", async () => {
-  const many = Array.from({ length: 12 }, (_, i) => ({
-    slug: `c${i}`,
-    shelf: "special",
-    order: i + 1,
-    visibility: "public",
-    lectures: [lecture(1), lecture(2), lecture(3), lecture(4)],
-  }));
-  const shelves = buildShelves(await load([...library(), ...many]));
-  assert.equal(shelves.find((s) => s.id === "special")!.wide, true);
-  assert.equal(shelves.find((s) => s.id === "agents")!.wide, false);
-  assert.ok(standingWidth([{ thickness: 3 }, { thickness: 3 }]) === 6.125);
-  assert.ok(WIDE_SHELF_REM > 10);
-});
-
-test("shelves are packed into bookcases in order, as big as fits, and no case is wider than the page", async () => {
-  const course = (
-    slug: string,
-    shelf: string,
-    order: number,
-    lectures: number,
-  ): FixtureCourse => ({
-    slug,
-    shelf,
-    order,
-    visibility: "public",
-    lectures: Array.from({ length: lectures }, (_, i) => lecture(i + 1)),
-  });
-  // Five courses on three shelves, as the real library is: one case, the biggest books.
-  const five = [
-    course("a", "systems", 1, 8),
-    course("b", "language-models", 1, 8),
-    course("c", "language-models", 2, 7),
-    course("d", "language-models", 3, 7),
-    course("e", "agents", 1, 10),
-  ];
-  const real = packCases(buildShelves(await load(five)));
-  assert.equal(real.cases.length, 1);
-  assert.deepEqual(
-    real.cases[0]!.shelves.map((s) => s.id),
-    ["systems", "language-models", "agents"],
-  );
-  assert.equal(real.scale, 1.2);
-  assert.equal(real.cases[0]!.scrolls, false);
-  assert.deepEqual(packCases([]).cases, []);
-
-  // Thirty books on five shelves: several cases, the shelves still in order, none too wide.
-  const thirty = Array.from({ length: 30 }, (_, i) =>
-    course(
-      `t${i}`,
-      ["foundations", "systems", "language-models", "agents", "frontier"][
-        Math.floor(i / 6)
-      ]!,
-      i + 1,
-      5,
-    ),
-  );
-  const shelves = buildShelves(await load(thirty));
-  const packed = packCases(shelves);
-  assert.ok(packed.cases.length > 1 && packed.cases.length < shelves.length);
-  assert.deepEqual(
-    packed.cases.flatMap((c) => c.shelves.map((s) => s.id)),
-    shelves.map((s) => s.id),
-  );
-  for (const plan of packed.cases) {
-    assert.ok(caseWidth(plan.shelves, packed.scale) <= CASE_MAX_REM, "fits the page");
-    assert.equal(plan.scrolls, false);
-  }
-
-  // One shelf with more books than the page holds has a case to itself, and scrolls.
-  const many = Array.from({ length: 24 }, (_, i) => course(`m${i}`, "special", i + 1, 8));
-  const wide = packCases(buildShelves(await load([...five, ...many])));
-  assert.equal(
-    wide.cases
-      .at(-1)!
-      .shelves.map((s) => s.id)
-      .join(),
-    "special",
-  );
-  assert.equal(wide.cases.at(-1)!.scrolls, true);
-  // A scrolling case cannot be made bigger: nothing is.
-  assert.equal(wide.scale, 1);
-  assert.ok(wide.cases.slice(0, -1).every((c) => !c.scrolls));
+  // No video option: the capsule goes to books, it does not hide any.
+  assert.equal(pills.some((p) => /video/i.test(p.label)), false);
+  const lit = [0, 1, 2, 3].map((i) => litPill(pills, i));
+  assert.deepEqual(lit, ["shelf:foundations", "shelf:systems", "shelf:systems", "shelf:agents"]);
+  assert.equal(litPill([{ key: "all", label: "All", first: 0 }], 5), "all");
 });
 
 // ---------------------------------------------------------------------------
@@ -456,7 +324,7 @@ test("a locked book shows only its stub, and no secret reaches the shelf data fo
         // It still stands on the shelf, as thick as a course of typical lectures.
         assert.equal(
           book.thickness,
-          thicknessRem(book.lectures.length * NOMINAL_LECTURE_MINUTES),
+          thickness(book.lectures.length * NOMINAL_LECTURE_MINUTES),
         );
       } else {
         assert.ok(book.minutes);
@@ -490,7 +358,7 @@ test("a lecture the reader may not open inside a course they may is locked on it
 // ---------------------------------------------------------------------------
 // Cover illustrations
 
-test("a book of a course the reader may open carries its cover art and the box of its spine mark; a locked one carries neither", async () => {
+test("a book of a course the reader may open carries its cover art; a locked one carries none", async () => {
   const full = await load(visibilityLibrary());
   for (const [name, readable] of Object.entries(READS)) {
     const role = name === "visitor" ? undefined : name;
@@ -502,11 +370,9 @@ test("a book of a course the reader may open carries its cover art and the box o
         assert.equal(book.locked, false, `${name}: ${visibility}`);
         assert.match(book.art, /^<svg [^>]*viewBox="0 0 240 320"/, `${name}: art of ${visibility}`);
         assert.ok(book.art.includes(`ART-c-${visibility}`), `${name}: it is this course's art`);
-        assert.deepEqual(book.mark, [40, 120, 80, 80]);
       } else {
         assert.equal(book.locked, true);
         assert.equal(book.art, "", `${name}: a locked book has no art`);
-        assert.equal(book.mark, undefined);
         // The art is not anywhere in what the shelf says about it.
         assert.equal(JSON.stringify(book).includes(`ART-c-${visibility}`), false, `${name}: no trace of the art of ${visibility}`);
         // It still has its colours and its motif, which the loader sends.
@@ -521,24 +387,27 @@ test("a book of a course the reader may open carries its cover art and the box o
   }
 });
 
-test("a course with no cover.svg has no art, and the spine falls back to its motif", async () => {
+test("a course with no cover.svg has no art, and the cover falls back to its motif", async () => {
   const [book] = buildShelves(forViewer(await load(library().slice(0, 1)), undefined, false))[0]!.books;
   assert.equal(book!.art, "");
-  assert.equal(book!.mark, undefined);
   assert.ok(MOTIF_NAMES.includes(book!.cover.motif));
 });
 
-test("the box of a spine mark is four whole numbers inside the canvas, else there is none", () => {
-  assert.deepEqual(markOf(coverArt("x")), [40, 120, 80, 80]);
-  assert.equal(markOf('<svg viewBox="0 0 240 320"></svg>'), undefined);
-  assert.equal(markOf('<svg data-mark="0 0 241 10"></svg>'), undefined);
-  assert.equal(markOf('<svg data-mark="0 300 10 30"></svg>'), undefined);
-  assert.equal(markOf('<svg data-mark="0 0 0 10"></svg>'), undefined);
-  assert.equal(markOf('<svg data-mark="1.5 0 10 10"></svg>'), undefined);
-  assert.equal(markOf('<svg data-mark="1 2 3 4; x"></svg>'), undefined);
+test("a cover's drawing fills the art frame with even margins, centred", () => {
+  for (const slug of DRAWN) {
+    const { box, frame } = coverBox(slug, { color: "#1f3a5f", accent: "#e8b84a" })!;
+    const [left, top, right, bottom] = [box[0] - frame.x, box[1] - frame.y, frame.x + frame.w - box[2], frame.y + frame.h - box[3]];
+    // Inside the frame (the stroke is counted), and centred on both axes.
+    for (const gap of [left, top, right, bottom]) assert.ok(gap >= -0.01, `${slug}: inside the frame (${gap})`);
+    assert.ok(Math.abs(left - right) < 0.05, `${slug}: centred across`);
+    assert.ok(Math.abs(top - bottom) < 0.05, `${slug}: centred down`);
+    // It fills the frame on its tight axis.
+    assert.ok(Math.min(left, top, right, bottom) < 0.05, `${slug}: fills the frame`);
+  }
+  assert.ok(FRAME.w / FRAME.h > 1.3 && FRAME.w / FRAME.h < 1.7);
 });
 
-test("every cover the generator draws passes the loader's checks, in one hand: no text, no ids, a few colours, a spine mark", () => {
+test("every cover the generator draws passes the loader's checks, in one hand: no text, no ids, a few colours, one stroke weight", () => {
   assert.equal(DRAWN.length, 9, "one drawing per course");
   for (const slug of DRAWN) {
     for (const cover of [
@@ -549,17 +418,15 @@ test("every cover the generator draws passes the loader's checks, in one hand: n
       const checked = readCover(svg);
       assert.deepEqual(checked.issues, [], slug);
       assert.ok(checked.html.startsWith("<svg"), slug);
-      assert.doesNotMatch(svg, /<text|<tspan|<script|<image|\sid=|href=|url\(|<style/i, slug);
+      assert.doesNotMatch(svg, /<text|<tspan|<script|<image|\sid=|\sclass=|\sdata-|href=|url\(|<style/i, slug);
       // Colours: the ink, a middle tone, a faint fill, the accent, the cover's own colour.
       const colours = new Set(svg.match(/#[0-9a-f]{6}/g));
       assert.ok(colours.size >= 3 && colours.size <= 5, `${slug}: ${colours.size} colours`);
       assert.ok(colours.has(cover.accent), `${slug}: the accent is used`);
-      // One line weight, except the hairlines the drawings name.
-      assert.match(svg, /stroke-width="2.5"/, slug);
-      // The spine mark: a box, and something drawn in it.
-      const mark = markOf(svg);
-      assert.ok(mark, `${slug}: a mark box`);
-      assert.ok((svg.match(/class="m"/g) ?? []).length >= 3, `${slug}: shapes of the mark`);
+      // One line weight on the canvas, whatever the drawing was scaled by.
+      const group = /<g transform="translate\([^)]*\) scale\(([\d.]+)\)" stroke-width="([\d.]+)"/.exec(svg);
+      assert.ok(group, `${slug}: one group carries the weight`);
+      assert.ok(Math.abs(Number(group![1]) * Number(group![2]) - SW) < 0.01, `${slug}: stroke ${SW} on the canvas`);
       // Same text twice: the files are reproducible.
       assert.equal(coverSvg(slug, cover), svg);
     }

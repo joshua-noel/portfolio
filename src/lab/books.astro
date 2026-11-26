@@ -1,0 +1,176 @@
+---
+// The design page for the books: every book alone, outside the landing page,
+// so a book can be designed as an object before it goes on the shelf. It is
+// only in the dev server (astro.config.mjs injects the route in dev and never
+// in a build), so it is neither in the production bundle nor reachable on the
+// lecture host. Open it with `pnpm learn:dev` at /lab/books on the lecture host.
+//
+// What it shows: every course's book in three states (closed, lifted, turned
+// to its cover), at 1x and 2x, on the dark and the light page; each cover's
+// illustration alone, large; a locked book, a very long and a very short
+// title; thirty books in a row. Judge a cover here, at the size and the angle
+// it has on the shelf, before it is put there.
+import BookFaces from "../components/learn/BookFaces.astro";
+import Learn from "../layouts/Learn.astro";
+import { buildShelves, type Book } from "../lib/learn/bookshelf.ts";
+import { bookStyle } from "../lib/learn/book-style.ts";
+import {
+  coverStyle,
+  coverTitleSize,
+  numberOf,
+  spineTitle,
+  splitTitle,
+  thickness,
+} from "../lib/learn/cover.ts";
+import { getCatalogFor } from "../lib/learn/content.ts";
+import "../styles/learn-bookshelf.css";
+import "./lab.css";
+
+const catalog = await getCatalogFor("admin", true);
+const real: Book[] = buildShelves(catalog).flatMap((shelf) => shelf.books);
+const sample = real[0];
+
+/** A made-up book for the odd cases: the same cover as `base` unless said. */
+function made(base: Book, index: number, title: string, over: Partial<Book> = {}): Book {
+  const { main, sub } = splitTitle(title);
+  const spine = over.thickness ?? thickness(200);
+  return {
+    ...base,
+    index,
+    number: numberOf(index),
+    title,
+    main,
+    sub,
+    thickness: spine,
+    spine: spineTitle(main, spine),
+    coverTitle: coverTitleSize(main),
+    ...over,
+  };
+}
+
+const locked = made(sample, 3, "A course you may not read yet", {
+  locked: true,
+  art: "",
+  cover: coverStyle({ color: "#3a3f4b", accent: "#9aa3b5", motif: "grid" }),
+});
+const long = made(
+  sample,
+  5,
+  "Distributed Transactions, Consensus and Replication Under Partial Failure: A Complete Treatment",
+);
+const short = made(sample, 6, "Logic");
+const thirty: Book[] = Array.from({ length: 30 }, (_, i) =>
+  made(real[i % real.length]!, i, real[i % real.length]!.title),
+);
+
+const states = [
+  { key: "closed", label: "Closed", cls: "" },
+  { key: "lifted", label: "Lifted", cls: "is-lifted" },
+  { key: "turned", label: "Turned to its cover", cls: "is-selected" },
+] as const;
+const scales = [
+  { key: "1x", H: "17rem" },
+  { key: "2x", H: "34rem" },
+] as const;
+---
+
+<Learn title="Book lab" layout="plain" noindex>
+  <main class="page lab" id="main">
+    <h1>Book lab</h1>
+    <p class="lede">
+      Dev only. The book as an object: closed, lifted, turned; 1x and 2x; dark and light.
+    </p>
+
+    {
+      (["dark", "light"] as const).map((theme) => (
+        <section class="theme-scope" data-theme={theme} aria-label={`${theme} page`}>
+          <h2>{theme === "dark" ? "Dark page" : "Light page"}</h2>
+          {scales.map((scale) => (
+            <div class="lab-grid" style={`--H:${scale.H}`}>
+              <h3>{scale.key}</h3>
+              {real.map((book) => (
+                <div class="lab-row">
+                  <p class="lab-name">{book.number} {book.title}</p>
+                  {states.map((state) => (
+                    <div class="bookshelf lab-cell" data-state={state.key} style={`--H:${scale.H};${bookStyle(book)}`}>
+                      <div class="lab-stage">
+                        <div class="tape">
+                          <span class:list={["tb", state.cls]} style="--x:0">
+                            <BookFaces book={book} />
+                          </span>
+                        </div>
+                      </div>
+                      <p class="lab-state">{state.label}</p>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ))}
+        </section>
+      ))
+    }
+
+    <section class="theme-scope" data-theme="dark" aria-label="Illustrations alone">
+      <h2>The illustrations alone</h2>
+      <p class="lede">Each without its title: could you name the course from the picture?</p>
+      <div class="lab-art">
+        {
+          real.map((book) => (
+            <figure class="bookshelf" style={bookStyle(book)}>
+              <div class="lab-art-field" style="--H:24rem">
+                <span class="cover"><span class="c-art" set:html={book.art} /></span>
+              </div>
+              <figcaption>{book.slug}</figcaption>
+            </figure>
+          ))
+        }
+      </div>
+    </section>
+
+    <section class="theme-scope" data-theme="dark" aria-label="Odd cases">
+      <h2>A locked book, a very long title, a very short one</h2>
+      <div class="lab-grid" style="--H:17rem">
+        {
+          [locked, long, short].map((book) => (
+            <div class="lab-row">
+              <p class="lab-name">{book.title.slice(0, 40)}</p>
+              {states.map((state) => (
+                <div class="bookshelf lab-cell" style={`--H:17rem;${bookStyle(book)}`}>
+                  <div class="lab-stage">
+                    <div class="tape">
+                      <span class:list={["tb", state.cls]} style="--x:0">
+                        <BookFaces book={book} />
+                      </span>
+                    </div>
+                  </div>
+                  <p class="lab-state">{state.label}</p>
+                </div>
+              ))}
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <section class="theme-scope" data-theme="dark" aria-label="Thirty books">
+      <h2>Thirty books</h2>
+      <div class="bookshelf lab-thirty" style="--H:17rem">
+        <div class="lab-stage lab-wide">
+          <div class="tape">
+            {
+              thirty.map((book, i) => (
+                <span
+                  class:list={["tb", i === 15 && "is-selected"]}
+                  style={`${bookStyle(book)};--x:${((i - 15) * 0.17 + (i === 15 ? 0 : i > 15 ? 0.36 : -0.36)).toFixed(3)}`}
+                >
+                  <BookFaces book={book} />
+                </span>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</Learn>

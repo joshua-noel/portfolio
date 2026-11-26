@@ -767,12 +767,12 @@ test("the landing page lists the right books and locks for every reader, with th
     }
     assert.doesNotMatch(res.text, /c-local/, `${where}: no local course`);
 
-    // Shelves in the catalog's order; one with no book is not drawn.
-    const shelves = [...res.text.matchAll(/<section class="shelf" id="shelf-([a-z-]+)"/g)].map((m) => m[1]);
-    assert.deepEqual(shelves, ["foundations", "systems", "agents"], where);
-    assert.doesNotMatch(res.text, /id="shelf-special"/, where);
+    // Books in the catalog's order, numbered from 01; one shelf with no book has no option in the capsule.
+    const order = [...res.text.matchAll(/<li class="book"[^>]*data-index="(\d+)"[^>]*data-slug="([^"]+)"/g)].map((m) => `${m[1]}:${m[2]}`);
+    assert.deepEqual(order, ["0:c-public", "1:c-members", "2:c-friends"], where);
     const pills = [...res.text.matchAll(/data-filter="([^"]+)"/g)].map((m) => m[1]);
-    assert.deepEqual(pills, ["all", "shelf:foundations", "shelf:systems", "shelf:agents", "video"], where);
+    assert.deepEqual(pills, ["all", "shelf:foundations", "shelf:systems", "shelf:agents"], where);
+    assert.doesNotMatch(res.text, /data-filter="video"/, where);
 
     // Every lecture is a real link in the HTML, locked ones included, and only the ones that may be opened say so.
     for (const v of ["public", "members", "friends"] as const) {
@@ -783,17 +783,15 @@ test("the landing page lists the right books and locks for every reader, with th
       assert.equal(/data-lecture-key/.test(link[1]!), open, `${where}: progress key of ${v}`);
     }
 
-    // A cover illustration is drawn for a course the reader may open, on the cover and on the spine, and for no other: a locked book is a plain cover.
+    // A cover illustration is drawn, once, for a course the reader may open, and for no other: a locked book is a plain cover.
     for (const v of ["public", "members", "friends"] as const) {
       const open = readable.includes(v);
-      const art = res.text.split(`data-art="ART-c-${v}"`).length - 1;
-      assert.equal(art, open ? 2 : 0, `${where}: cover art of ${v} (cover and spine)`);
+      const art = res.text.split(`aria-label="ART-c-${v}"`).length - 1;
+      assert.equal(art, open ? 1 : 0, `${where}: cover art of ${v}`);
       const book = new RegExp(`<li class="book"[^>]*data-slug="c-${v}"[\\s\\S]*?<div class="detail"`).exec(res.text)?.[0] ?? "";
       assert.equal(/class="c-art"/.test(book), open, `${where}: art layer of ${v}`);
-      assert.equal(/class="s-art"/.test(book), open, `${where}: spine mark of ${v}`);
       assert.equal(/class="c-lock"/.test(book), !open, `${where}: lock on the cover of ${v}`);
-      // Without art a book keeps its motif on the spine only if it has no art to show.
-      assert.equal(/class="s-motif"/.test(book), !open, `${where}: motif of ${v}`);
+      assert.equal(/class="s-art"|class="c-motif"/.test(book), false, `${where}: nothing else drawn for ${v}`);
     }
     assert.doesNotMatch(res.text, /ART-c-local/, `${where}: no art of the local course`);
 
@@ -875,126 +873,106 @@ async function landing(role: string, options: PageOptions = {}): Promise<Page> {
 
 const NO_BROWSER = findBrowser() ? false : "no Chrome, Chromium or Edge found (set PORTFOLIO_TEST_BROWSER)";
 
+/** The selected book's label, as a reader's screen reader says it. */
+const frontLabel = "document.querySelector('.names button[aria-current=\"true\"]')?.getAttribute('aria-label') ?? ''";
+/** How far a book is turned: 1 for a spine to the reader, about 0 for a cover to the reader. */
+const facing = (selector: string): string =>
+  `new DOMMatrix(getComputedStyle(document.querySelector(${JSON.stringify(selector)})).transform).m11`;
+
 test(
-  "in a browser: the books stand, turn when hovered, open to a panel, close with Escape, and the policy is never broken",
+  "in a browser: the books stand on a tape, the one in front shows its cover, a click, an arrow, a key or the capsule brings another forward, the panel opens and closes, and the policy is never broken",
   { skip: NO_BROWSER },
   async () => {
     for (const [role, readable] of Object.entries(READS)) {
       const where = role;
       const page = await landing(role);
       try {
-        await page.waitFor("document.querySelectorAll('button.hit').length === 3", `${where}: books`);
-        // One button per book, named with the title, the count and the lock.
+        await page.waitFor("document.querySelectorAll('.names button').length === 3", `${where}: books`);
+        // One button per book, named with its number, title, count and lock.
         const labels = await page.evaluate<string[]>(
-          "[...document.querySelectorAll('button.hit')].map((b) => b.getAttribute('aria-label'))",
+          "[...document.querySelectorAll('.names button')].map((b) => b.getAttribute('aria-label'))",
         );
-        for (const v of ["public", "members", "friends"] as const) {
-          const label = labels.find((l) => l.startsWith(`Course c-${v}.`));
+        for (const [i, v] of (["public", "members", "friends"] as const).entries()) {
+          const label = labels.find((l) => l.startsWith(`0${i + 1}. Course c-${v}.`));
           assert.ok(label, `${where}: a button for c-${v}`);
           assert.equal(/Locked/.test(label), !readable.includes(v), `${where}: label of ${v}`);
         }
+        assert.match(labels[0]!, /about 25 minutes/);
 
-        // The reading time is in a book's name.
-        assert.match(
-          await page.evaluate<string>("document.querySelector('li[data-slug=\"c-public\"] .hit').getAttribute('aria-label')"),
-          /about 25 minutes/,
-        );
-        await page.moveAway();
-        // One tab stop per shelf, and a book at rest is flat.
-        assert.equal(await page.evaluate("document.querySelectorAll('button.hit[tabindex=\"0\"]').length"), 3);
-        const yaw = "new DOMMatrix(getComputedStyle(document.querySelector('li[data-slug=\"c-public\"] .vol')).transform).m11";
-        assert.ok((await page.evaluate<number>(yaw)) > 0.99, `${where}: flat at rest`);
+        // The tape wraps: pictures of the books fill the width, and none of them can be focused or read.
+        const pictures = await page.evaluate<{ n: number; hidden: boolean; focusable: number; front: number }>(`(() => {
+          const c = [...document.querySelectorAll('.tb')];
+          return { n: c.length, hidden: c.every((e) => e.getAttribute('aria-hidden') === 'true'), focusable: c.filter((e) => e.matches('button, [tabindex], a')).length, front: c.filter((e) => e.classList.contains('is-selected')).length };
+        })()`);
+        assert.ok(pictures.n >= 6, `${where}: the tape wraps (${pictures.n} pictures of 3 books)`);
+        assert.equal(pictures.hidden, true);
+        assert.equal(pictures.focusable, 0);
+        assert.equal(pictures.front, 1, "one book is in front");
 
-        // Hover pulls it out and turns its cover to the reader.
-        // What the page saw, kept so that a timeout below says what happened to the first hover.
-        await page.evaluate(`window.__seen = [];
-          for (const type of ['pointerover', 'pointerout', 'pointermove'])
-            document.addEventListener(type, (e) => window.__seen.push(type + ':' + (e.target.closest?.('li')?.dataset.slug ?? e.target.tagName) + '@' + Math.round(e.clientX) + ',' + Math.round(e.clientY)), true);
-          document.readyState`);
-        const explain = `JSON.stringify({
-          seen: window.__seen,
-          ready: document.readyState,
-          pulled: [...document.querySelectorAll('.book.is-pulled')].map((b) => b.dataset.slug),
-          sides: [...document.querySelectorAll('.book')].map((b) => b.dataset.slug + ':' + (b.dataset.side ?? '')),
-          hit: (() => { const r = document.querySelector('li[data-slug="c-public"] .hit').getBoundingClientRect(); return [r.left, r.top, r.width, r.height, scrollY, innerWidth, innerHeight]; })(),
-          transform: getComputedStyle(document.querySelector('li[data-slug="c-public"] .vol')).transform,
-          running: document.getAnimations().map((a) => a.playState + ':' + (a.transitionProperty ?? '')),
-          stylesheets: [...document.styleSheets].length,
-          focus: document.activeElement.tagName,
-        })`;
-        await page.hover('li[data-slug="c-public"] .hit');
-        // First what the page decides (the book is marked as pulled), which does not
-        // depend on how fast the browser can draw; then the turn itself, which a machine
-        // starved of CPU can take many seconds to draw.
-        await page.waitFor(
-          "document.querySelector('li[data-slug=\"c-public\"]').classList.contains('is-pulled')",
-          `${where}: the book is pulled`,
-          15000,
-          explain,
-        );
-        await page.waitFor(`${yaw} < 0.5`, `${where}: the book turns`, 30000, explain);
-        // The books beside it step aside, and the one it turns is solid: pages show.
-        assert.equal(
-          await page.evaluate("document.querySelector('li[data-slug=\"c-members\"]').dataset.side"),
-          "after",
-          `${where}: a neighbour steps aside`,
-        );
-        assert.equal(
-          await page.evaluate("document.querySelector('li[data-slug=\"c-public\"]').dataset.side ?? ''"),
-          "",
-        );
-        // A book that stepped aside is where it is drawn, and nothing lies over it
-        // (the next shelf included): the point at the middle of what is drawn finds the book.
+        // One tab stop; the book in front is the first, turned to its cover; the others show their spines.
         await page.settle();
-        for (const slug of ["c-members", "c-friends"]) {
-          assert.equal(
-            await page.evaluate(`(() => {
-              const r = document.querySelector('li[data-slug="${slug}"] .vol').getBoundingClientRect();
-              return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('li')?.dataset.slug;
-            })()`),
-            slug,
-            `${where}: ${slug} is not covered once it has stepped aside`,
-          );
-        }
-        // And it has moved: it is not drawn where its slot is.
-        assert.ok(
-          await page.evaluate<boolean>(`(() => {
-            const li = document.querySelector('li[data-slug="c-members"]').getBoundingClientRect();
-            const drawn = document.querySelector('li[data-slug="c-members"] .vol').getBoundingClientRect();
-            return Math.abs((drawn.left + drawn.width / 2) - (li.left + li.width / 2)) > 20;
-          })()`),
-          `${where}: the neighbour has stepped aside`,
-        );
-        await page.moveAway();
-        await page.waitFor(`${yaw} > 0.99`, `${where}: the book goes back`);
+        assert.equal(await page.evaluate("document.querySelectorAll('.names button[tabindex=\"0\"]').length"), 1);
+        assert.match(await page.evaluate<string>(frontLabel), /^01\./);
+        assert.equal(await page.evaluate("document.querySelector('.names button[tabindex=\"0\"]').getAttribute('aria-current')"), "true");
+        assert.ok((await page.evaluate<number>(facing(".tb.is-selected"))) < 0.1, `${where}: the front book is turned`);
+        assert.ok((await page.evaluate<number>(facing(".tb:not(.is-selected)"))) > 0.99, `${where}: the others are spines`);
+        // The capsule lights the shelf of the book in front.
+        assert.equal(await page.evaluate("document.querySelector('.pill[aria-current]').dataset.filter"), "shelf:foundations");
 
-        // Click opens the panel with every lecture as a link; focus goes in.
-        await page.click('li[data-slug="c-public"] .hit');
-        await page.waitFor("!document.querySelector('[data-panel]').hidden", `${where}: panel`);
+        // The round button brings the next book forward; the capsule follows.
+        await page.click('[data-step="1"]');
+        await page.waitFor(`/^02\\./.test(${frontLabel})`, `${where}: next`);
+        assert.equal(await page.evaluate("document.querySelector('.pill[aria-current]').dataset.filter"), "shelf:systems");
+        // A click on a spine brings that book forward.
+        await page.settle();
+        await page.click('.tb[data-slot="2"] .spine');
+        await page.waitFor(`/^03\\./.test(${frontLabel})`, `${where}: a spine`);
+        // The keyboard: the arrow keys step, Home goes to the first.
+        await page.evaluate("document.querySelector('.names button[aria-current=\"true\"]').focus()");
+        await page.press("ArrowLeft");
+        await page.waitFor(`/^02\\./.test(${frontLabel})`, `${where}: ArrowLeft`);
         assert.equal(
-          await page.evaluate("document.querySelector('li[data-slug=\"c-public\"] .hit').getAttribute('aria-expanded')"),
-          "true",
+          await page.evaluate("document.activeElement === document.querySelector('.names button[aria-current=\"true\"]')"),
+          true,
+          `${where}: focus goes with the book`,
         );
+        await page.press("Home");
+        await page.waitFor(`/^01\\./.test(${frontLabel})`, `${where}: Home`);
+        await page.press("End");
+        await page.waitFor(`/^03\\./.test(${frontLabel})`, `${where}: End`);
+        // A pill takes the shelf to the first book of its group.
+        await page.click('[data-filter="shelf:foundations"]');
+        await page.waitFor(`/^01\\./.test(${frontLabel})`, `${where}: capsule`);
+        await page.click('[data-filter="shelf:agents"]');
+        await page.waitFor(`/^03\\./.test(${frontLabel})`, `${where}: capsule, agents`);
+        await page.click('[data-filter="all"]');
+        await page.waitFor(`/^01\\./.test(${frontLabel})`, `${where}: capsule, all`);
+        // Nothing is hidden by it.
+        assert.equal(await page.evaluate("document.querySelectorAll('.names button').length"), 3);
+
+        // A click on the book in front opens the panel with every lecture as a link; focus goes in.
+        await page.settle();
+        await page.click(".tb.is-selected .cover");
+        await page.waitFor("!document.querySelector('[data-panel]').hidden", `${where}: panel`);
+        assert.equal(await page.evaluate("document.querySelector('.names button[aria-current=\"true\"]').getAttribute('aria-expanded')"), "true");
         await page.waitFor("document.activeElement === document.querySelector('[data-panel]')", `${where}: focus`);
         assert.deepEqual(
           await page.evaluate("[...document.querySelectorAll('.panel-body .d-list a')].map((a) => a.getAttribute('href'))"),
           ["/c-public/l-public"],
         );
         assert.equal(await page.evaluate("document.querySelector('.panel-body .d-open').getAttribute('href')"), "/c-public");
-
         // Escape closes it and gives focus back to the book.
         await page.press("Escape");
         await page.waitFor("document.querySelector('[data-panel]').hidden", `${where}: closed`);
-        assert.equal(
-          await page.evaluate("document.activeElement === document.querySelector('li[data-slug=\"c-public\"] .hit')"),
-          true,
-          `${where}: focus returns`,
-        );
+        assert.equal(await page.evaluate("document.activeElement === document.querySelector('.names button[aria-current=\"true\"]')"), true, `${where}: focus returns`);
 
         // A locked book opens to its stub and a way in; nothing else of it is in the page.
-        for (const v of ["members", "friends"] as const) {
+        for (const [i, v] of (["members", "friends"] as const).entries()) {
           if (readable.includes(v)) continue;
-          await page.click(`li[data-slug="c-${v}"] .hit`);
+          await page.click(`.tb[data-slot="${i + 1}"] .spine`);
+          await page.waitFor(`/^0${i + 2}\\./.test(${frontLabel})`, `${where}: ${v} in front`);
+          await page.settle();
+          await page.click(".tb.is-selected .cover");
           await page.waitFor(`document.querySelector('[data-panel]').getAttribute('aria-label') === 'Course c-${v}'`, `${where}: ${v} panel`);
           const panel = await page.evaluate<string>("document.querySelector('[data-panel]').innerText");
           assert.match(panel, role === "visitor" ? /Sign in to read/ : /Your account cannot read this/);
@@ -1008,33 +986,11 @@ test(
         const html = await page.evaluate<string>("document.documentElement.outerHTML");
         for (const v of VISIBILITIES) assert.equal(html.includes(SECRET[v]), false, `${where}: canary of ${v}`);
 
-        // Arrow keys move along a shelf; a pill hides the other shelves.
-        await page.evaluate("document.querySelector('li[data-slug=\"c-public\"] .hit').focus()");
-        await page.press("ArrowDown");
-        assert.equal(
-          await page.evaluate("document.activeElement.closest('li').dataset.slug"),
-          "c-members",
-          `${where}: ArrowDown`,
-        );
-        await page.click('[data-filter="shelf:agents"]');
-        assert.equal(
-          await page.evaluate("[...document.querySelectorAll('li.book:not([hidden])')].map((b) => b.dataset.slug).join()"),
-          "c-friends",
-        );
-        assert.equal(await page.evaluate("document.querySelector('#shelf-systems').hidden"), true);
-        await page.click('[data-filter="all"]');
-        assert.equal(await page.evaluate("document.querySelectorAll('li.book:not([hidden])').length"), 3);
-
         // Where the reader left off, from the progress the lecture pages keep.
-        await page.evaluate(
-          "localStorage.setItem('learn-progress', JSON.stringify({ 'c-public/l-public': 'started' }))",
-        );
+        await page.evaluate("localStorage.setItem('learn-progress', JSON.stringify({ 'c-public/l-public': 'started' }))");
         await page.goto("http://learn.test/");
         await page.waitFor("!document.querySelector('[data-resume]').hidden", `${where}: resume`);
-        assert.equal(
-          await page.evaluate("document.querySelector('[data-resume] a').getAttribute('href')"),
-          "/c-public/l-public",
-        );
+        assert.equal(await page.evaluate("document.querySelector('[data-resume] a').getAttribute('href')"), "/c-public/l-public");
         await page.evaluate("localStorage.clear()");
 
         // Not one violation of the policy, and not one error.
@@ -1047,78 +1003,35 @@ test(
   },
 );
 
-/** Where a book is drawn now (the middle of its spine as it stands this instant), whatever its slot. */
-const drawnAt = (slug: string): string => `(() => {
-  const r = document.querySelector('li[data-slug="${slug}"] .vol').getBoundingClientRect();
-  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-})()`;
-
 test(
-  "in a browser: a click that comes early, while the books are still moving, opens the book that was pressed",
+  "in a browser: a press that comes while the tape is still moving brings forward the book that was under the pointer",
   { skip: NO_BROWSER },
   async () => {
     const page = await landing("friend");
     try {
-      await page.waitFor("document.querySelectorAll('button.hit').length === 3", "books");
-      const opened = (): Promise<string> =>
-        page.evaluate("[...document.querySelectorAll('.book.is-open')].map((b) => b.dataset.slug).join()");
-      const reset = async (): Promise<void> => {
-        await page.press("Escape");
-        await page.waitFor("document.querySelector('[data-panel]').hidden", "closed");
-        await page.moveAway();
-        await page.settle();
-      };
-
-      // Press a book the moment the pointer arrives at it, with no time for it to be pulled out first.
-      for (const slug of ["c-public", "c-members", "c-friends"]) {
-        await page.settle();
+      await page.waitFor("document.querySelectorAll('.names button').length === 3", "books");
+      await page.settle();
+      await page.evaluate(`window.__pressed = [];
+        document.addEventListener('pointerdown', (e) => window.__pressed.push(e.target.closest?.('.tb')?.dataset.slot ?? ''), true); 1`);
+      for (const delay of [0, 60, 200]) {
+        // Start a move, and press the spine drawn beside the one that is coming forward.
+        await page.click('[data-step="1"]');
+        await new Promise((resolve) => setTimeout(resolve, delay));
         const at = await page.evaluate<{ x: number; y: number }>(`(() => {
-          const r = document.querySelector('li[data-slug="${slug}"] .hit').getBoundingClientRect();
+          const c = [...document.querySelectorAll('.tb')].filter((e) => !e.classList.contains('is-selected'))
+            .map((e) => e.querySelector('.spine').getBoundingClientRect()).filter((r) => r.width > 5 && r.left > 0 && r.right < innerWidth);
+          const r = c.sort((p, q) => Math.abs(p.left - innerWidth / 2) - Math.abs(q.left - innerWidth / 2))[0];
           return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
         })()`);
-        await page.clickAt(at.x, at.y);
-        await page.waitFor(`document.querySelector('li[data-slug="${slug}"]').classList.contains('is-open')`, `${slug} opens`);
-        assert.equal(await opened(), slug, "pressed with no hover first");
-        await reset();
-      }
-
-      // Hover one, and while it is still turning press the one drawn beside it (it has stepped aside, part of the way).
-      await page.evaluate(`window.__pressed = [];
-        window.__over = undefined;
-        document.addEventListener('pointermove', (e) => { window.__over = e.target.closest?.('li')?.dataset.slug; }, true);
-        document.addEventListener('pointerdown', (e) => window.__pressed.push(e.target.closest?.('li')?.dataset.slug ?? window.__over), true);
-        1`);
-      for (const delay of [20, 80, 200, 700]) {
-        await page.moveAway();
-        await page.settle();
-        await page.hover('li[data-slug="c-public"] .hit');
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        const at = await page.evaluate<{ x: number; y: number }>(drawnAt("c-members"));
         await page.evaluate("window.__pressed.length = 0");
         await page.clickAt(at.x, at.y);
-        await page.waitFor("document.querySelector('.book.is-open')", `an early click after ${delay} ms opens a book`);
-        // Whatever the browser saw under the pointer at the press is what opened, and
-        // once the books have settled that is the book that was aimed at.
+        await page.settle();
         const seen = await page.evaluate<string[]>("window.__pressed");
-        // (A book that slides out from under a pointer in the instant before the press leaves a
-        // gap, and then either of the two is right.)
-        if (seen[0]) assert.equal(await opened(), seen[0], `pressed after ${delay} ms`);
-        else assert.ok(["c-public", "c-members"].includes(await opened()), `pressed after ${delay} ms`);
-        if (delay >= 700) assert.equal(await opened(), "c-members", "aimed at the neighbour once it has stepped aside");
-        await reset();
+        const front = await page.evaluate<string>("document.querySelector('.tb.is-selected').dataset.slot");
+        // What the browser found under the pointer at the press is what was brought forward (or opened, if it was the front one).
+        if (seen[0]) assert.equal(front, seen[0], `a press ${delay} ms into a move`);
+        await page.evaluate("document.querySelector('[data-panel]').hidden || document.querySelector('[data-panel-close]').click()");
       }
-      // And pressing the cover of the book that is out opens that book, not the neighbour it overlaps.
-      await page.moveAway();
-      await page.settle();
-      await page.hover('li[data-slug="c-public"] .hit');
-      await page.settle();
-      const cover = await page.evaluate<{ x: number; y: number }>(`(() => {
-        const r = document.querySelector('li[data-slug="c-public"] .cover').getBoundingClientRect();
-        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-      })()`);
-      await page.clickAt(cover.x, cover.y);
-      await page.waitFor("document.querySelector('li[data-slug=\"c-public\"]').classList.contains('is-open')", "the book out opens");
-      assert.equal(await opened(), "c-public");
       assert.deepEqual(await page.reportedViolations(), []);
       assert.deepEqual(page.errors, []);
     } finally {
@@ -1128,43 +1041,39 @@ test(
 );
 
 test(
-  "in a browser: the cover illustration is on the cover and the spine of a book the reader may open, and a locked book is a plain cover with a lock",
+  "in a browser: the cover illustration is on the cover of a book the reader may open, and a locked book is a plain cover with a lock",
   { skip: NO_BROWSER },
   async () => {
     const page = await landing("visitor");
     try {
-      await page.waitFor("document.querySelectorAll('button.hit').length === 3", "books");
+      await page.waitFor("document.querySelectorAll('.names button').length === 3", "books");
       const state = await page.evaluate<Record<string, Record<string, unknown>>>(`(() => {
         const out = {};
-        for (const slug of ["c-public", "c-members", "c-friends"]) {
-          const li = document.querySelector('li[data-slug="' + slug + '"]');
-          const cover = li.querySelector('.cover');
-          const art = li.querySelector('.c-art svg');
-          const mark = li.querySelector('.s-art');
+        [['c-public', '01'], ['c-members', '02'], ['c-friends', '03']].forEach(([slug, n]) => {
+          const book = [...document.querySelectorAll('.tb')].find((b) => b.querySelector('.s-band').textContent === n);
+          const cover = book.querySelector('.cover');
+          const art = book.querySelector('.c-art svg');
           out[slug] = {
             art: Boolean(art),
-            artBox: art ? li.querySelector('.c-art').offsetWidth : 0,
-            mark: Boolean(mark),
-            markShown: mark ? [...mark.querySelectorAll('svg > g > *')].filter((e) => getComputedStyle(e).display !== 'none').length : 0,
-            markHidden: mark ? [...mark.querySelectorAll('svg > g > *')].filter((e) => getComputedStyle(e).display === 'none').length : 0,
-            lock: Boolean(li.querySelector('.cover .c-lock .lock')),
-            spineLock: Boolean(li.querySelector('.spine .lock')),
+            artBox: art ? book.querySelector('.c-art').offsetWidth : 0,
+            lock: Boolean(book.querySelector('.cover .c-lock .lock')),
+            spineLock: Boolean(book.querySelector('.spine .lock')),
             text: cover.textContent.replace(/\\s+/g, ' ').trim(),
-            artText: li.querySelector('.c-art')?.textContent.trim() ?? '',
+            artText: book.querySelector('.c-art')?.textContent.trim() ?? '',
+            number: book.querySelector('.s-band').textContent,
+            ratio: cover.offsetWidth / cover.offsetHeight,
           };
-        }
+        });
         return out;
       })()`);
       assert.equal(state["c-public"]!.art, true, "the open book has its illustration");
       assert.ok((state["c-public"]!.artBox as number) > 100, "drawn at the size of the cover");
-      assert.equal(state["c-public"]!.mark, true, "and a mark on the spine");
-      assert.equal(state["c-public"]!.markShown, 1, "only the shapes of the mark are drawn there");
-      assert.equal(state["c-public"]!.markHidden, 1, "the rest of the art is hidden on the spine");
       assert.equal(state["c-public"]!.lock, false);
       assert.equal(state["c-public"]!.artText, "", "an illustration has no text");
+      assert.ok(Math.abs((state["c-public"]!.ratio as number) - 0.75) < 0.01, "a cover is three quarters as wide as it is tall");
+      for (const [slug, n] of [["c-public", "01"], ["c-members", "02"], ["c-friends", "03"]] as const) assert.equal(state[slug]!.number, n);
       for (const slug of ["c-members", "c-friends"]) {
         assert.equal(state[slug]!.art, false, `${slug}: no illustration for a locked book`);
-        assert.equal(state[slug]!.mark, false, `${slug}: no mark`);
         assert.equal(state[slug]!.lock, true, `${slug}: the lock is on the cover`);
         assert.equal(state[slug]!.spineLock, true, `${slug}: and on the spine`);
         assert.match(state[slug]!.text as string, /Course c-/, `${slug}: it has its title`);
@@ -1174,7 +1083,6 @@ test(
       for (const v of VISIBILITIES) assert.equal(html.includes(SECRET[v]), false, `canary of ${v}`);
       assert.equal(html.includes('ART-c-members'), false);
       assert.equal(html.includes('ART-c-friends'), false);
-      // Opening an open book shows its cover beside the text of the panel only with reduced motion; a locked one opens to its stub.
       assert.deepEqual(await page.reportedViolations(), []);
       assert.deepEqual(page.errors, []);
     } finally {
@@ -1195,23 +1103,24 @@ test(
         visible: number;
         lectures: string[];
         filters: string;
+        arrows: string;
       }>(`(() => ({
-        buttons: document.querySelectorAll("button.hit").length,
+        buttons: document.querySelectorAll(".names button, .tb").length,
         details: document.querySelectorAll(".detail").length,
         visible: [...document.querySelectorAll(".detail")].filter((d) => getComputedStyle(d).display !== "none").length,
         lectures: [...document.querySelectorAll(".detail .d-list a")].map((a) => a.getAttribute("href")),
         filters: getComputedStyle(document.querySelector("[data-filters]")).display,
+        arrows: getComputedStyle(document.querySelector("[data-arrows]")).display,
       }))()`);
       assert.equal(state.buttons, 0);
       assert.equal(state.details, 3);
       assert.equal(state.visible, 3, "every card is shown");
       assert.deepEqual(state.lectures.sort(), ["/c-friends/l-friends", "/c-members/l-members", "/c-public/l-public"]);
-      assert.equal(state.filters, "none", "pills need a script, so they are not shown");
+      assert.equal(state.filters, "none", "the capsule needs a script, so it is not shown");
+      assert.equal(state.arrows, "none", "and neither are the round buttons");
       // The cover is a flat picture on the card, not a turned book.
-      assert.equal(
-        await page.evaluate("getComputedStyle(document.querySelector('.vol .spine')).display"),
-        "none",
-      );
+      assert.equal(await page.evaluate("getComputedStyle(document.querySelector('.vol .spine')).display"), "none");
+      assert.equal(await page.evaluate("getComputedStyle(document.querySelector('.vol .cover')).display"), "block");
       assert.deepEqual(await page.reportedViolations(), []);
       assert.deepEqual(page.errors, []);
     } finally {
@@ -1221,50 +1130,27 @@ test(
 );
 
 test(
-  "in a browser asking for reduced motion, a book is highlighted and never turned or slid",
+  "in a browser asking for reduced motion, the tape changes at once: nothing slides or turns on the way, and there is no ring",
   { skip: NO_BROWSER },
   async () => {
     const page = await landing("visitor", { reducedMotion: true });
     try {
-      await page.waitFor("document.querySelectorAll('button.hit').length === 3", "books");
-      await page.hover('li[data-slug="c-public"] .hit');
-      await new Promise((r) => setTimeout(r, 700));
+      await page.waitFor("document.querySelectorAll('.names button').length === 3", "books");
+      // The front book is turned all the same, and no book has a transition on its move.
+      assert.ok((await page.evaluate<number>(facing(".tb.is-selected"))) < 0.1);
       assert.equal(
-        await page.evaluate("getComputedStyle(document.querySelector('li[data-slug=\"c-public\"] .vol')).transform"),
-        "none",
+        await page.evaluate("[...document.querySelectorAll('.tb')].every((b) => getComputedStyle(b).transitionDuration === '0s')"),
+        true,
       );
-      // No slide, no lean, no turn of any kind, and the neighbours stay where they are.
-      for (const slug of ["c-public", "c-members"]) {
-        assert.deepEqual(
-          await page.evaluate(`(() => {
-            const vol = getComputedStyle(document.querySelector('li[data-slug="${slug}"] .vol'));
-            const hit = getComputedStyle(document.querySelector('li[data-slug="${slug}"] .hit'));
-            return [vol.transform, vol.translate, vol.rotate, hit.translate];
-          })()`),
-          ["none", "none", "none", "none"],
-          `${slug}: nothing moves`,
-        );
-      }
-      // The book under the pointer is lit.
-      assert.match(
-        await page.evaluate<string>("getComputedStyle(document.querySelector('li[data-slug=\"c-public\"] .spine')).filter"),
-        /brightness/,
-      );
-      // The keyboard's book is ringed, as well as lit.
+      await page.click('[data-step="1"]');
+      await page.waitFor(`/^02\\./.test(${frontLabel})`, "next");
+      assert.equal(await page.evaluate("document.getAnimations().length"), 0, "no animation runs");
+      assert.equal(await page.evaluate("document.querySelectorAll('.ring').length"), 0, "no ring follows the pointer");
+      // The keyboard's book is ringed.
       await page.moveAway();
-      for (let i = 0; i < 40 && !(await page.evaluate<boolean>("Boolean(document.querySelector('.book.is-focus'))")); i++) await page.press("Tab");
-      await page.waitFor("document.querySelector('.book.is-focus')", "a book has the keyboard");
-      assert.match(
-        await page.evaluate<string>("getComputedStyle(document.querySelector('.book.is-focus .spine')).boxShadow"),
-        /0px 0px 0px 2px/,
-      );
-      // The cover is shown beside the text instead.
-      await page.click('li[data-slug="c-public"] .hit');
-      await page.waitFor("!document.querySelector('[data-panel]').hidden", "panel");
-      assert.equal(
-        await page.evaluate("getComputedStyle(document.querySelector('.panel-cover')).display"),
-        "block",
-      );
+      await page.evaluate("document.querySelector('.names button[aria-current=\"true\"]').focus()");
+      await page.press("ArrowRight");
+      await page.waitFor(`/^03\\./.test(${frontLabel})`, "ArrowRight");
       assert.deepEqual(await page.reportedViolations(), []);
       assert.deepEqual(page.errors, []);
     } finally {
@@ -1373,6 +1259,29 @@ test("the build output holds no non-public text, and no lecture at all", () => {
     [],
     "the library was configured at build time; none of it may be in the output",
   );
+});
+
+test("the design page for the books is a route of the dev server only: a build has no trace of it and the lecture host answers 404 for it", async () => {
+  for (const path of ["/lab/books", "/lab/books/", "/lab", "/learn/lab/books"]) {
+    for (const role of ["visitor", "admin"]) {
+      const res = await server.request("learn", "GET", path, { cookie: sessions[role] });
+      assert.notEqual(res.status, 200, `${role} on ${path}`);
+      assert.doesNotMatch(res.text, /Book lab|lab-grid/, `${role} on ${path}`);
+    }
+  }
+  const site = await server.request("site", "GET", "/learn/lab/books");
+  assert.notEqual(site.status, 200);
+  assert.doesNotMatch(site.text, /Book lab/);
+  const leaked: string[] = [];
+  const walk = (dir: string): void => {
+    for (const name of readdirSync(dir)) {
+      const path = join(dir, name);
+      if (statSync(path).isDirectory()) walk(path);
+      else if (/Book lab|lab-grid|src\/lab\/books/.test(readFileSync(path, "latin1"))) leaked.push(path);
+    }
+  };
+  walk(out);
+  assert.deepEqual(leaked, [], "nothing of the design page is in the build");
 });
 
 // ---------------------------------------------------------------------------
