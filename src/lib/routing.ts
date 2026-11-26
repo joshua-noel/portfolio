@@ -21,10 +21,13 @@ export const RESERVED_SEGMENTS: ReadonlySet<string> = new Set([
   "robots.txt",
   "favicon.ico",
   "_astro",
-  "_image",
   "_server-islands",
   "_actions",
 ]);
+
+// `_image` is not listed: the site has no image endpoint (src/image-endpoint.ts
+// refuses everything), so on a mapped host `/_image` is a slug like any other and
+// gets that host's own 404.
 
 export type RouteAction =
   | { kind: "pass" }
@@ -202,4 +205,41 @@ export function isForbiddenCrossOriginRequest(request: {
   if (request.contentType === null) return !sameOrigin;
   const type = request.contentType.toLowerCase();
   return FORM_CONTENT_TYPES.some((form) => type.includes(form)) && !sameOrigin;
+}
+
+/** A `Host` value: a name or a bracketed IPv6 address, then an optional port. Nothing else may reach a URL. */
+const HOST_HEADER =
+  /^(?:[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*|\[[0-9A-Fa-f:.]+\])(?::\d{1,5})?$/;
+
+/**
+ * Sets on `url` the host the client asked for and, if the proxy says so, https.
+ *
+ * Astro builds the request URL from the `Host` header only for a host listed in
+ * `security.allowedDomains`, and honours `X-Forwarded-Proto` only for such a
+ * host. The hostnames here are runtime configuration, so none can be listed
+ * at build time. Listing a wildcard instead is no way out: Astro then also
+ * takes the client address from the first `X-Forwarded-For` entry, which the
+ * client writes, and the login throttle and `mayServeLocal` rely on the socket
+ * peer. So Astro is told to trust no forwarded header (an empty list), and the
+ * two things the site does read are applied here, as they always were: the
+ * `Host` header, and `X-Forwarded-Proto` for https alone. `X-Forwarded-Host`
+ * and `X-Forwarded-Port` are never read.
+ *
+ * `url` is the object behind `context.url` and `Astro.url`, so every user of
+ * them (cookie names and flags, the origin check, the HSTS header) sees it. It
+ * is not `request.url`, which Astro resolves a rewrite path against: rewrite
+ * with a URL built from `url` (see the middleware), not with a path.
+ */
+export function applyRequestOrigin(
+  url: URL,
+  host: string | null,
+  forwardedProto: string | null,
+): void {
+  if (host !== null && HOST_HEADER.test(host)) {
+    // Setting `host` without a port keeps the old port.
+    url.port = "";
+    url.host = host;
+  }
+  if (forwardedProto?.split(",")[0]?.trim().toLowerCase() === "https")
+    url.protocol = "https:";
 }

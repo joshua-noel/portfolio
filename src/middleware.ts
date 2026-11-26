@@ -7,6 +7,7 @@ import {
 } from "./lib/auth.ts";
 import { getConfig } from "./lib/config.ts";
 import {
+  applyRequestOrigin,
   isForbiddenCrossOriginRequest,
   mayServeLocal,
   resolveRoute,
@@ -89,6 +90,12 @@ const LEARN_CSP = [
  * the same ones as a page.
  */
 export const onRequest = defineMiddleware(async (context, next) => {
+  // Before anything reads context.url: see applyRequestOrigin.
+  applyRequestOrigin(
+    context.url,
+    context.request.headers.get("host"),
+    context.request.headers.get("x-forwarded-proto"),
+  );
   const config = getConfig();
   const host = context.request.headers.get("host") ?? context.url.host;
   const isLearn = host === config.learnHost;
@@ -158,6 +165,15 @@ async function handle(
   // cookie is set on an origin the admin never uses again.
   if (action.kind === "redirect") return context.redirect(action.location, 301);
 
+  // The site has no image endpoint: src/image-endpoint.ts answers 404 to
+  // everything, and a mapped host sends `/_image` to its own pages (it is not a
+  // reserved segment). What is left is the apex, and a Host that is no host of
+  // ours. An empty 404 that never reaches the route is rendered by Astro as the
+  // 404 page, as for any path without a route.
+  if (action.kind === "pass" && context.routePattern === "/_image") {
+    return new Response(null, { status: 404 });
+  }
+
   const isApi = pathname.startsWith("/api/");
   if (isLearn) {
     context.locals.here = { pathname, search };
@@ -206,7 +222,9 @@ async function handle(
     }
   }
 
-  return action.kind === "rewrite" ? next(action.path) : next();
+  // A URL, not a path: Astro resolves a path against the origin of request.url,
+  // which applyRequestOrigin cannot change, and the page would see http://localhost.
+  return action.kind === "rewrite" ? next(new URL(action.path, context.url)) : next();
 }
 
 /**
