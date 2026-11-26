@@ -236,9 +236,12 @@ export const DIAGRAM_DATA = new Set([
  * `class` attributes are removed so it can neither clash with nor be styled
  * or found by the page, and it may reference nothing by id.
  */
+/** Elements may nest this deep; a file that goes deeper is refused (and nothing recurses on it). */
+export const MAX_DEPTH = 64;
+
 export function sanitizeSvg(
   source: string,
-  { kind = "diagram" }: { kind?: "diagram" | "cover" } = {},
+  { kind = "diagram", idPrefix }: { kind?: "diagram" | "cover"; idPrefix?: string } = {},
 ): { html: string; issues: string[] } {
   const issues: string[] = [];
   const bad = (message: string): void => {
@@ -246,34 +249,92 @@ export function sanitizeSvg(
   };
   const root = parseFragment(source) as unknown as Node;
 
-  const walk = (node: Node, inside: boolean): void => {
-    // Comments are dropped from the tree, so they are not in what is inlined.
-    node.childNodes = (node.childNodes ?? []).filter((child) => child.nodeName !== "#comment");
-    for (const child of node.childNodes) {
-      if (child.nodeName === "#text") {
-        if (!inside && (child.value ?? "").trim() !== "") bad("text outside the <svg>");
+  /** Every element that passed, in document order, for the passes after the walk. */
+  const elements: Node[] = [];
+
+  // Iterative, with an explicit stack: a file of thousands of nested elements is refused by
+  // its depth, it cannot overflow the stack of a walk or of the serialiser.
+  const walk = (top: Node): void => {
+    const stack: [Node, boolean, number][] = [[top, false, 0]];
+    while (stack.length > 0) {
+      const [node, inside, depth] = stack.pop()!;
+      // Comments are dropped from the tree, so they are not in what is inlined.
+      node.childNodes = (node.childNodes ?? []).filter((child) => child.nodeName !== "#comment");
+      if (depth > MAX_DEPTH) {
+        bad(`elements are nested more than ${MAX_DEPTH} deep`);
+        node.childNodes = [];
         continue;
       }
-      const tag = child.tagName ?? child.nodeName;
-      if (child.namespaceURI !== SVG_NAMESPACE || !ELEMENTS.has(tag)) {
-        bad(
-          `<${tag}> is not allowed in a diagram` +
-            (/^(script|foreignobject|style|set|animate|image|a|iframe)/i.test(tag)
-              ? ""
-              : ` (allowed: ${[...ELEMENTS].join(", ")})`),
-        );
-        continue;
+      const next: [Node, boolean, number][] = [];
+      for (const child of node.childNodes) {
+        if (child.nodeName === "#text") {
+          if (!inside && (child.value ?? "").trim() !== "") bad("text outside the <svg>");
+          continue;
+        }
+        const tag = child.tagName ?? child.nodeName;
+        if (child.namespaceURI !== SVG_NAMESPACE || !ELEMENTS.has(tag)) {
+          bad(
+            `<${tag}> is not allowed in a diagram` +
+              (/^(script|foreignobject|style|set|animate|image|a|iframe)/i.test(tag)
+                ? ""
+                : ` (allowed: ${[...ELEMENTS].join(", ")})`),
+          );
+          continue;
+        }
+        if (!inside && tag !== "svg") bad(`<${tag}> outside the <svg>`);
+        if (inside && tag === "svg") bad("must contain exactly one <svg>");
+        for (const attr of child.attrs ?? []) checkAttribute(tag, attr);
+        if (kind === "cover") {
+          child.attrs = (child.attrs ?? []).filter((attr) => {
+            const name = attr.name.toLowerCase();
+            return !attr.prefix && name !== "id" && name !== "class" && name !== "data-mark";
+          });
+        }
+        elements.push(child);
+        next.push([child, true, depth + 1]);
       }
-      if (!inside && tag !== "svg") bad(`<${tag}> outside the <svg>`);
-      if (inside && tag === "svg") bad("must contain exactly one <svg>");
-      for (const attr of child.attrs ?? []) checkAttribute(tag, attr);
-      if (kind === "cover") {
-        child.attrs = (child.attrs ?? []).filter((attr) => {
-          const name = attr.name.toLowerCase();
-          return !attr.prefix && name !== "id" && name !== "class" && name !== "data-mark";
-        });
+      for (let i = next.length - 1; i >= 0; i--) stack.push(next[i]!);
+    }
+  };
+
+  /**
+   * Ids and what points at them, on the parsed tree (never on the text, which a word that looks
+   * like an id would fool): a figure may point only at ids it defines itself; with a prefix,
+   * its ids and every such pointer are renamed together, so figures on one page stay apart.
+   */
+  const references = (): void => {
+    const ids = new Set<string>();
+    for (const el of elements) {
+      for (const attr of el.attrs ?? []) if (!attr.prefix && attr.name.toLowerCase() === "id") ids.add(attr.value);
+    }
+    const target = (id: string): string => {
+      if (!ids.has(id)) {
+        bad(`it refers to #${id}, which this diagram does not define`);
+        return id;
       }
-      walk(child, true);
+      return (idPrefix ?? "") + id;
+    };
+    for (const el of elements) {
+      for (const attr of el.attrs ?? []) {
+        const name = attr.name.toLowerCase();
+        if (!attr.prefix && name === "id") {
+          attr.value = (idPrefix ?? "") + attr.value;
+        } else if (name === "href" && (attr.prefix === undefined || attr.prefix === "xlink")) {
+          const id = /^#([\w-]+)$/.exec(attr.value)?.[1];
+          if (id !== undefined) attr.value = "#" + target(id);
+        } else if (/^aria-(?:labelledby|describedby|controls|owns|flowto|details|errormessage|activedescendant)$/.test(name)) {
+          attr.value = attr.value
+            .split(/\s+/)
+            .filter((token) => token !== "")
+            .map(target)
+            .join(" ");
+        } else if (/url\(/i.test(attr.value)) {
+          attr.value = attr.value.replace(
+            /url\(\s*(["']?)#([\w-]+)\1\s*\)/g,
+            (_, quote: string, id: string) => `url(${quote}#${target(id)}${quote})`,
+          );
+        }
+      }
     }
   };
 
@@ -335,8 +396,44 @@ export function sanitizeSvg(
     if (why) bad(`${name}="${attr.value}": ${why} is not allowed`);
   };
 
-  walk(root, false);
+  walk(root);
   const svgs = (root.childNodes ?? []).filter((node) => node.tagName === "svg");
   if (svgs.length !== 1) bad("must contain exactly one <svg>");
+  if (kind === "diagram" && issues.length === 0) references();
   return { html: issues.length === 0 ? serialize(root as never).trim() : "", issues };
+}
+
+/** The colours a diagram may use: the theme's own variables, and nothing literal. */
+const ALLOWED_COLOUR =
+  /^(?:none|currentColor|transparent|inherit|url\(#[\w-]+\)|var\(--(?:fg|muted|border|surface|accent|c[1-6])\))$/;
+const COLOUR_NAMES = new Set(["fill", "stroke", "stop-color", "flood-color", "color"]);
+
+/**
+ * The first literal colour in a diagram's attributes or style values, as "property:value", or
+ * undefined. It reads the parsed tree: text inside the file (a `<desc>` that says "color: red")
+ * is not a colour.
+ */
+export function literalColour(source: string): string | undefined {
+  const root = parseFragment(source) as unknown as Node;
+  const stack: [Node, number][] = [[root, 0]];
+  while (stack.length > 0) {
+    const [node, depth] = stack.pop()!;
+    if (depth > MAX_DEPTH) return undefined; // refused by the sanitiser, which says so
+    for (const attr of node.attrs ?? []) {
+      const name = attr.name.toLowerCase();
+      const found: [string, string][] =
+        name === "style"
+          ? attr.value.split(";").flatMap((d): [string, string][] => {
+              const colon = d.indexOf(":");
+              return colon < 0 ? [] : [[d.slice(0, colon).trim().toLowerCase(), d.slice(colon + 1).trim()]];
+            })
+          : [[name, attr.value.trim()]];
+      for (const [property, value] of found) {
+        if (COLOUR_NAMES.has(property) && value !== "" && !ALLOWED_COLOUR.test(value)) return `${property}:${value}`;
+      }
+    }
+    for (const child of node.childNodes ?? []) stack.push([child, depth + 1]);
+    if (node.content) stack.push([node.content, depth + 1]);
+  }
+  return undefined;
 }

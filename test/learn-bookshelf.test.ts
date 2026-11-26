@@ -433,3 +433,15 @@ test("every cover the generator draws passes the loader's checks, in one hand: n
   }
   assert.equal(coverSvg("not-a-course", { color: "#000000", accent: "#ffffff" }), undefined);
 });
+
+test("the turn's curve has a point for every hundredth of the move, and the shade turns with the book", async () => {
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(new URL("../src/styles/learn-bookshelf.css", import.meta.url), "utf8");
+  const points = /--spring:\s*linear\(([^)]*)\)/.exec(css)?.[1]?.split(",") ?? [];
+  assert.ok(points.length >= 100, `the spring has ${points.length} points; at 240 Hz fewer shows as steps`);
+  const values = points.map((p) => Number.parseFloat(p));
+  assert.ok(values.every((v, i) => i === 0 || v >= values[i - 1]!), "it never goes back");
+  assert.equal(values.at(-1), 1);
+  // The shade's opacity has the move's own time and curve: it never snaps.
+  assert.match(css, /\.tb \.cover::after\s*\{\s*transition:\s*opacity var\(--duration\) var\(--spring\);/);
+});

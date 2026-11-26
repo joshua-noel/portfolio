@@ -492,7 +492,8 @@ if (shelf) {
         if (i === undefined) return;
         try {
           const cover = faces[i][1];
-          const url = /url\("?(data:image\/svg\+xml[^")]*)"?\)/.exec(cover.style.backgroundImage)?.[1];
+          // The cover's address is its own attribute: a style is not text to be cut with a pattern.
+          const url = cover.dataset.cover;
           if (url) {
             const image = new Image();
             image.src = url;
