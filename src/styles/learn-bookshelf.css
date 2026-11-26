@@ -24,6 +24,10 @@
   /* A card's cover size without JavaScript; the shelf sets its own. */
   --H: 17rem;
   --shadow: rgba(0, 0, 0, 0.5);
+  /* A lighter edge on every face (a book must stand out from a dark page), and the pool of
+     shadow on the floor under the whole row. */
+  --edge: rgba(255, 255, 255, 0.3);
+  --pool: rgba(0, 0, 0, 0.7);
   /* A critically damped spring as `linear()` points of 1 - (1 + wt) e^-wt:
      a move starts softly, is quick through the middle and settles without
      overshoot. The time given beside it is the whole move; it is within a
@@ -53,15 +57,16 @@
 :root[data-theme="light"] .bookshelf,
 .theme-scope[data-theme="light"] .bookshelf {
   --shadow: rgba(20, 16, 10, 0.55);
+  --edge: rgba(255, 255, 255, 0.2);
+  --pool: rgba(20, 16, 10, 0.3);
 }
 
 /* ---------- The page around it ---------- */
 
 .plain .page.shelf-page {
   max-width: none;
-  padding-inline: 0;
+  padding: 1.5rem 0 0;
 }
-.shelf-page > .intro,
 .bookshelf .filters,
 .bookshelf .arrows,
 .bookshelf .panel,
@@ -69,15 +74,18 @@
   width: min(76rem, 100% - 2 * clamp(1.25rem, 3vw, 3rem));
   margin-inline: auto;
 }
-.intro {
-  text-align: left;
-}
+/* Where the reader left off: under the books, above the buttons, small and quiet. */
 .resume {
-  margin: 1rem 0 0;
-  font-size: 0.95rem;
+  margin: 0.25rem 0 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.resume[hidden] {
+  display: none;
 }
 .resume a {
-  font-weight: 650;
+  font-weight: inherit;
 }
 .empty {
   margin-top: 3rem;
@@ -94,7 +102,7 @@
   width: fit-content;
   max-width: calc(100% - 2rem);
   gap: 0.125rem;
-  margin: 1.75rem auto 0;
+  margin: 1.25rem auto 0;
   padding: 0.25rem;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -166,140 +174,16 @@
   font-family: var(--font-ui);
 }
 
-/* The front cover: a flat colour, the series' grid. Series mark and number at
-   the top, the title and the promise below them, the illustration in the
-   lower half (the art frame of tools/learn-covers/generate.mjs), the shelf
-   and the lecture count at the foot. */
+/* The front cover: ONE image (src/lib/learn/cover-image.ts), set inline on the face: the
+   series' grid (mark and number, title, promise, illustration, shelf and count) drawn once. */
 .cover {
   position: relative;
   width: calc(var(--H) * 0.75);
   height: var(--H);
-  overflow: hidden;
-  color: var(--b-ink);
-  background:
-    linear-gradient(
-      90deg,
-      rgba(0, 0, 0, 0.2) 0,
-      rgba(0, 0, 0, 0) 1.6%,
-      rgba(255, 255, 255, 0.08) 2.4%,
-      rgba(255, 255, 255, 0) 4%
-    ),
-    linear-gradient(120deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 45%),
-    var(--b-color);
+  background-color: var(--b-color);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
   border-radius: calc(var(--H) * 0.004);
-}
-.c-art {
-  position: absolute;
-  inset: 0;
-  display: block;
-  pointer-events: none;
-}
-.c-art svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-.c-motif {
-  position: absolute;
-  left: 50%;
-  top: 46%;
-  width: calc(var(--H) * 0.3);
-  height: calc(var(--H) * 0.3);
-  margin: calc(var(--H) * -0.15) 0 0 calc(var(--H) * -0.15);
-  color: var(--b-mark);
-  opacity: 0.9;
-}
-.c-lock {
-  position: absolute;
-  left: 50%;
-  top: 46%;
-  display: grid;
-  place-items: center;
-  width: calc(var(--H) * 0.26);
-  height: calc(var(--H) * 0.26);
-  margin: calc(var(--H) * -0.13) 0 0 calc(var(--H) * -0.13);
-  border: 2px solid currentColor;
-  border-radius: 50%;
-  color: var(--b-ink);
-  opacity: 0.8;
-}
-.c-lock .lock {
-  width: 46%;
-  height: 46%;
-  stroke-width: 1.6;
-}
-.c-top {
-  position: absolute;
-  left: calc(var(--H) * 0.067);
-  right: calc(var(--H) * 0.067);
-  top: calc(var(--H) * 0.056);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: max(0.6875rem, calc(var(--H) * 0.024));
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-.c-series {
-  display: flex;
-  align-items: center;
-  gap: 0.55em;
-}
-.c-series::before {
-  /* The series mark: three bars, the first in the accent. */
-  content: "";
-  width: 1.1em;
-  height: 1.1em;
-  background:
-    linear-gradient(var(--b-mark), var(--b-mark)) 0 0 / 100% 0.28em no-repeat,
-    linear-gradient(currentColor, currentColor) 0 0.41em / 76% 0.28em no-repeat,
-    linear-gradient(currentColor, currentColor) 0 0.82em / 52% 0.28em no-repeat;
-}
-.c-num {
-  font-variant-numeric: tabular-nums;
-}
-.c-head {
-  position: absolute;
-  left: calc(var(--H) * 0.067);
-  right: calc(var(--H) * 0.067);
-  top: calc(var(--H) * 0.125);
-  display: block;
-}
-.c-title {
-  display: block;
-  font-size: calc(var(--H) * var(--b-cs, 0.066));
-  font-weight: 750;
-  line-height: 1.05;
-  letter-spacing: -0.015em;
-  text-wrap: balance;
-  overflow-wrap: anywhere;
-}
-.c-sub {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  max-width: 92%;
-  margin-top: calc(var(--H) * 0.02);
-  font-size: max(0.6875rem, calc(var(--H) * 0.0225));
-  line-height: 1.36;
-  color: var(--b-soft);
-}
-.c-foot {
-  position: absolute;
-  left: calc(var(--H) * 0.067);
-  right: calc(var(--H) * 0.067);
-  bottom: calc(var(--H) * 0.05);
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5em;
-  padding-top: calc(var(--H) * 0.014);
-  border-top: 1px solid rgba(255, 255, 255, 0.24);
-  font-size: max(0.5625rem, calc(var(--H) * 0.0185));
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 /* The spine: a flat colour, the number on a band at the head, the title down
@@ -326,6 +210,8 @@
   border-radius: 2px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 1px 0 0 var(--edge),
+    inset -1px 0 0 rgba(0, 0, 0, 0.3),
     inset 0 -2px 3px rgba(0, 0, 0, 0.18);
 }
 .s-band {
@@ -500,8 +386,10 @@
    ============================================================ */
 
 .js .bookshelf {
-  /* About half the window's height: the row is the main thing under the heading. */
-  --H: clamp(21rem, 54svh, 46rem);
+  /* As tall as lets the bar, the capsule, the row, the line of where the reader left off and the
+     two buttons fit the window at once (18rem is what they take besides the row's 1.24
+     heights): the buttons are always in view, and the footer is below the fold by design. */
+  --H: clamp(18rem, calc((100svh - 18rem) / 1.24), 46rem);
   --duration: 0.7s;
   --gap: 0.03;
 }
@@ -510,7 +398,7 @@
 }
 .js .stage {
   position: relative;
-  height: calc(var(--H) * 1.3);
+  height: calc(var(--H) * 1.24);
   margin-top: 0.5rem;
   overflow-x: clip;
   touch-action: pan-y;
@@ -523,17 +411,28 @@
 .tape {
   position: absolute;
   left: 50%;
-  top: calc(var(--H) * 0.64);
+  top: calc(var(--H) * 0.6);
   width: 0;
   height: 0;
   perspective: calc(var(--H) * 2.77);
+}
+
+/* The floor: one soft pool of shadow under the whole row, drawn once. */
+.floor {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: calc(var(--H) * 1.1);
+  height: calc(var(--H) * 0.12);
+  background: radial-gradient(ellipse 50% 100% at 50% 0, var(--pool), rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
 }
 
 /* The target over the cover of the book in front (see index.js). */
 .front {
   position: absolute;
   left: 50%;
-  top: calc(var(--H) * 0.1);
+  top: calc(var(--H) * 0.07);
   z-index: 101;
   width: calc(var(--H) * 0.78);
   height: calc(var(--H) * 1.06);
@@ -584,14 +483,22 @@
   transform: translateZ(calc(var(--H) * 0.375));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 1px 0 0 var(--edge),
+    inset -1px 0 0 rgba(0, 0, 0, 0.3),
     inset 0 -2px 3px rgba(0, 0, 0, 0.18),
     0 calc(var(--H) * 0.02) calc(var(--H) * 0.05) calc(var(--H) * -0.02) var(--shadow);
 }
 .tb .cover {
+  /* Only the book in front shows its cover: a neighbour shows its spine and a clean edge, never
+     its cover behind the front one. The delay keeps it drawn while it turns away. */
+  visibility: hidden;
+  transition: visibility 0.7s;
   left: calc(var(--H) * -0.375);
   top: calc(var(--H) * -0.5);
   transform: translateX(calc(var(--H) * var(--t) * 0.5)) rotateY(90deg);
-  box-shadow: 0 calc(var(--H) * 0.038) calc(var(--H) * 0.076) calc(var(--H) * -0.035) var(--shadow);
+  box-shadow:
+    inset 1px 0 0 var(--edge),
+    0 calc(var(--H) * 0.038) calc(var(--H) * 0.076) calc(var(--H) * -0.035) var(--shadow);
 }
 /* Shade: the cover of the book in front is lit; every other cover is turned away. One overlay,
    and only its opacity moves. */
@@ -605,6 +512,9 @@
 }
 .tb.is-selected .cover::after {
   opacity: 0;
+}
+.tb.is-selected .cover {
+  visibility: visible;
 }
 /* The keyboard has the name of the book in front: its cover is ringed. */
 .is-keyboard .tb.is-selected .cover {
@@ -620,9 +530,6 @@
   }
   .tb.is-still {
     transition: none;
-  }
-  .tb .cover::after {
-    transition: opacity var(--duration) var(--spring);
   }
 }
 

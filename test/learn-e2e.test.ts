@@ -786,12 +786,11 @@ test("the landing page lists the right books and locks for every reader, with th
     // A cover illustration is drawn, once, for a course the reader may open, and for no other: a locked book is a plain cover.
     for (const v of ["public", "members", "friends"] as const) {
       const open = readable.includes(v);
-      const art = res.text.split(`aria-label="ART-c-${v}"`).length - 1;
+      const art = res.text.split(`ART-c-${v}`).length - 1;
       assert.equal(art, open ? 1 : 0, `${where}: cover art of ${v}`);
       const book = new RegExp(`<li class="book"[^>]*data-slug="c-${v}"[\\s\\S]*?<div class="detail"`).exec(res.text)?.[0] ?? "";
-      assert.equal(/class="c-art"/.test(book), open, `${where}: art layer of ${v}`);
-      assert.equal(/class="c-lock"/.test(book), !open, `${where}: lock on the cover of ${v}`);
-      assert.equal(/class="s-art"|class="c-motif"/.test(book), false, `${where}: nothing else drawn for ${v}`);
+      assert.equal(/class="face cover" style="background-image:url\((?:&#34;|&quot;|")data:image\/svg\+xml/.test(book), true, `${where}: the cover of ${v} is one image`);
+      assert.equal(/class="c-art"|class="s-art"|class="c-motif"/.test(book), false, `${where}: nothing else drawn for ${v}`);
     }
     assert.doesNotMatch(res.text, /ART-c-local/, `${where}: no art of the local course`);
 
@@ -812,7 +811,7 @@ test("the landing page lists the right books and locks for every reader, with th
     if (readable.length === 3) assert.doesNotMatch(res.text, /d-locked/, `${where}: nothing locked`);
 
     // What a visitor needs first. No depths: they are not on the site any more.
-    assert.match(res.text, /<h1>Learn<\/h1>/, where);
+    assert.match(res.text, /<h1[^>]*>Learn<\/h1>/, where);
     assert.doesNotMatch(res.text, /depth|Waterline|Abyss|data-d=/i, `${where}: no depth wording`);
     assert.match(res.text, /role="search"/, where);
   }
@@ -947,6 +946,33 @@ test(
         await page.waitFor(`/^03\\./.test(${frontLabel})`, `${where}: capsule, agents`);
         await page.click('[data-filter="all"]');
         await page.waitFor(`/^01\\./.test(${frontLabel})`, `${where}: capsule, all`);
+        // The keys work from anywhere on the page, not only on the shelf.
+        await page.evaluate("document.activeElement?.blur()");
+        await page.press("ArrowRight");
+        await page.waitFor(`/^02\\./.test(${frontLabel})`, `${where}: ArrowRight from the page`);
+        await page.press("ArrowLeft");
+        await page.waitFor(`/^01\\./.test(${frontLabel})`, `${where}: ArrowLeft from the page`);
+        await page.press("End");
+        await page.waitFor(`/^03\\./.test(${frontLabel})`, `${where}: End from the page`);
+        await page.press("Home");
+        await page.waitFor(`/^01\\./.test(${frontLabel})`, `${where}: Home from the page`);
+        await page.press("Enter");
+        await page.waitFor("!document.querySelector('[data-panel]').hidden", `${where}: Enter opens the front book`);
+        await page.press("Escape");
+        await page.waitFor("document.querySelector('[data-panel]').hidden", `${where}: Escape closes it`);
+        // Every number is readable on its band, and the capsule's options are all readable.
+        await page.settle();
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        const unreadable = await page.evaluate<string[]>(`(() => {
+          const lum = (c) => { const [r, g, b] = c.match(/\\d+(\\.\\d+)?/g).slice(0, 3).map((v) => { v = v / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+          const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+          const bad = [];
+          for (const e of document.querySelectorAll('.s-band')) { const c = getComputedStyle(e); if (ratio(c.color, c.backgroundColor) < 4.5) bad.push('band ' + e.textContent); }
+          const page = getComputedStyle(document.body).backgroundColor;
+          for (const e of document.querySelectorAll('.pill')) { const c = getComputedStyle(e); const bg = c.backgroundColor === 'rgba(0, 0, 0, 0)' ? page : c.backgroundColor; if (ratio(c.color, bg) < 4.5) bad.push('pill ' + e.textContent); }
+          return bad;
+        })()`);
+        assert.deepEqual(unreadable, [], `${where}: unreadable text`);
         // Nothing is hidden by it.
         assert.equal(await page.evaluate("document.querySelectorAll('.names button').length"), 3);
 
@@ -1052,31 +1078,30 @@ test(
         [['c-public', '01'], ['c-members', '02'], ['c-friends', '03']].forEach(([slug, n]) => {
           const book = [...document.querySelectorAll('.tb')].find((b) => b.querySelector('.s-band').textContent === n);
           const cover = book.querySelector('.cover');
-          const art = book.querySelector('.c-art svg');
+          const image = getComputedStyle(cover).backgroundImage;
           out[slug] = {
-            art: Boolean(art),
-            artBox: art ? book.querySelector('.c-art').offsetWidth : 0,
-            lock: Boolean(book.querySelector('.cover .c-lock .lock')),
+            image: image.startsWith('url("data:image/svg+xml'),
+            art: image.includes('ART-' + slug),
             spineLock: Boolean(book.querySelector('.spine .lock')),
-            text: cover.textContent.replace(/\\s+/g, ' ').trim(),
-            artText: book.querySelector('.c-art')?.textContent.trim() ?? '',
+            title: book.querySelector('.s-title').textContent,
             number: book.querySelector('.s-band').textContent,
             ratio: cover.offsetWidth / cover.offsetHeight,
+            children: cover.children.length,
           };
         });
         return out;
       })()`);
-      assert.equal(state["c-public"]!.art, true, "the open book has its illustration");
-      assert.ok((state["c-public"]!.artBox as number) > 100, "drawn at the size of the cover");
-      assert.equal(state["c-public"]!.lock, false);
-      assert.equal(state["c-public"]!.artText, "", "an illustration has no text");
+      assert.equal(state["c-public"]!.art, true, "the open book has its illustration in its cover image");
+      assert.equal(state["c-public"]!.children, 0, "a cover is one image, with nothing in it");
       assert.ok(Math.abs((state["c-public"]!.ratio as number) - 0.75) < 0.01, "a cover is three quarters as wide as it is tall");
-      for (const [slug, n] of [["c-public", "01"], ["c-members", "02"], ["c-friends", "03"]] as const) assert.equal(state[slug]!.number, n);
+      for (const [slug, n] of [["c-public", "01"], ["c-members", "02"], ["c-friends", "03"]] as const) {
+        assert.equal(state[slug]!.number, n);
+        assert.equal(state[slug]!.image, true, `${slug}: a cover image`);
+      }
       for (const slug of ["c-members", "c-friends"]) {
         assert.equal(state[slug]!.art, false, `${slug}: no illustration for a locked book`);
-        assert.equal(state[slug]!.lock, true, `${slug}: the lock is on the cover`);
-        assert.equal(state[slug]!.spineLock, true, `${slug}: and on the spine`);
-        assert.match(state[slug]!.text as string, /Course c-/, `${slug}: it has its title`);
+        assert.equal(state[slug]!.spineLock, true, `${slug}: the lock is on the spine`);
+        assert.match(state[slug]!.title as string, /Course c-/, `${slug}: it has its title`);
       }
       // The page, with the locked books in it, holds nothing of what is behind them.
       const html = await page.evaluate<string>("document.documentElement.outerHTML");

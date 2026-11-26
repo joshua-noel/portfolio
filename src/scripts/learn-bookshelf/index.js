@@ -78,7 +78,7 @@ if (shelf) {
     const FRONT = "translate3d(0, calc(var(--H) * -0.025), calc(var(--H) * 0.2)) rotateZ(-4.5deg) rotateY(-90deg)";
 
     const mod = (a, m) => ((a % m) + m) % m;
-    const heightPx = () => stage.offsetHeight / 1.3;
+    const heightPx = () => stage.offsetHeight / 1.24;
 
     // ---------------------------------------------------------- the tape
 
@@ -376,28 +376,45 @@ if (shelf) {
       { passive: false },
     );
 
-    names.addEventListener("keydown", (event) => {
+    // The keys work from anywhere on the page unless a field is being typed in: Left and Right
+    // step, Home and End go to the first and last, Enter and Space open the front book (or shut
+    // it); on the list of names the arrows up and down step too, and a focused control keeps
+    // its own Enter and Space.
+    document.addEventListener("keydown", (event) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest("input, textarea, select, [contenteditable], [role=textbox]")) return;
+      const inNames = target instanceof Element && names.contains(target);
+      const bare = target === document.body || target === document.documentElement;
       let to;
       switch (event.key) {
         case "ArrowRight":
-        case "ArrowDown":
           to = pos + 1;
           break;
         case "ArrowLeft":
-        case "ArrowUp":
           to = pos - 1;
           break;
+        case "ArrowDown":
+        case "ArrowUp":
+          if (!inNames) return;
+          to = pos + (event.key === "ArrowDown" ? 1 : -1);
+          break;
         case "Home":
-          to = nearest(0);
-          break;
         case "End":
-          to = nearest(n - 1);
+          if (!bare && !inNames) return;
+          to = nearest(event.key === "Home" ? 0 : n - 1);
           break;
+        case "Enter":
+        case " ":
+          if (!bare) return;
+          event.preventDefault();
+          pressBook(pos);
+          return;
         default:
           return;
       }
       event.preventDefault();
-      focusAfter = true;
+      focusAfter = inNames;
       select(to);
       focusAfter = false;
     });
@@ -455,6 +472,10 @@ if (shelf) {
         layout();
       }
     }).observe(stage);
+    const floor = document.createElement("div");
+    floor.className = "floor";
+    floor.setAttribute("aria-hidden", "true");
+    stage.prepend(floor);
     stage.append(tape, front, names);
   }
 }
