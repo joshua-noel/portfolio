@@ -21,7 +21,7 @@ import {
   type Section,
 } from "./helpers/lecture-v2.ts";
 
-const PUBLIC = { shows: () => true };
+const PUBLIC = { shows: () => true, wordsAreErrors: true };
 
 const build = (file: SourceFile, diagrams: ReadonlyMap<string, string> = DIAGRAMS) =>
   buildLecture(file, "c", diagrams, new Set(), PUBLIC);
@@ -414,4 +414,16 @@ test("figures on one page do not share ids: each label names its own figure's ti
     // Nothing still points at a bare id.
     assert.doesNotMatch(figure, /url\(#(?:ah|g)\)|href="#ah"|labelledby="t d"/);
   }
+});
+
+test("a lecture outside the word ranges is served with warnings, and is an error only for the checker", async () => {
+  const file = lectureV2(withBody("In brief", words(90)));
+  // The checker's rule (the tests' default above): an error.
+  assert.match(await issuesOf(file), /In brief has 90 words; the contract asks for 150 to 350/);
+  // A server: it builds, and says so as a warning.
+  const served = await buildLecture(file, "c", DIAGRAMS, new Set(), { shows: () => true });
+  assert.ok(served.html.length > 0);
+  assert.ok(served.warnings.some((w) => /In brief has 90 words; the contract asks for 150 to 350/.test(w)));
+  // Other rules are still errors for a server: a section missing is not a length.
+  await assert.rejects(buildLecture(lectureV2(without("In practice")), "c", DIAGRAMS, new Set(), { shows: () => true }), LectureError);
 });

@@ -163,7 +163,7 @@ for (const source of content.courses) {
         source.slug,
         source.diagrams,
         source.media,
-        { shows: () => true },
+        { shows: () => true, wordsAreErrors: true },
       );
       for (const text of lecture.warnings) add(source.slug, file.name, "warning", text);
       printWords(lecture.words, false);

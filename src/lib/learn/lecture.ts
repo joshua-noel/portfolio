@@ -535,6 +535,13 @@ export interface BuildOptions {
    * not, the front matter is still checked but the body is not rendered.
    */
   shows: (visibility: Visibility) => boolean;
+  /**
+   * A lecture outside the word ranges of the contract is an error for the
+   * checker (`bin/check-learn.mjs`, which passes true) and a warning for a
+   * server: a lecture a few words over is still worth reading, and one that is
+   * not served because of its length helps no one.
+   */
+  wordsAreErrors?: boolean;
 }
 
 /**
@@ -570,7 +577,7 @@ async function buildLectureUnguarded(
   course: string,
   diagrams: Diagrams,
   media: ReadonlySet<string>,
-  { shows }: BuildOptions,
+  { shows, wordsAreErrors = false }: BuildOptions,
 ): Promise<Lecture> {
   const fail = (...issues: string[]): never => {
     throw new LectureError(file.path, issues);
@@ -779,6 +786,14 @@ async function buildLectureUnguarded(
   if (front.format === 2) checkStructureV2(front, renderer.facts, counts, issues);
   else checkStructure(front, renderer.facts, counts, issues);
   issues.push(...suspectMaths(split.body, split.bodyLine));
+  if (!wordsAreErrors) {
+    const isWordRange = (text: string): boolean =>
+      /has [\d,]+ words; the contract asks for [\d,]+ to [\d,]+$/.test(text);
+    lecture.warnings.push(...issues.filter(isWordRange));
+    const kept = issues.filter((text) => !isWordRange(text));
+    issues.length = 0;
+    issues.push(...kept);
+  }
   if (issues.length > 0) {
     throw new LectureError(
       file.path,

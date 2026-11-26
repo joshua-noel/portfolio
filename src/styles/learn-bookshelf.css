@@ -386,9 +386,11 @@
    ============================================================ */
 
 .js .bookshelf {
-  /* As tall as lets the bar, the capsule, the row, the line of where the reader left off and the
-     two buttons fit the window at once (24.5rem is what they and the room around the row take,
-     besides the row's 1.24 heights): the buttons are always in view. */
+  /* As tall as lets the bar, the capsule, the row, the line of where the reader left off, the
+     two buttons AND the footer fit the window at once. 24.5rem is what they and the room
+     around the row take (about 22.2rem down to the buttons, 2.3rem of footer) besides the
+     row's 1.3 heights. The buttons are above the footer, so they are in view at every window
+     height from 700px up whatever the footer is (a test checks it, signed in and out). */
   --H: clamp(16rem, calc((100svh - 24.5rem) / 1.3), 44rem);
   --duration: 0.7s;
   --gap: 0.045;
@@ -397,6 +399,9 @@
   display: none;
 }
 .js .stage {
+  /* What changes inside the stage (a step, a hover) is laid out alone, and what changes outside
+     (the panel opening below it) does not lay it out again. */
+  contain: layout style;
   position: relative;
   height: calc(var(--H) * 1.24);
   margin-top: 4.5rem;
@@ -422,8 +427,10 @@
   position: absolute;
   left: 4%;
   right: 4%;
-  top: calc(var(--H) * 1.1);
-  height: calc(var(--H) * 0.12);
+  /* Below the bottoms of the books, which the eye's perspective draws about 16% further down
+     than their height: a pool that began higher showed as a grey strip behind them. */
+  top: calc(var(--H) * 1.19);
+  height: calc(var(--H) * 0.1);
   background: radial-gradient(ellipse 50% 100% at 50% 0, var(--pool), rgba(0, 0, 0, 0) 100%);
   pointer-events: none;
 }
@@ -526,6 +533,12 @@
   .tb.is-still {
     transition: none;
   }
+  /* Steps that come faster than a spring can settle (a held key, a quick run of clicks, a
+     sweep of the wheel) are followed at a steady pace instead of each starting again from rest. */
+  .stage.is-rapid .tb {
+    transition-duration: 0.14s, 0.45s;
+    transition-timing-function: linear, var(--spring);
+  }
 }
 
 /* ---------- The two round buttons ---------- */
@@ -612,13 +625,6 @@
   height: auto;
   background: none;
   border-radius: 0;
-}
-.js.has-ring .stage {
-  cursor: none;
-}
-.js.has-ring .stage .tb,
-.js.has-ring .stage .front {
-  cursor: none;
 }
 
 /* ---------- The panel: the lectures of the book in front ---------- */

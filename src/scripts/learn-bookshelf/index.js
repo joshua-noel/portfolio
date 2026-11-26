@@ -184,22 +184,27 @@ if (shelf) {
     function layout() {
       const { total, half, xs } = placeAll();
       const hpx = heightPx();
-      const reach = stage.clientWidth / 2 + hpx * 0.8;
+      const reach = stage.clientWidth / 2 + hpx * 0.5;
       for (let s = 0; s < total; s++) {
         const el = slots[s];
         const d = mod(s - pos + half, total) - half;
         const x = xs.get(d) ?? 0;
         const jumped = el._d !== undefined && Math.abs(d - el._d) > total / 2;
-        if (jumped || first) {
+        const gone = Math.abs(x * hpx) > reach && (el._x === undefined || Math.abs(el._x * hpx) > reach);
+        // Off the screen before and after: nothing to move, and nothing to tell the browser.
+        if (gone && el._gone) {
+          el._d = d;
+          el._x = x;
+          continue;
+        }
+        if (jumped || first || el._gone) {
           // Off the screen at both ends of its move: it only changes sides.
           el.classList.add("is-still");
           requestAnimationFrame(() => el.classList.remove("is-still"));
         }
         el.classList.toggle("is-selected", d === 0);
-        el.classList.toggle(
-          "is-gone",
-          Math.abs(x * hpx) > reach && (el._x === undefined || Math.abs(el._x * hpx) > reach),
-        );
+        el.classList.toggle("is-gone", gone);
+        el._gone = gone;
         // The whole transform is set on the element itself, not through a custom property:
         // a custom property inherits, so changing one makes the browser recalculate the style
         // of every element inside the book, hundreds of them, for each book at each step.
@@ -245,7 +250,20 @@ if (shelf) {
       if (status) status.textContent = `${items[at].dataset.index * 1 + 1} of ${n}: ${items[at].querySelector(".d-title")?.textContent ?? ""}`;
       if (focusAfter) buttons[at].focus({ preventScroll: true });
     }
-    const step = (by) => select(pos + by);
+    // A step soon after another is "rapid": the books follow it at a steady pace (see the styles).
+    let lastStep = 0;
+    let calm = 0;
+    function stepped() {
+      const now = performance.now();
+      if (now - lastStep < 260) stage.classList.add("is-rapid");
+      lastStep = now;
+      clearTimeout(calm);
+      calm = setTimeout(() => stage.classList.remove("is-rapid"), 320);
+    }
+    const step = (by) => {
+      stepped();
+      select(pos + by);
+    };
 
     // ----------------------------------------------------- the panel
 
@@ -327,7 +345,10 @@ if (shelf) {
     // The names are buttons too: a screen reader or the keyboard presses them.
     names.addEventListener("click", (event) => {
       const button = event.target instanceof Element ? event.target.closest("button[data-index]") : null;
-      if (button) pressBook(nearest(Number(button.dataset.index)));
+      if (button) {
+        stepped();
+        pressBook(nearest(Number(button.dataset.index)));
+      }
     });
     // The front book is ringed when the keyboard has its name.
     names.addEventListener("focusin", (event) => {
@@ -415,6 +436,7 @@ if (shelf) {
       }
       event.preventDefault();
       focusAfter = inNames;
+      stepped();
       select(to);
       focusAfter = false;
     });
@@ -454,6 +476,54 @@ if (shelf) {
       stage.addEventListener("pointerleave", () => ring.classList.remove("is-over", "is-open"));
     }
 
+    // ---------------------------------------------- one bitmap per cover
+
+    // A cover arrives as an SVG image, which the browser would rasterise at the moment a book
+    // first comes into view: a long frame in the middle of a move. So each is drawn once, at
+    // idle, to a bitmap (a data: URL, which the policy allows) at the size the largest book
+    // shows it, and the faces use that: a decode on a worker thread, shared by every copy.
+    function bake() {
+      const px = Math.ceil(46 * parseFloat(getComputedStyle(document.documentElement).fontSize) * (devicePixelRatio || 1));
+      const width = Math.min(1400, Math.round(px * 0.75));
+      const height = Math.min(1870, px);
+      const queue = faces.map((f, i) => i);
+      const next = async () => {
+        const i = queue.shift();
+        if (i === undefined) return;
+        try {
+          const cover = faces[i][1];
+          const url = /url\("?(data:image\/svg\+xml[^")]*)"?\)/.exec(cover.style.backgroundImage)?.[1];
+          if (url) {
+            const image = new Image();
+            image.src = url;
+            await image.decode();
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            canvas.getContext("2d").drawImage(image, 0, 0, width, height);
+            // Encoded on another thread (toBlob), then read back as a data: URL: the main thread
+            // only draws and copies, so no frame waits for an encoder.
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", 0.94));
+            const baked = blob?.type === "image/webp" ? await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(String(reader.result));
+              reader.onerror = () => resolve("");
+              reader.readAsDataURL(blob);
+            }) : "";
+            if (baked.startsWith("data:image/webp")) {
+              for (const el of slots) {
+                if (Number(el.dataset.slot) % n === i) el.querySelector(".cover").style.backgroundImage = `url("${baked}")`;
+              }
+            }
+          }
+        } catch {
+          // The SVG stays as it was.
+        }
+        (window.requestIdleCallback ?? ((f) => setTimeout(f, 50)))(next);
+      };
+      (window.requestIdleCallback ?? ((f) => setTimeout(f, 200)))(next);
+    }
+
     // ------------------------------------------------- start
 
     build();
@@ -477,5 +547,6 @@ if (shelf) {
     floor.setAttribute("aria-hidden", "true");
     stage.prepend(floor);
     stage.append(tape, front, names);
+    bake();
   }
 }

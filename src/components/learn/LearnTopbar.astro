@@ -2,11 +2,9 @@
 // The bar across the top of every learn page. Links to other hosts are
 // absolute: the same markup is served from whichever host asked for it.
 import { getConfig } from "../../lib/config.ts";
-import type { Catalog } from "../../lib/learn/catalog.ts";
 import type { Principal } from "../../lib/sessions.ts";
 
 interface Props {
-  catalog: Catalog;
   /** Whether there is a sidebar for the menu button to open. */
   showNav: boolean;
   /** Who is signed in, if anyone. */
@@ -15,7 +13,7 @@ interface Props {
   next: string;
 }
 
-const { catalog, showNav, viewer, next } = Astro.props;
+const { showNav, viewer, next } = Astro.props;
 const { siteUrl } = getConfig();
 ---
 
@@ -80,10 +78,6 @@ const { siteUrl } = getConfig();
   </form>
 
   <span class="spacer"></span>
-
-  <nav class="parts-nav" aria-label="Shelves">
-    {catalog.shelves.map((shelf) => <a href={`/#shelf-${shelf.id}`}>{shelf.title}</a>)}
-  </nav>
 
   <button
     class="icon-button theme-toggle"

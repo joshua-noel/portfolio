@@ -26,7 +26,7 @@ const DIAGRAMS = new Map([
   ["01-one", SVG],
   ["02-two", SVG],
 ]);
-const PUBLIC: BuildOptions = { shows: () => true };
+const PUBLIC: BuildOptions = { shows: () => true, wordsAreErrors: true };
 
 const words = (n: number): string => Array.from({ length: n }, () => "word").join(" ");
 

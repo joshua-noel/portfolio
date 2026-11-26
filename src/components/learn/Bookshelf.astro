@@ -7,7 +7,7 @@
 // way, and only what the reader's catalog gave.
 import BookFaces from "./BookFaces.astro";
 import Lock from "./Lock.astro";
-import { filterPills } from "../../lib/learn/bookshelf-filter.ts";
+import { filterPills, litPill } from "../../lib/learn/bookshelf-filter.ts";
 import type { Book, ShelfView } from "../../lib/learn/bookshelf.ts";
 import { bookStyle } from "../../lib/learn/book-style.ts";
 import "../../styles/learn-bookshelf.css";
@@ -22,6 +22,9 @@ interface Props {
 
 const { shelves, signin, signedIn } = Astro.props;
 const pills = filterPills(shelves);
+// The option lit when the page arrives is the group of the first book, as the script will light it:
+// "All" is not lit for a moment and then dropped.
+const lit = litPill(pills, 0);
 const books: Book[] = shelves.flatMap((shelf) => shelf.books);
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
 ---
@@ -33,7 +36,7 @@ const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" 
         <button
           type="button"
           class="pill"
-          aria-current={pill.key === "all" ? "true" : undefined}
+          aria-current={pill.key === lit ? "true" : undefined}
           data-filter={pill.key}
           data-first={pill.first}
         >

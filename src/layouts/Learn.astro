@@ -63,7 +63,6 @@ const catalog = await getCatalogFor(viewer?.role, Astro.locals.allowLocal);
   <body>
     <a class="skip" href="#main">Skip to the content</a>
     <LearnTopbar
-      catalog={catalog}
       showNav={layout === "reading"}
       viewer={viewer}
       next={here.pathname + here.search}
