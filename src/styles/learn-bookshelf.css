@@ -489,10 +489,8 @@
     0 calc(var(--H) * 0.02) calc(var(--H) * 0.05) calc(var(--H) * -0.02) var(--shadow);
 }
 .tb .cover {
-  /* Only the book in front shows its cover: a neighbour shows its spine and a clean edge, never
-     its cover behind the front one. The delay keeps it drawn while it turns away. */
-  visibility: hidden;
-  transition: visibility 0.7s;
+  /* Every book has its cover: a book to the left of the one in front shows its spine and its
+     cover receding to the right in perspective, beside the front cover. */
   left: calc(var(--H) * -0.375);
   top: calc(var(--H) * -0.5);
   transform: translateX(calc(var(--H) * var(--t) * 0.5)) rotateY(90deg);
@@ -512,9 +510,6 @@
 }
 .tb.is-selected .cover::after {
   opacity: 0;
-}
-.tb.is-selected .cover {
-  visibility: visible;
 }
 /* The keyboard has the name of the book in front: its cover is ringed. */
 .is-keyboard .tb.is-selected .cover {
