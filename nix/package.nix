@@ -42,7 +42,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     inherit pnpm;
     # 1 and 2 were removed in 26.11; 4 is pnpm 11 only.
     fetcherVersion = 3;
-    hash = "sha256-GxqaBxI8QLnzh9ZmXP1owRK1TTFVOh15aHif6cIwRuU=";
+    hash = "sha256-we2eGKrF+AE1PubNOj6ODNaEH5waSRSwi7cHCkz+QMw=";
   };
 
   nativeBuildInputs = [
