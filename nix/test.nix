@@ -112,11 +112,12 @@ testers.runNixOSTest {
         assert 'href="https://www.linkedin.com/in/noelejoshua/"' in page
         assert 'href="https://github.com/joshua-noel"' in page
 
-    with subtest("a lecture is readable at its own address, at every depth"):
+    with subtest("a lecture is readable at its own address, and old depth links still load it"):
         lecture = "http://127.0.0.1:4321/how-language-models-work/attention-and-the-transformer"
         assert "The idea in one paragraph" in curl(lecture, host="learn.test")
+        # Lectures are one document now; a link saved with ?depth= still gets the whole page.
         deep = curl(lecture + "?depth=deep", host="learn.test")
-        assert '<html lang="en" data-depth="deep"' in deep, deep[:400]
+        assert "The idea in one paragraph" in deep, deep[:400]
         assert "Check yourself" in curl(lecture + "?depth=tip", host="learn.test")
         assert "Placeholder course" in curl("http://127.0.0.1:4321/placeholder-systems", host="learn.test")
         machine.succeed(
