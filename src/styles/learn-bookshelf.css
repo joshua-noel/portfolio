@@ -415,16 +415,29 @@
   perspective: calc(var(--H) * 2.77);
 }
 
-/* The floor: one soft pool of shadow under the whole row, drawn once. */
+/* The floor: one soft pool of shadow under the whole row, drawn once. It is an ellipse that
+   is darkest at its middle and fades to nothing on EVERY side of its box, so there is no edge
+   anywhere: an earlier pool began at the top of its box with its full strength, and showed as a
+   lighter band under the books and then a darker strip with a hard top edge. The upper half
+   hides behind the books (they stand in front of it); the lower half is the shadow on the
+   floor. The stops are a bell, not a straight ramp, so no line shows where it ends. */
 .floor {
   position: absolute;
   left: 4%;
   right: 4%;
-  /* Below the bottoms of the books, which the eye's perspective draws about 16% further down
-     than their height: a pool that began higher showed as a grey strip behind them. */
-  top: calc(var(--H) * 1.19);
-  height: calc(var(--H) * 0.1);
-  background: radial-gradient(ellipse 50% 100% at 50% 0, var(--pool), rgba(0, 0, 0, 0) 100%);
+  /* Centred just below the bottoms of the books, which the eye's perspective draws about 16%
+     further down than their height. */
+  top: calc(var(--H) * 1.07);
+  height: calc(var(--H) * 0.28);
+  background: radial-gradient(
+    ellipse closest-side at 50% 50%,
+    var(--pool) 0%,
+    color-mix(in srgb, var(--pool) 72%, transparent) 22%,
+    color-mix(in srgb, var(--pool) 40%, transparent) 45%,
+    color-mix(in srgb, var(--pool) 14%, transparent) 70%,
+    color-mix(in srgb, var(--pool) 3%, transparent) 90%,
+    transparent 100%
+  );
   pointer-events: none;
 }
 

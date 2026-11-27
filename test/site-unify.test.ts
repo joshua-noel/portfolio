@@ -277,3 +277,17 @@ test("Chaperone is named, linked to its repository, and Access Broker is nowhere
   assert.match(home, /<a href="https:\/\/github\.com\/joshua-noel\/chaperone">Chaperone<\/a>/);
   assert.match(home, /Apache-2\.0/);
 });
+
+test("the shelf's floor shadow fades to nothing on every side of its box: no hard edge, no band", () => {
+  const css = readFileSync(new URL("../src/styles/learn-bookshelf.css", import.meta.url), "utf8");
+  const rule = /\n\.floor \{([^}]*)\}/.exec(css)?.[1] ?? "";
+  const gradient = /background:\s*radial-gradient\(([\s\S]*?)\);\s*pointer-events/.exec(rule)?.[1] ?? "";
+  // Centred in its box, reaching the nearest side at 100%: every edge of the box is on the last stop.
+  assert.match(gradient, /^\s*ellipse closest-side at 50% 50%,/);
+  const stops = [...gradient.matchAll(/^\s*(?:ellipse[^,]*,\s*)?(.+?)\s+(\d+)%,?\s*$/gm)];
+  assert.ok(stops.length >= 4, "a bell of several stops");
+  assert.match(gradient.trimEnd(), /transparent 100%$/, "ends on nothing");
+  // And it is a bell: each stop is no stronger than the one before it.
+  const strengths = [...gradient.matchAll(/(?:var\(--pool\)|--pool\) (\d+)%)/g)].map((m) => Number(m[1] ?? 100));
+  for (let i = 1; i < strengths.length; i++) assert.ok(strengths[i]! <= strengths[i - 1]!, "stops fade out");
+});
