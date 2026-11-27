@@ -34,6 +34,8 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       ../content
       ../bin
       ../test
+      # The cover generator: two tests import it.
+      ../tools
     ];
   };
 
