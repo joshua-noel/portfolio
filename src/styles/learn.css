@@ -36,8 +36,8 @@
 /* How long a move between pages takes: the spring above, the one easing of the site's motion
    (the shelf's moves, the panel, and the pages below), is shared by all of them. */
 :root {
-  --vt-fast: 0.22s;
-  --vt: 0.38s;
+  --vt-fast: 0.3s;
+  --vt: 0.55s;
 }
 
 /* ---------- Moving between pages: view transitions ---------- */

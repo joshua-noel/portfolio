@@ -54,6 +54,14 @@ main.blog-main {
   border-top: 1px solid var(--line);
 }
 
+/* The landing page reads a little larger than the reading pages on a wide window: its panels
+   hold a few lines each. The bar and the footer keep the shared size. */
+@media (min-width: 1100px) {
+  .site > section > * {
+    zoom: 1.12;
+  }
+}
+
 #contact {
   scroll-margin-top: calc(var(--topbar) + 2rem);
 }
