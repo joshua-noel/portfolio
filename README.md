@@ -125,8 +125,8 @@ One broken lecture or course file does not take the lecture host down: the serve
 To see the whole local library, in PowerShell:
 
 ```powershell
-cd C:\Users\kwinch\Projects\portfolio
-$env:PORTFOLIO_LEARN_CONTENT_DIRS = "C:\Users\kwinch\Projects\Resume\study\learn-content"
+cd <path to this repository>
+$env:PORTFOLIO_LEARN_CONTENT_DIRS = "<path to your lecture content folder>"
 pnpm learn:dev
 ```
 
