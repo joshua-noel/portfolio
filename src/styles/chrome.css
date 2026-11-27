@@ -1,0 +1,223 @@
+/* ============================================================
+   The chrome of the whole site: reset, type scale, the one top bar and the
+   one footer (src/components/SiteHeader.astro and SiteFooter.astro). Imported
+   by the main site, the blog and Learn, after tokens.css; the colours,
+   fonts and sizes come from there. Moved from learn.css, not copied.
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* 16px on a small screen and a tablet (readable at arm's length). From 1100 wide, where the
+     rails appear, 15px growing to 18.5px at 2560: about 11% smaller on a big screen than the
+     16 to 21px this was, so the page is not zoomed in, and the measure in characters is the
+     same because it is in rem. */
+  font-size: 1rem;
+  scroll-padding-top: calc(var(--topbar) + 1rem);
+  scrollbar-gutter: stable;
+  -webkit-text-size-adjust: 100%;
+}
+@media (min-width: 1100px) {
+  html {
+    font-size: clamp(0.875rem, 0.7573rem + 0.1712vw, 1.03125rem);
+  }
+}
+html.js {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html.js {
+    scroll-behavior: auto;
+  }
+  * {
+    transition: none !important;
+  }
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: var(--accent);
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.skip {
+  position: absolute;
+  left: 0.5rem;
+  top: -4rem;
+  z-index: 50;
+  padding: 0.5rem 0.9rem;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.skip:focus {
+  top: 0.5rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- Top bar: across the whole window ---------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: var(--topbar);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding-inline: 1.5rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.brand a {
+  color: var(--fg);
+  text-decoration: none;
+}
+.brand .site {
+  color: var(--muted);
+  font-weight: 400;
+}
+.brand .site:hover {
+  color: var(--fg);
+}
+.brand .slash {
+  color: var(--text-3);
+}
+.topbar .spacer {
+  flex: 1;
+}
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+.icon-button:hover {
+  color: var(--fg);
+}
+.icon-button svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+.nav-toggle {
+  display: none;
+}
+/* The toggle shows the theme it would switch to. */
+.theme-toggle .sun {
+  display: none;
+}
+:root[data-theme="light"] .theme-toggle .sun {
+  display: block;
+}
+:root[data-theme="light"] .theme-toggle .moon {
+  display: none;
+}
+
+.footer {
+  flex: none;
+  margin-top: auto;
+  padding: 0.6rem 1.5rem 0.7rem;
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: 0.8125rem;
+}
+.footer a {
+  color: var(--muted);
+}
+
+
+/* ---------- Links in the bar and the footer; the current page ---------- */
+
+.brand:not(.has-section) .site {
+  color: var(--fg);
+  font-weight: 600;
+}
+.topbar nav {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-inline-start: auto;
+}
+.topbar nav a {
+  padding: 0.4rem 0.2rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.topbar nav a:hover {
+  color: var(--fg);
+}
+/* The current item: the link colour, nothing else. */
+.topbar nav a[aria-current="page"] {
+  color: var(--accent);
+}
+
+/* ---------- Narrower windows ---------- */
+
+@media (max-width: 50rem) {
+  .nav-toggle {
+    display: inline-grid;
+  }
+  .brand.has-section .site,
+  .brand.has-section .slash {
+    display: none;
+  }
+  .topbar {
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
+  }
+  .topbar nav {
+    gap: 0.75rem;
+  }
+  .topbar nav .wide-only {
+    display: none;
+  }
+}

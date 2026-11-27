@@ -31,8 +31,11 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       ../astro.config.mjs
       ../tsconfig.json
       ../src
+      ../content
       ../bin
       ../test
+      # The cover generator: two tests import it.
+      ../tools
     ];
   };
 
@@ -41,7 +44,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     inherit pnpm;
     # 1 and 2 were removed in 26.11; 4 is pnpm 11 only.
     fetcherVersion = 3;
-    hash = "sha256-GxqaBxI8QLnzh9ZmXP1owRK1TTFVOh15aHif6cIwRuU=";
+    hash = "sha256-we2eGKrF+AE1PubNOj6ODNaEH5waSRSwi7cHCkz+QMw=";
   };
 
   nativeBuildInputs = [
@@ -62,7 +65,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   doCheck = true;
   checkPhase = ''
     runHook preCheck
-    node --test 'test/*.test.ts'
+    PORTFOLIO_SKIP_E2E=1 node --test 'test/*.test.ts'
     runHook postCheck
   '';
 
@@ -74,10 +77,12 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     # rolldown and esbuild binaries for every platform, none of which a
     # running server ever executes.
     mkdir -p $out/lib/portfolio
-    cp -r dist bin package.json $out/lib/portfolio/
+    cp -r dist bin content package.json $out/lib/portfolio/
 
     makeWrapper ${nodejs}/bin/node $out/bin/portfolio \
       --add-flags $out/lib/portfolio/bin/serve.mjs
+    makeWrapper ${nodejs}/bin/node $out/bin/portfolio-user \
+      --add-flags $out/lib/portfolio/bin/user.mjs
     makeWrapper ${nodejs}/bin/node $out/bin/portfolio-hash-password \
       --add-flags $out/lib/portfolio/bin/hash-password.mjs
 

@@ -1,0 +1,34 @@
+<svg viewBox="0 0 400 270" role="img" aria-labelledby="dg-scaling-title" data-interactive="scaling">
+  <title id="dg-scaling-title">The same six scores turned into attention weights, without and with the 1 over root d_k scaling</title>
+  <desc>The same six scores turned into attention weights, without and with the 1 over root d_k scaling.</desc>
+  <g>
+    <text x="100" y="22" style="fill:var(--fg);font-size:12px;font-weight:500;text-anchor:middle">Without scaling</text>
+    <text x="100" y="38" style="fill:var(--muted);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">softmax(q·k)</text>
+    <path d="M10 200 H190" style="fill:none;stroke:var(--muted);stroke-width:1.5"/>
+    <g data-bars="raw">
+      <rect x="14" y="197.7" width="24" height="2.3" rx="3" style="fill:var(--c5);fill-opacity:0.2;stroke:var(--c5);stroke-width:1.5"/>
+      <rect x="44" y="200.0" width="24" height="0.0" rx="3" style="fill:var(--c5);fill-opacity:0.2;stroke:var(--c5);stroke-width:1.5"/>
+      <rect x="74" y="77.1" width="24" height="122.9" rx="3" style="fill:var(--c5);fill-opacity:0.2;stroke:var(--c5);stroke-width:1.5"/>
+      <rect x="104" y="200.0" width="24" height="0.0" rx="3" style="fill:var(--c5);fill-opacity:0.2;stroke:var(--c5);stroke-width:1.5"/>
+      <rect x="134" y="199.9" width="24" height="0.1" rx="3" style="fill:var(--c5);fill-opacity:0.2;stroke:var(--c5);stroke-width:1.5"/>
+      <rect x="164" y="175.2" width="24" height="24.8" rx="3" style="fill:var(--c5);fill-opacity:0.2;stroke:var(--c5);stroke-width:1.5"/>
+    </g>
+    <text x="100" y="224" style="fill:var(--fg);font-size:12px;font-weight:500;text-anchor:middle">largest weight</text>
+    <text x="100" y="246" data-max="raw" style="fill:var(--fg);font-size:16px;font-weight:650;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">0.82</text>
+  </g>
+  <g>
+    <text x="300" y="22" style="fill:var(--fg);font-size:12px;font-weight:500;text-anchor:middle">With scaling</text>
+    <text x="300" y="38" style="fill:var(--muted);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">softmax(q·k / √d_k)</text>
+    <path d="M210 200 H390" style="fill:none;stroke:var(--muted);stroke-width:1.5"/>
+    <g data-bars="scaled">
+      <rect x="214" y="172.2" width="24" height="27.8" rx="3" style="fill:var(--c4);fill-opacity:0.2;stroke:var(--c4);stroke-width:1.5"/>
+      <rect x="244" y="187.5" width="24" height="12.5" rx="3" style="fill:var(--c4);fill-opacity:0.2;stroke:var(--c4);stroke-width:1.5"/>
+      <rect x="274" y="154.1" width="24" height="45.9" rx="3" style="fill:var(--c4);fill-opacity:0.2;stroke:var(--c4);stroke-width:1.5"/>
+      <rect x="304" y="192.4" width="24" height="7.6" rx="3" style="fill:var(--c4);fill-opacity:0.2;stroke:var(--c4);stroke-width:1.5"/>
+      <rect x="334" y="181.3" width="24" height="18.7" rx="3" style="fill:var(--c4);fill-opacity:0.2;stroke:var(--c4);stroke-width:1.5"/>
+      <rect x="364" y="162.4" width="24" height="37.6" rx="3" style="fill:var(--c4);fill-opacity:0.2;stroke:var(--c4);stroke-width:1.5"/>
+    </g>
+    <text x="300" y="224" style="fill:var(--fg);font-size:12px;font-weight:500;text-anchor:middle">largest weight</text>
+    <text x="300" y="246" data-max="scaled" style="fill:var(--fg);font-size:16px;font-weight:650;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">0.31</text>
+  </g>
+</svg>

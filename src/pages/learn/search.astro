@@ -1,0 +1,38 @@
+---
+import { getCatalogFor } from "../../lib/learn/content.ts";
+import { search } from "../../lib/learn/search.ts";
+import Learn from "../../layouts/Learn.astro";
+
+const query = (Astro.url.searchParams.get("q") ?? "").slice(0, 200);
+const catalog = await getCatalogFor(Astro.locals.viewer?.role, Astro.locals.allowLocal);
+const hits = search(catalog.lectures, query, 20);
+---
+
+<Learn title="Search · Learn" layout="plain" noindex>
+  <main class="page" id="main">
+    <h1>Search</h1>
+    <form class="search-form" action="/search" method="get" role="search">
+      <input type="search" name="q" value={query} aria-label="Search lectures" />
+      <button type="submit">Search</button>
+    </form>
+    {
+      query.trim() !== "" && (
+        <p class="lede" aria-live="polite">
+          {hits.length === 0
+            ? `Nothing matches “${query}”.`
+            : `${hits.length} ${hits.length === 1 ? "lecture" : "lectures"}`}
+        </p>
+      )
+    }
+    <ul class="results">
+      {
+        hits.map((hit) => (
+          <li>
+            <a href={hit.url}>{hit.title}</a>
+            <p>{hit.snippet || hit.promise}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </main>
+</Learn>

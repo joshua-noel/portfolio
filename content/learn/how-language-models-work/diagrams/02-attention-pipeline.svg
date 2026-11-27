@@ -1,0 +1,58 @@
+<svg viewBox="0 0 560 252" role="img" aria-labelledby="dg-pipeline-title">
+  <title id="dg-pipeline-title">The steps of scaled dot-product attention, with the shape of each result</title>
+  <desc>The steps of scaled dot-product attention, with the shape of each result.</desc>
+  <defs>
+    <marker id="ah-pipeline" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" style="fill:var(--muted)"/>
+    </marker>
+  </defs>
+
+  <rect x="8" y="96" width="62" height="58" rx="6" style="fill:var(--c4);stroke:var(--c4);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="39" y="122" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">X</text>
+  <text x="39" y="141" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">n × d</text>
+
+  <g style="fill:none;stroke:var(--muted);stroke-width:1.5">
+    <path d="M70 125 H90 V52 H110" marker-end="url(#ah-pipeline)"/>
+    <path d="M70 125 H110" marker-end="url(#ah-pipeline)"/>
+    <path d="M70 125 H90 V198 H110" marker-end="url(#ah-pipeline)"/>
+  </g>
+
+  <rect x="112" y="30" width="62" height="44" rx="6" style="fill:var(--c1);stroke:var(--c1);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="143" y="50" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">Q</text>
+  <text x="143" y="66" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">n × d_k</text>
+  <rect x="112" y="103" width="62" height="44" rx="6" style="fill:var(--c2);stroke:var(--c2);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="143" y="123" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">K</text>
+  <text x="143" y="139" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">n × d_k</text>
+  <rect x="112" y="176" width="62" height="44" rx="6" style="fill:var(--c3);stroke:var(--c3);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="143" y="196" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">V</text>
+  <text x="143" y="212" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">n × d_v</text>
+  <text x="143" y="16" style="fill:var(--muted);font-size:12px;font-weight:500;text-anchor:middle">three projections</text>
+
+  <g style="fill:none;stroke:var(--muted);stroke-width:1.5">
+    <path d="M174 52 H196 V88 H214" marker-end="url(#ah-pipeline)"/>
+    <path d="M174 125 H196 V112 H214" marker-end="url(#ah-pipeline)"/>
+  </g>
+  <rect x="216" y="70" width="74" height="60" rx="6" style="fill:var(--c5);stroke:var(--c5);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="253" y="94" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">Q Kᵀ</text>
+  <text x="253" y="113" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">n × n</text>
+  <text x="253" y="16" style="fill:var(--muted);font-size:12px;font-weight:500;text-anchor:middle">scores</text>
+
+  <path d="M290 100 H310" marker-end="url(#ah-pipeline)" style="fill:none;stroke:var(--muted);stroke-width:1.5"/>
+  <rect x="312" y="70" width="84" height="60" rx="6" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+  <text x="354" y="92" style="fill:var(--fg);font-size:12px;font-weight:500;text-anchor:middle">÷ √d_k</text>
+  <text x="354" y="108" style="fill:var(--fg);font-size:12px;font-weight:500;text-anchor:middle">softmax</text>
+  <text x="354" y="122" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">per row</text>
+  <text x="354" y="16" style="fill:var(--muted);font-size:12px;font-weight:500;text-anchor:middle">weights</text>
+
+  <g style="fill:none;stroke:var(--muted);stroke-width:1.5">
+    <path d="M396 100 H418 V118 H436" marker-end="url(#ah-pipeline)"/>
+    <path d="M174 198 H418 V134 H436" marker-end="url(#ah-pipeline)"/>
+  </g>
+
+  <rect x="438" y="96" width="112" height="58" rx="6" style="fill:var(--c4);stroke:var(--c4);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="494" y="120" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">weights · V</text>
+  <text x="494" y="139" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">n × d_v</text>
+  <text x="494" y="16" style="fill:var(--muted);font-size:12px;font-weight:500;text-anchor:middle">output</text>
+
+  <text x="8" y="244" style="fill:var(--muted);font-size:12px;font-weight:500">n = tokens · d = model width · d_k = key width · d_v = value width</text>
+</svg>

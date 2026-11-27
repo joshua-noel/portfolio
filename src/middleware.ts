@@ -1,7 +1,17 @@
 import { defineMiddleware } from "astro:middleware";
-import { SESSION_COOKIE, validateSession } from "./lib/auth.ts";
-import { getConfig } from "./lib/config.ts";
-import { resolveRoute } from "./lib/routing.ts";
+import {
+  SESSION_COOKIE,
+  learnCookieName,
+  learnViewer,
+  validateSession,
+} from "./lib/auth.ts";
+import { getConfig, type Stealth } from "./lib/config.ts";
+import {
+  applyRequestOrigin,
+  isForbiddenCrossOriginRequest,
+  mayServeLocal,
+  resolveRoute,
+} from "./lib/routing.ts";
 
 // Post bodies may carry raw HTML (embeds), and the admin shares their origin.
 // Scripts on admin pages are therefore limited to our own bundles; the editor
@@ -19,18 +29,135 @@ const ADMIN_CSP = [
   "form-action 'self'",
 ].join("; ");
 
+// The lecture host serves text written outside this repository, so it gets the
+// tightest policy its pages can live with.
+//   script-src 'self'         our bundles only. No inline script anywhere: the
+//                             theme script is a file, and lecture HTML is
+//                             sanitised (src/lib/learn/sanitize.ts) as well.
+//   style-src 'self'          stylesheets are files.
+//   style-src-attr 'unsafe-inline'
+//                             the one relaxation. `style="..."` attributes are
+//                             needed by KaTeX's output (every formula is
+//                             positioned with them), the inline SVG diagrams'
+//                             presentation attributes, and the course cards'
+//                             `--cover` colours. An attribute cannot run code,
+//                             and the sanitisers strip `style` from anything an
+//                             author writes; only trusted generators emit it.
+//   img-src 'self' data:      posters and figures from here; `data:` for the
+//                             few inlined icons. No third-party image, so a
+//                             lecture cannot beacon to another server.
+//   media-src 'self'          the lecture video and its captions.
+//   font-src 'self' data:     KaTeX's fonts are ours; the bundler inlines the
+//                             smallest of them into the stylesheet as `data:`
+//                             URIs (a browser reported the violation). A font
+//                             cannot run code.
+//   connect-src               falls back to default-src: the search index is ours.
+//   frame-ancestors 'none'    nobody frames a lecture (with X-Frame-Options for
+//                             browsers that read only that).
+//   base-uri 'none', object-src 'none', form-action 'self'
+//                             no <base> to redirect relative links, no plugins,
+//                             and the only forms are this site's own sign-in.
+// The dev server (never the built one: `import.meta.env.DEV` is fixed when the
+// site is built) injects its stylesheets as <style> elements and talks to the
+// page over a websocket, so there, and only there, the policy allows both.
+// Without this `pnpm learn:dev` shows unstyled pages.
+const LEARN_CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  import.meta.env.DEV ? "style-src 'self' 'unsafe-inline'" : "style-src 'self'",
+  "style-src-attr 'unsafe-inline'",
+  "img-src 'self' data:",
+  "media-src 'self'",
+  "font-src 'self' data:",
+  ...(import.meta.env.DEV ? ["connect-src 'self' ws:"] : []),
+  "frame-ancestors 'none'",
+  "base-uri 'none'",
+  "object-src 'none'",
+  "form-action 'self'",
+].join("; ");
+
 /**
- * One process serves both hostnames. Routes live under src/pages/blog/, and
- * the blog host maps its root onto that subtree, so `blog.example.com/a-post`
- * renders `/blog/a-post` without the prefix ever appearing in a URL.
+ * One process serves every hostname. Routes live under src/pages/blog/ and
+ * src/pages/learn/, and each host maps its root onto its subtree, so
+ * `blog.example.com/a-post` renders `/blog/a-post` without the prefix ever
+ * appearing in a URL.
  *
  * The admin lives on the blog host alone. Serving it from both would mean two
  * session cookies on two origins and a login that appears to do nothing.
+ *
+ * Every response leaves through `seal`, so the headers cannot be skipped by an
+ * early return: a 404, a 403, a redirect or a crash on the lecture host carries
+ * the same ones as a page.
  */
 export const onRequest = defineMiddleware(async (context, next) => {
+  // Before anything reads context.url: see applyRequestOrigin.
+  applyRequestOrigin(
+    context.url,
+    context.request.headers.get("host"),
+    context.request.headers.get("x-forwarded-proto"),
+  );
+  const config = getConfig();
+  const host = context.request.headers.get("host") ?? context.url.host;
+  const isLearn = host === config.learnHost;
+
+  let response: Response;
+  try {
+    response = await handle(context, next, host, isLearn);
+  } catch (error) {
+    // On the lecture host a failure must still carry its headers, and must
+    // not show anything of what failed. Elsewhere Astro's own handling stays.
+    if (!isLearn) throw error;
+    console.error("learn: request failed:", error);
+    response = new Response("Internal Server Error", {
+      status: 500,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+  return seal(response, {
+    isLearn,
+    isAdmin: isAdminPath(context.url.pathname),
+    https: context.url.protocol === "https:",
+    stealth: config.learnStealth,
+  });
+});
+
+const isAdminPath = (pathname: string): boolean =>
+  pathname === "/admin" || pathname.startsWith("/admin/");
+
+/** What a visitor with no account may still reach on the lecture host when it is `private`. */
+const OPEN_WHEN_PRIVATE: Record<string, true> = {
+  "/signin": true,
+  "/signout": true,
+  "/robots.txt": true,
+  "/healthz": true,
+};
+
+type Context = Parameters<Parameters<typeof defineMiddleware>[0]>[0];
+type Next = Parameters<Parameters<typeof defineMiddleware>[0]>[1];
+
+async function handle(
+  context: Context,
+  next: Next,
+  host: string,
+  isLearn: boolean,
+): Promise<Response> {
   const config = getConfig();
   const { pathname, search } = context.url;
-  const host = context.request.headers.get("host") ?? context.url.host;
+
+  // Astro's own version of this check is switched off (astro.config.mjs): it
+  // runs before this middleware, so its 403 could not carry our headers.
+  if (
+    isForbiddenCrossOriginRequest({
+      method: context.request.method,
+      origin: context.request.headers.get("origin"),
+      contentType: context.request.headers.get("content-type"),
+      urlOrigin: context.url.origin,
+    })
+  ) {
+    return new Response(`Cross-site ${context.request.method} form submissions are forbidden`, {
+      status: 403,
+    });
+  }
 
   const action = resolveRoute({
     host,
@@ -38,6 +165,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     search,
     blogHost: config.blogHost,
     blogUrl: config.blogUrl,
+    learnHost: config.learnHost,
+    learnUrl: config.learnUrl,
   });
 
   // Canonicalisation runs first: an unauthenticated /admin on the apex must
@@ -45,8 +174,58 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // cookie is set on an origin the admin never uses again.
   if (action.kind === "redirect") return context.redirect(action.location, 301);
 
-  const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
+  // The site has no image endpoint: src/image-endpoint.ts answers 404 to
+  // everything, and a mapped host sends `/_image` to its own pages (it is not a
+  // reserved segment). What is left is the apex, and a Host that is no host of
+  // ours. An empty 404 that never reaches the route is rendered by Astro as the
+  // 404 page, as for any path without a route.
+  if (action.kind === "pass" && context.routePattern === "/_image") {
+    return new Response(null, { status: 404 });
+  }
+
   const isApi = pathname.startsWith("/api/");
+  if (isLearn) {
+    context.locals.here = { pathname, search };
+    // The admin and its API live on the blog host; on this one they do not exist.
+    if (isApi) return new Response("Not found", { status: 404 });
+    // Sign-in and sign-out change state, so they must come from this site's
+    // own pages: a form on another origin is refused, which is what stops
+    // someone signing a reader in to an account of their choosing.
+    if (
+      context.request.method === "POST" &&
+      (pathname === "/signin" || pathname === "/signout") &&
+      context.request.headers.get("origin") !== config.learnUrl
+    ) {
+      return new Response("Bad origin", { status: 403 });
+    }
+    context.locals.viewer = learnViewer(
+      context.cookies.get(learnCookieName(context.url))?.value,
+    );
+    if (config.learnStealth !== "off") {
+      // No sitemap or feed on this host in a stealth release: the same bare 404
+      // as any other path that is not here.
+      if (pathname === "/sitemap.xml" || pathname === "/rss.xml") {
+        return new Response("Not found", { status: 404 });
+      }
+      // `private`: every page but sign-in needs an account, by the same check
+      // every lecture page already makes (`viewer`, from the signed session
+      // cookie). The answer to a visitor with none is the bare 404 this host
+      // gives for a cover, a medium or an API path that is not there, not the
+      // lecture site's own not-found page (which would name the site) and not
+      // a redirect to sign-in (which would tell a stranger there is a door).
+      // Sign-in itself, its sign-out, `robots.txt` and `healthz` stay open.
+      if (
+        config.learnStealth === "private" &&
+        !context.locals.viewer &&
+        OPEN_WHEN_PRIVATE[pathname] !== true
+      ) {
+        return new Response("Not found", { status: 404 });
+      }
+    }
+    context.locals.allowLocal = config.learnAllowLocal && isOwnMachine(context);
+  }
+
+  const isAdmin = isAdminPath(pathname);
   const isPublicEndpoint = pathname === "/admin/login" || pathname === "/api/login";
 
   if ((isAdmin || isApi) && !isPublicEndpoint) {
@@ -73,14 +252,62 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  const response = await (action.kind === "rewrite" ? next(action.path) : next());
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  // A URL, not a path: Astro resolves a path against the origin of request.url,
+  // which applyRequestOrigin cannot change, and the page would see http://localhost.
+  return action.kind === "rewrite" ? next(new URL(action.path, context.url)) : next();
+}
+
+/**
+ * The second layer behind the start-up check on `PORTFOLIO_LEARN_ALLOW_LOCAL`
+ * (see `loadConfig`): the socket peer is this machine and nothing says a proxy
+ * relayed the request. Never true if the peer cannot be read.
+ */
+function isOwnMachine(context: Context): boolean {
+  try {
+    return mayServeLocal(context.clientAddress, context.request.headers);
+  } catch {
+    return false;
+  }
+}
+
+/** Headers on every response; more on the lecture host's and the admin's. */
+function seal(
+  response: Response,
+  {
+    isLearn,
+    isAdmin,
+    https,
+    stealth,
+  }: { isLearn: boolean; isAdmin: boolean; https: boolean; stealth: Stealth },
+): Response {
+  let sealed = response;
+  try {
+    // Probe: some responses (Response.redirect, fetch results) have immutable headers.
+    sealed.headers.set("X-Content-Type-Options", "nosniff");
+  } catch {
+    sealed = new Response(response.body, response);
+    sealed.headers.set("X-Content-Type-Options", "nosniff");
+  }
+  const { headers } = sealed;
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   // context.url is https only via the proxy's X-Forwarded-Proto; plain http
   // locally must not pin the browser to TLS.
-  if (context.url.protocol === "https:") {
-    response.headers.set("Strict-Transport-Security", "max-age=31536000");
+  if (https) headers.set("Strict-Transport-Security", "max-age=31536000");
+  if (isAdmin) headers.set("Content-Security-Policy", ADMIN_CSP);
+  if (isLearn) {
+    headers.set("Content-Security-Policy", LEARN_CSP);
+    headers.set("X-Frame-Options", "DENY");
+    // A stealth release (PORTFOLIO_LEARN_STEALTH) is not announced and not
+    // discoverable: nothing from this host is indexed, followed or archived.
+    if (stealth !== "off") headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    // What a page shows depends on who is signed in, so no shared cache may
+    // keep one reader's copy for another. A route that knows better (public
+    // media) says so itself.
+    if (!headers.has("cache-control")) headers.set("Cache-Control", "private, no-store");
+    const vary = headers.get("vary") ?? "";
+    if (!/(^|,)\s*(cookie|\*)\s*(,|$)/i.test(vary)) {
+      headers.set("Vary", vary === "" ? "Cookie" : `${vary}, Cookie`);
+    }
   }
-  if (isAdmin) response.headers.set("Content-Security-Policy", ADMIN_CSP);
-  return response;
-});
+  return sealed;
+}

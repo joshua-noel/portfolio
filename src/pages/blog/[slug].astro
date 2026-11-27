@@ -1,5 +1,5 @@
 ---
-import SiteFooter from "../../components/SiteFooter.astro";
+import PublicFooter from "../../components/PublicFooter.astro";
 import SiteHeader from "../../components/SiteHeader.astro";
 import Base from "../../layouts/Base.astro";
 import { getConfig } from "../../lib/config.ts";
@@ -25,9 +25,9 @@ const cover = post?.cover_image ? `${blogUrl}/uploads/${post.cover_image}` : und
   image={cover}
   type={post ? "article" : "website"}
 >
-  <SiteHeader />
+  <SiteHeader site="blog" />
 
-  <main class="blog-main">
+  <main class="blog-main" id="main">
     {
       post ? (
         <>
@@ -64,5 +64,5 @@ const cover = post?.cover_image ? `${blogUrl}/uploads/${post.cover_image}` : und
       )
     }
   </main>
-  <SiteFooter />
+  <PublicFooter />
 </Base>

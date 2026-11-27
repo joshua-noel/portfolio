@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { getConfig } from "../lib/config.ts";
 import { isoDate } from "../lib/format.ts";
+import { getCatalogFor } from "../lib/learn/content.ts";
 import { listPublished } from "../lib/posts.ts";
 
 const XML_ENTITIES: Record<string, string> = {
@@ -15,11 +16,21 @@ const xml = (text: string): string => text.replace(/[&<>"']/g, (c) => XML_ENTITI
 
 // Hand-rolled rather than @astrojs/sitemap: the URL set lives in SQLite and
 // is only known at request time, which a build-time integration cannot see.
-export const GET: APIRoute = () => {
-  const { blogUrl, siteUrl } = getConfig();
+export const GET: APIRoute = async () => {
+  const { blogUrl, siteUrl, learnUrl, learnStealth } = getConfig();
+  // A stealth release leaves the lecture host out of every sitemap.
+  const showLearn = learnStealth === "off";
+  // Crawlers are visitors: only what anyone may read goes in.
   const entries = [
     `<url><loc>${xml(siteUrl)}/</loc></url>`,
     `<url><loc>${xml(blogUrl)}/</loc></url>`,
+    ...(showLearn ? [`<url><loc>${xml(learnUrl)}/</loc></url>`] : []),
+    ...(showLearn ? (await getCatalogFor(undefined)).lectures : [])
+      .filter((lecture) => !lecture.locked && !lecture.front.placeholder)
+      .map(
+        (lecture) =>
+          `<url><loc>${xml(`${learnUrl}/${lecture.course}/${lecture.slug}`)}</loc></url>`,
+      ),
     ...listPublished().map(
       (post) =>
         `<url><loc>${xml(`${blogUrl}/${post.slug}`)}</loc><lastmod>${isoDate(post.updated_at)}</lastmod></url>`,

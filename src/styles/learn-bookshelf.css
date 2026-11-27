@@ -1,0 +1,749 @@
+/* ============================================================
+   Learn: the shelf on the landing page.
+
+   One markup, two looks (src/components/learn/Bookshelf.astro).
+   Without JavaScript every course is a card: its cover, its text and its
+   lecture links. With it (`html.js`, set before first paint) the covers
+   become books on a tape that wraps around the page: spines in a row, the
+   book in front turned to show its cover, a click or an arrow turning the
+   next one to the front.
+
+   The books are real elements in one 3D scene: a book is a spine and a cover
+   as two faces of a box, moved by `transform` alone, so a step is done by the
+   compositor and nothing is measured while it runs. Text stays text; the
+   illustration is the course's own cover.svg inlined. No filters, no
+   textures, no blur: every surface is a flat colour with a plain gradient,
+   drawn once. The Content-Security-Policy is not touched.
+
+   Everything about a book is a fraction of its height (`--H`), so a book is
+   the same object at any size. A book's colours come from its course
+   (`--b-*`, set inline).
+   ============================================================ */
+
+.bookshelf {
+  /* A card's cover size without JavaScript; the shelf sets its own. */
+  --H: 17rem;
+  --shadow: rgba(0, 0, 0, 0.5);
+  /* A lighter edge on every face (a book must stand out from a dark page), and the pool of
+     shadow on the floor under the whole row. */
+  --edge: rgba(255, 255, 255, 0.3);
+  --pool: rgba(0, 0, 0, 0.7);
+}
+:root[data-theme="light"] .bookshelf,
+.theme-scope[data-theme="light"] .bookshelf {
+  --shadow: rgba(20, 16, 10, 0.55);
+  --edge: rgba(255, 255, 255, 0.2);
+  --pool: rgba(20, 16, 10, 0.3);
+}
+
+/* ---------- The page around it ---------- */
+
+.plain .page.shelf-page {
+  max-width: none;
+  padding: 1.5rem 0 0;
+}
+.bookshelf .filters,
+.bookshelf .arrows,
+.bookshelf .panel,
+.bookshelf .empty {
+  width: min(76rem, 100% - 2 * clamp(1.25rem, 3vw, 3rem));
+  margin-inline: auto;
+}
+/* Where the reader left off: under the books, above the buttons, small and quiet. */
+.resume {
+  margin: 3.5rem 0 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.resume[hidden] {
+  display: none;
+}
+.resume a {
+  font-weight: inherit;
+}
+.empty {
+  margin-top: 3rem;
+  color: var(--muted);
+}
+
+/* ---------- The capsule ---------- */
+
+.filters {
+  display: none;
+}
+.js .filters {
+  display: flex;
+  width: fit-content;
+  max-width: calc(100% - 2rem);
+  gap: 0.125rem;
+  margin: 1.25rem auto 0;
+  padding: 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+}
+.pill {
+  height: 2.25rem;
+  padding: 0 0.95rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+}
+.pill:hover {
+  color: var(--fg);
+}
+.pill[aria-current="true"] {
+  background: var(--fg);
+  color: var(--bg);
+}
+.pill:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+/* ---------- Without JavaScript: cards ---------- */
+
+.bookshelf .row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 31rem), 1fr));
+  gap: 2.5rem 2.5rem;
+  width: min(76rem, 100% - 2 * clamp(1.25rem, 3vw, 3rem));
+  margin: 2rem auto 0;
+  padding: 0;
+  list-style: none;
+}
+.book {
+  display: grid;
+  grid-template-columns: calc(var(--H) * 0.75) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+.vol {
+  position: relative;
+  display: block;
+  width: calc(var(--H) * 0.75);
+  height: var(--H);
+}
+.vol .spine {
+  display: none;
+}
+.vol .cover {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---------- The two faces ---------- */
+
+.face {
+  display: block;
+  font-family: var(--font-ui);
+}
+
+/* The front cover: ONE image (src/lib/learn/cover-image.ts), set inline on the face: the
+   series' grid (mark and number, title, promise, illustration, shelf and count) drawn once. */
+.cover {
+  position: relative;
+  width: calc(var(--H) * 0.75);
+  height: var(--H);
+  background-color: var(--b-color);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border-radius: calc(var(--H) * 0.004);
+}
+
+/* The spine: a flat colour, the number on a band at the head, the title down
+   it, the lecture count at the foot. */
+.spine {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: calc(var(--H) * var(--t, 0.15));
+  height: var(--H);
+  overflow: hidden;
+  color: var(--b-ink);
+  background:
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.22),
+      rgba(0, 0, 0, 0) 16%,
+      rgba(255, 255, 255, 0.07) 50%,
+      rgba(0, 0, 0, 0) 84%,
+      rgba(0, 0, 0, 0.26)
+    ),
+    var(--b-color);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 1px 0 0 var(--edge),
+    inset -1px 0 0 rgba(0, 0, 0, 0.3),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.18);
+}
+.s-band {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: calc(var(--H) * 0.12);
+  background: var(--b-accent);
+  color: var(--b-band-ink);
+  font-size: max(0.6875rem, calc(var(--H) * 0.03));
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.s-title {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  max-height: 100%;
+  padding: calc(var(--H) * 0.014) 0;
+  overflow: hidden;
+  writing-mode: vertical-rl;
+  font-size: calc(var(--H) * var(--b-fs, 0.038));
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.005em;
+}
+.s-title[data-cols="1"] {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.spine .lock {
+  flex: none;
+  width: calc(var(--H) * 0.026);
+  height: calc(var(--H) * 0.026);
+  margin-bottom: calc(var(--H) * 0.01);
+}
+.s-foot {
+  flex: none;
+  writing-mode: vertical-rl;
+  padding-bottom: calc(var(--H) * 0.03);
+  font-size: max(0.5625rem, calc(var(--H) * 0.0185));
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--b-soft);
+}
+
+/* ---------- The text of a course: a card, or the panel ---------- */
+
+.detail {
+  min-width: 0;
+}
+.d-eyebrow {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+}
+.d-title {
+  margin: 0.3rem 0 0;
+  font-size: 1.55rem;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.d-promise {
+  margin: 0.5rem 0 0;
+  max-width: 36rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.d-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2.5rem;
+  margin-top: 1rem;
+  padding: 0 1.2rem;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg);
+  font-weight: 650;
+  text-decoration: none;
+}
+.d-open:hover {
+  opacity: 0.88;
+}
+.d-locked {
+  margin-top: 0.9rem;
+  max-width: 28rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.d-locked p {
+  margin: 0;
+}
+.d-locked p + p,
+.d-locked p + .d-open {
+  margin-top: 0.7rem;
+}
+.d-locked .lock {
+  margin-right: 0.2rem;
+  vertical-align: -0.1em;
+}
+.d-locked .d-open {
+  margin-top: 0.8rem;
+}
+.d-list {
+  margin: 1.1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.d-list a {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  gap: 0.1rem 0.6rem;
+  align-items: baseline;
+  padding: 0.6rem 0.4rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+.d-list a:hover {
+  background: var(--bg-sunken);
+}
+.d-list a.is-locked {
+  color: var(--text-3);
+}
+.d-list .n {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.d-list .t {
+  font-weight: 600;
+  line-height: 1.3;
+}
+.d-list .t .tag {
+  margin-left: 0.5rem;
+  vertical-align: 0.1em;
+}
+.d-list .r {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-3);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.d-list .p {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+.vmark {
+  width: 0.8rem;
+  height: 0.8rem;
+  color: var(--accent);
+}
+
+/* ============================================================
+   With JavaScript: books on a tape
+   ============================================================ */
+
+.js .bookshelf {
+  /* As tall as lets the bar, the capsule, the row, the line of where the reader left off, the
+     two buttons AND the footer fit the window at once. 24.5rem is what they and the room
+     around the row take (about 22.2rem down to the buttons, 2.3rem of footer) besides the
+     row's 1.3 heights. The buttons are above the footer, so they are in view at every window
+     height from 700px up whatever the footer is (a test checks it, signed in and out). */
+  --H: clamp(16rem, calc((100svh - 24.5rem) / 1.3), 44rem);
+  --duration: 0.7s;
+  --gap: 0.045;
+}
+.js .row {
+  display: none;
+}
+.js .stage {
+  /* What changes inside the stage (a step, a hover) is laid out alone, and what changes outside
+     (the panel opening below it) does not lay it out again. */
+  contain: layout style;
+  position: relative;
+  height: calc(var(--H) * 1.24);
+  margin-top: 4.5rem;
+  overflow-x: clip;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* The eye: one for the whole row, level with the middle of the books, over the
+   middle of the page; so books on the left show their right sides and books on
+   the right their left, as on a shelf seen from where you stand. */
+.tape {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--H) * 0.6);
+  width: 0;
+  height: 0;
+  perspective: calc(var(--H) * 2.77);
+}
+
+/* The floor: one soft pool of shadow under the whole row, drawn once. It is an ellipse that
+   is darkest at its middle and fades to nothing on EVERY side of its box, so there is no edge
+   anywhere: an earlier pool began at the top of its box with its full strength, and showed as a
+   lighter band under the books and then a darker strip with a hard top edge. The upper half
+   hides behind the books (they stand in front of it); the lower half is the shadow on the
+   floor. The stops are a bell, not a straight ramp, so no line shows where it ends. */
+.floor {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  /* Centred just below the bottoms of the books, which the eye's perspective draws about 16%
+     further down than their height. */
+  top: calc(var(--H) * 1.07);
+  height: calc(var(--H) * 0.28);
+  background: radial-gradient(
+    ellipse closest-side at 50% 50%,
+    var(--pool) 0%,
+    color-mix(in srgb, var(--pool) 72%, transparent) 22%,
+    color-mix(in srgb, var(--pool) 40%, transparent) 45%,
+    color-mix(in srgb, var(--pool) 14%, transparent) 70%,
+    color-mix(in srgb, var(--pool) 3%, transparent) 90%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* The target over the cover of the book in front (see index.js). */
+.front {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--H) * 0.07);
+  z-index: 101;
+  width: calc(var(--H) * 0.78);
+  height: calc(var(--H) * 1.06);
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+
+/* A book is a box as deep as its cover is wide, centred on the middle of the
+   tape's stage; its spine is the face towards the reader, its cover the face
+   on the right, hinged at the spine's edge. A book's slot is set by `--x`
+   (a fraction of the height); the book in front turns about its middle until
+   its cover faces the reader, comes forward and tilts a little. */
+.tb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Where a book stands is set by the script as its `transform` (see index.js); a book
+   under the pointer is lifted with `translate`, a separate property, so the two compose. */
+.tb:not(.is-selected):hover {
+  translate: 0 calc(var(--H) * -0.045);
+}
+.tb.is-gone {
+  /* Off the screen at both ends of its move: no layers, nothing drawn. */
+  display: none;
+}
+.tb .face {
+  position: absolute;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.tb .spine {
+  left: calc(var(--H) * var(--t) * -0.5);
+  top: calc(var(--H) * -0.5);
+  transform: translateZ(calc(var(--H) * 0.375));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 1px 0 0 var(--edge),
+    inset -1px 0 0 rgba(0, 0, 0, 0.3),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.18),
+    0 calc(var(--H) * 0.02) calc(var(--H) * 0.05) calc(var(--H) * -0.02) var(--shadow);
+}
+.tb .cover {
+  /* Every book has its cover: a book to the left of the one in front shows its spine and its
+     cover receding to the right in perspective, beside the front cover. */
+  left: calc(var(--H) * -0.375);
+  top: calc(var(--H) * -0.5);
+  transform: translateX(calc(var(--H) * var(--t) * 0.5)) rotateY(90deg);
+  box-shadow:
+    inset 1px 0 0 var(--edge),
+    0 calc(var(--H) * 0.038) calc(var(--H) * 0.076) calc(var(--H) * -0.035) var(--shadow);
+}
+/* Shade: the cover of the book in front is lit; every other cover is turned away. One overlay,
+   and only its opacity moves. */
+.tb .cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.tb.is-selected .cover::after {
+  opacity: 0;
+}
+/* The keyboard has the name of the book in front: its cover is ringed. */
+.is-keyboard .tb.is-selected .cover {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tb {
+    transition:
+      transform var(--duration) var(--spring),
+      translate 0.45s var(--spring);
+  }
+  /* The shade turns with the book: the same time and curve as the move, never a snap. */
+  .tb .cover::after {
+    transition: opacity var(--duration) var(--spring);
+  }
+  .tb.is-still,
+  .tb.is-still .cover::after {
+    transition: none;
+  }
+  /* Steps that come faster than a spring can settle (a held key, a quick run of clicks, a
+     sweep of the wheel) are followed at a steady pace instead of each starting again from rest. */
+  .stage.is-rapid .tb {
+    transition-duration: 0.14s, 0.45s;
+    transition-timing-function: linear, var(--spring);
+  }
+  .stage.is-rapid .tb .cover::after {
+    transition-duration: 0.14s;
+    transition-timing-function: linear;
+  }
+}
+
+/* ---------- The two round buttons ---------- */
+
+.arrows {
+  display: none;
+}
+.js .arrows:not([hidden]) {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+/* With no line of where the reader left off, the buttons keep the same distance from the books. */
+.js .resume[hidden] + .arrows:not([hidden]) {
+  margin-top: 4.25rem;
+}
+.round {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.round:hover {
+  background: var(--surface);
+}
+.round:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.round svg {
+  width: 1.125rem;
+  height: 0.625rem;
+}
+
+/* ---------- The ring that follows the pointer over the books ---------- */
+
+.ring {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: -2.25rem 0 0 -2.25rem;
+  border: 1.5px solid var(--fg);
+  border-radius: 50%;
+  color: var(--fg);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 0.2s,
+    background-color 0.2s,
+    color 0.2s;
+}
+.ring::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ring.is-over {
+  opacity: 1;
+}
+.ring.is-open {
+  background: var(--fg);
+  color: var(--bg);
+}
+.ring.is-open::before {
+  content: "Open";
+  width: auto;
+  height: auto;
+  background: none;
+  border-radius: 0;
+}
+
+/* ---------- The panel: the lectures of the book in front ---------- */
+
+.panel {
+  scroll-margin-block: 1.5rem;
+  margin-top: 1.5rem;
+  outline: none;
+}
+.panel[hidden] {
+  display: none;
+}
+.panel-inner {
+  position: relative;
+  padding: 1.75rem clamp(3.4rem, 5vw, 4rem) 1.6rem clamp(1.25rem, 3vw, 2.25rem);
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  background: var(--surface);
+}
+/* The panel takes focus from script when a book opens (so the next Tab lands on its first link).
+   It is never reached by Tab itself, so it draws no focus ring; the links and buttons inside do.
+   The site-wide :focus-visible rule would otherwise ring the panel itself. */
+.panel:focus,
+.panel:focus-visible {
+  outline: none;
+}
+.panel-body {
+  display: grid;
+  grid-template-columns: minmax(15rem, 22rem) minmax(0, 1fr);
+  gap: 1.5rem clamp(1.5rem, 4vw, 3rem);
+  align-items: start;
+}
+.panel-side,
+.panel-main {
+  min-width: 0;
+}
+.panel-body .d-title {
+  margin-top: 0.35rem;
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+}
+.panel-body .d-list {
+  margin-top: 0;
+  column-width: 18rem;
+  column-gap: 2rem;
+}
+.panel-body .d-list li {
+  break-inside: avoid;
+}
+.panel-body .d-list .p {
+  display: none;
+}
+.panel-body .d-list a {
+  padding-block: 0.5rem;
+}
+.panel-close {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+.panel-close:hover {
+  border-color: var(--border);
+}
+.panel-close svg {
+  width: 1rem;
+  height: 1rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .panel {
+    animation: panel-in 0.5s var(--spring) both;
+  }
+}
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.6rem);
+  }
+}
+
+/* ---------- Smaller screens ---------- */
+
+@media (max-width: 40rem) {
+  .book {
+    grid-template-columns: 1fr;
+  }
+  .js .bookshelf {
+    --H: clamp(19rem, 46svh, 30rem);
+  }
+  .js .filters {
+    max-width: calc(100% - 1.5rem);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .pill {
+    flex: none;
+  }
+  .panel-body,
+  .panel-body:has(.panel-side) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .panel-body .d-list {
+    column-width: auto;
+  }
+  .panel-inner {
+    padding: 3.4rem 1rem 1.25rem;
+  }
+}
+
+@media print {
+  .filters,
+  .arrows,
+  .ring,
+  .panel {
+    display: none;
+  }
+}

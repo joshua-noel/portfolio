@@ -1,0 +1,114 @@
+/* The design page's own layout; the books are drawn by learn-bookshelf.css. */
+.lab {
+  max-width: 96rem;
+}
+.theme-scope {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  background: var(--bg);
+  color: var(--fg);
+}
+.theme-scope h2 {
+  margin: 0 0 1rem;
+}
+.theme-scope h3 {
+  grid-column: 1 / -1;
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.lab-grid {
+  display: grid;
+  gap: 0.5rem 1rem;
+}
+.lab-row {
+  display: grid;
+  grid-template-columns: 11rem repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: 1rem;
+}
+.lab-name {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.lab-cell {
+  position: relative;
+}
+.lab-stage {
+  position: relative;
+  height: calc(var(--H) * 1.24);
+}
+.lab-state {
+  margin: 0;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-3);
+}
+.lab-art {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: 1.5rem;
+}
+.lab-art-field .art {
+  display: block;
+  width: calc(var(--H) * 0.75);
+  height: var(--H);
+  background: var(--b-color);
+}
+.lab-art-field .art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.lab-palette {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.lab-palette li {
+  display: grid;
+  grid-template-columns: 1fr 3.5rem;
+  gap: 0.25rem 0.5rem;
+}
+.lab-palette .sw {
+  display: flex;
+  align-items: center;
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.4rem;
+  font-weight: 700;
+}
+.lab-palette .field {
+  background: var(--b-color);
+}
+.lab-palette .band {
+  justify-content: center;
+  background: var(--b-accent);
+}
+.lab-palette .sw-note {
+  grid-column: 1 / -1;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.lab-art figcaption {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.lab-wide {
+  overflow-x: clip;
+}
+/* No script here: a book's place is set by the page's own rules (on the shelf, by index.js). */
+.tb {
+  transform: translate3d(calc(var(--H) * var(--x, 0)), 0, 0) rotateZ(0deg) rotateY(0deg);
+}
+.tb.is-selected {
+  transform: translate3d(0, calc(var(--H) * -0.025), calc(var(--H) * 0.2)) rotateZ(-4.5deg) rotateY(-90deg);
+}
+.tb.is-lifted {
+  translate: 0 calc(var(--H) * -0.045);
+}

@@ -1,0 +1,95 @@
+---
+import Lock from "../../../components/learn/Lock.astro";
+import Learn from "../../../layouts/Learn.astro";
+import { getConfig } from "../../../lib/config.ts";
+import { findCourse, lectureUrl } from "../../../lib/learn/catalog.ts";
+import { getCatalogFor } from "../../../lib/learn/content.ts";
+import { whyLocked } from "../../../lib/access.ts";
+
+const { learnUrl } = getConfig();
+const catalog = await getCatalogFor(Astro.locals.viewer?.role, Astro.locals.allowLocal);
+const course = findCourse(catalog, Astro.params.course);
+if (!course) Astro.response.status = 404;
+---
+
+{
+  course ? (
+    <Learn
+      title={`${course.front.title} · Learn · Joshua Noel`}
+      description={course.front.promise}
+      canonical={`${learnUrl}/${course.front.slug}`}
+      alert={course.front.alert}
+      current={{ course: course.front.slug }}
+    >
+      <main class="lecture" id="main">
+        <header>
+          <p class="crumb">
+            <a href="/">Learn</a> ·{" "}
+            {catalog.shelves.find((s) => s.id === course.front.shelf)?.title}
+          </p>
+          <h1>
+            {course.locked && <Lock />}
+            {course.front.title}
+          </h1>
+          <p class="promise">{course.front.promise}</p>
+          {course.locked && (
+            <div class="locked-note">
+              <h2>
+                <Lock /> Locked
+              </h2>
+              <p>{whyLocked(course.front.visibility)}</p>
+              <p>
+                {Astro.locals.viewer ? (
+                  "Your account cannot read this."
+                ) : (
+                  <a
+                    href={`/signin?next=${encodeURIComponent(Astro.locals.here?.pathname ?? Astro.url.pathname)}`}
+                  >
+                    Sign in to read
+                  </a>
+                )}
+              </p>
+            </div>
+          )}
+        </header>
+        <div class="course-intro prose" set:html={course.introHtml} />
+        <ol class="lecture-list">
+          {course.lectures.map((lecture) => (
+            <li>
+              <a
+                href={lectureUrl(lecture)}
+                class:list={[lecture.locked && "is-locked"]}
+              >
+                <span class="n">{lecture.front.order}</span>
+                <span class="t">
+                  {lecture.front.title}
+                  {lecture.front.placeholder && <span class="tag">Placeholder</span>}
+                </span>
+                <span class="r">
+                  {lecture.locked ? (
+                    <Lock />
+                  ) : (
+                    <span>{lecture.front.minutes} min</span>
+                  )}
+                  {!lecture.locked && (
+                    <span class="mark" data-mark={`${lecture.course}/${lecture.slug}`} />
+                  )}
+                </span>
+                <span class="p">{lecture.front.promise}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </main>
+    </Learn>
+  ) : (
+    <Learn title="Not found · Learn" layout="plain" noindex>
+      <main class="page" id="main">
+        <h1>No such course</h1>
+        <p class="lede">
+          There is nothing at this address. <a href="/">See every course.</a>
+        </p>
+      </main>
+    </Learn>
+  )
+}

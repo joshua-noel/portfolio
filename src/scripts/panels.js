@@ -11,7 +11,7 @@
 // page scrolls normally.
 
 const root = document.documentElement;
-const header = document.querySelector(".site-header");
+const header = document.querySelector(".topbar");
 const panels = [...document.querySelectorAll("main.site > section")];
 const lessMotion = matchMedia("(prefers-reduced-motion: reduce)");
 

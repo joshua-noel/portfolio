@@ -1,0 +1,65 @@
+<svg viewBox="0 0 400 308" role="group" aria-labelledby="dg-lookup-title" data-interactive="attention-weights">
+  <title id="dg-lookup-title">One query reading from three tokens</title>
+  <desc>One query reading from three tokens.</desc>
+  <text x="70" y="18" style="fill:var(--muted);font-size:12px;font-weight:500;text-anchor:middle">Queries (who asks)</text>
+  <text x="330" y="18" style="fill:var(--muted);font-size:12px;font-weight:500;text-anchor:middle">Keys and values</text>
+
+  <!-- Lines first, so the boxes sit on top. The widths are the attention weights. -->
+  <g data-links>
+    <path class="dg-link" d="M130 220 L270 60" stroke-width="2.04" stroke-linecap="round" style="fill:none;stroke:var(--c5)"/>
+    <path class="dg-link" d="M130 220 L270 140" stroke-width="9.68" stroke-linecap="round" style="fill:none;stroke:var(--c5)"/>
+    <path class="dg-link" d="M130 220 L270 220" stroke-width="5.28" stroke-linecap="round" style="fill:none;stroke:var(--c5)"/>
+  </g>
+  <g data-pills>
+    <g transform="translate(235 100)">
+      <rect x="-20" y="-10" width="40" height="20" rx="5" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+      <text y="4" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">0.07</text>
+    </g>
+    <g transform="translate(235 160)">
+      <rect x="-20" y="-10" width="40" height="20" rx="5" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+      <text y="4" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">0.62</text>
+    </g>
+    <g transform="translate(235 220)">
+      <rect x="-20" y="-10" width="40" height="20" rx="5" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+      <text y="4" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">0.31</text>
+    </g>
+  </g>
+
+  <g class="dg-token" data-role="query" data-q="1,0" data-name="The" tabindex="0" aria-label="Query of The, q = (1, 0). Show what it reads.">
+    <rect x="10" y="36" width="120" height="48" rx="8" style="fill:var(--c1);stroke:var(--c1);stroke-width:1.5;fill-opacity:0.2"/>
+    <text x="70" y="56" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">The</text>
+    <text x="70" y="73" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">q = (1, 0)</text>
+  </g>
+  <g class="dg-token" data-role="query" data-q="0,1" data-name="cat" tabindex="0" aria-label="Query of cat, q = (0, 1). Show what it reads.">
+    <rect x="10" y="116" width="120" height="48" rx="8" style="fill:var(--c1);stroke:var(--c1);stroke-width:1.5;fill-opacity:0.2"/>
+    <text x="70" y="136" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">cat</text>
+    <text x="70" y="153" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">q = (0, 1)</text>
+  </g>
+  <g class="dg-token is-selected" data-role="query" data-q="2,1" data-name="sat" tabindex="0" aria-label="Query of sat, q = (2, 1). Show what it reads.">
+    <rect x="10" y="196" width="120" height="48" rx="8" style="fill:var(--c1);stroke:var(--c1);stroke-width:1.5;fill-opacity:0.2"/>
+    <text x="70" y="216" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">sat</text>
+    <text x="70" y="233" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">q = (2, 1)</text>
+  </g>
+
+  <g data-role="key" data-k="0,1" data-v="1,0" data-name="The">
+    <rect x="270" y="28" width="120" height="64" rx="8" style="fill:var(--c2);stroke:var(--c2);stroke-width:1.5;fill-opacity:0.2"/>
+    <text x="330" y="48" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">The</text>
+    <text x="330" y="65" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">k = (0, 1)</text>
+    <text x="330" y="82" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">v = (1, 0)</text>
+  </g>
+  <g data-role="key" data-k="2,0" data-v="0,2" data-name="cat">
+    <rect x="270" y="108" width="120" height="64" rx="8" style="fill:var(--c2);stroke:var(--c2);stroke-width:1.5;fill-opacity:0.2"/>
+    <text x="330" y="128" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">cat</text>
+    <text x="330" y="145" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">k = (2, 0)</text>
+    <text x="330" y="162" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">v = (0, 2)</text>
+  </g>
+  <g data-role="key" data-k="1,1" data-v="2,2" data-name="sat">
+    <rect x="270" y="188" width="120" height="64" rx="8" style="fill:var(--c2);stroke:var(--c2);stroke-width:1.5;fill-opacity:0.2"/>
+    <text x="330" y="208" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">sat</text>
+    <text x="330" y="225" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">k = (1, 1)</text>
+    <text x="330" y="242" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">v = (2, 2)</text>
+  </g>
+
+  <text x="200" y="276" data-mix style="fill:var(--fg);font-size:12px;font-weight:500;text-anchor:middle">sat reads 0.07 The + 0.62 cat + 0.31 sat</text>
+  <text x="200" y="298" data-out style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">output = (0.69, 1.85)</text>
+</svg>

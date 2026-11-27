@@ -9,7 +9,7 @@ let
 in
 {
   options.services.portfolio = {
-    enable = lib.mkEnableOption "the personal site and blog";
+    enable = lib.mkEnableOption "the personal site, blog and lectures";
 
     package = lib.mkPackageOption pkgs "portfolio" { };
 
@@ -64,6 +64,32 @@ in
       '';
     };
 
+    learnUrl = lib.mkOption {
+      type = lib.types.str;
+      example = "https://learn.noelejoshua.com";
+      description = ''
+        Origin of the lectures. Requests arriving with this Host are served
+        from the learn route tree, and every lecture's canonical URL lives
+        here.
+      '';
+    };
+
+    learnContentDirs = lib.mkOption {
+      type = lib.types.listOf lib.types.path;
+      default = [ ];
+      example = [ "/var/lib/portfolio/learn" ];
+      description = ''
+        Folders of courses, laid out as `learn-content/CONTRACT.md` says,
+        merged and read at run time (and reloaded when a file changes). This
+        is where `members` and `friends` lectures live: the repository is
+        public, so they are never part of the package. When empty the
+        service serves the public sample lectures that ship in the package.
+
+        `local` lectures are never served; the setting that allows them on
+        the owner's own machine is not offered here.
+      '';
+    };
+
     adminUsername = lib.mkOption {
       type = lib.types.str;
       default = "admin";
@@ -95,6 +121,21 @@ in
       '';
     };
 
+    trustedProxyHops = lib.mkOption {
+      type = lib.types.ints.between 0 10;
+      default = 1;
+      example = 2;
+      description = ''
+        How many reverse proxies stand between a visitor and the service,
+        each appending the address it saw to X-Forwarded-For. The client
+        address for login throttling is the entry that many places from the
+        right; entries to its left are the client's to forge and are
+        ignored. 0 ignores forwarded headers altogether. The default, 1, is
+        one proxy on this machine (the Caddy example in the README). Count
+        every proxy, CDN or bot check in the chain, and confirm it.
+      '';
+    };
+
     environmentFile = lib.mkOption {
       type = lib.types.nullOr lib.types.path;
       default = null;
@@ -122,8 +163,13 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = cfg.siteUrl != cfg.blogUrl;
-        message = "services.portfolio: siteUrl and blogUrl must differ, or the blog host cannot be distinguished from the main site.";
+        assertion =
+          lib.length (lib.unique [
+            cfg.siteUrl
+            cfg.blogUrl
+            cfg.learnUrl
+          ]) == 3;
+        message = "services.portfolio: siteUrl, blogUrl and learnUrl must all differ, or the hosts cannot be told apart.";
       }
     ];
 
@@ -143,7 +189,7 @@ in
     };
 
     systemd.services.portfolio = {
-      description = "Personal site and blog";
+      description = "Personal site, blog and lectures";
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" ];
 
@@ -153,8 +199,13 @@ in
         PORTFOLIO_STATE_DIR = cfg.stateDir;
         PORTFOLIO_SITE_URL = cfg.siteUrl;
         PORTFOLIO_BLOG_URL = cfg.blogUrl;
+        PORTFOLIO_LEARN_URL = cfg.learnUrl;
+        # Empty means "the sample lectures in the package": bin/serve.mjs reads
+        # a blank value as unset.
+        PORTFOLIO_LEARN_CONTENT_DIRS = lib.concatMapStringsSep ":" toString cfg.learnContentDirs;
         PORTFOLIO_ADMIN_USERNAME = cfg.adminUsername;
         PORTFOLIO_TRUSTED_PROXIES = lib.concatStringsSep "," cfg.trustedProxies;
+        PORTFOLIO_TRUSTED_PROXY_HOPS = toString cfg.trustedProxyHops;
         # %d is the credentials directory systemd populates from
         # LoadCredential below.
         PORTFOLIO_ADMIN_PASSWORD_HASH_FILE = "%d/admin-password-hash";

@@ -1,0 +1,50 @@
+---
+import Bookshelf from "../../components/learn/Bookshelf.astro";
+import Learn from "../../layouts/Learn.astro";
+import { getConfig } from "../../lib/config.ts";
+import { buildShelves } from "../../lib/learn/bookshelf.ts";
+import { getCatalogFor } from "../../lib/learn/content.ts";
+
+const { learnUrl } = getConfig();
+const catalog = await getCatalogFor(Astro.locals.viewer?.role, Astro.locals.allowLocal);
+const shelves = buildShelves(catalog);
+// The address the reader typed, not the route it was rewritten to.
+const here = Astro.locals.here ?? {
+  pathname: Astro.url.pathname,
+  search: Astro.url.search,
+};
+const signin = `/signin?next=${encodeURIComponent(here.pathname + here.search)}`;
+---
+
+<Learn title="Learn · Joshua Noel" canonical={`${learnUrl}/`} layout="plain">
+  <main class="page shelf-page" id="main">
+    <h1 class="visually-hidden">Learn</h1>
+
+    {
+      shelves.length > 0 ? (
+        <Bookshelf
+          shelves={shelves}
+          signin={signin}
+          signedIn={Boolean(Astro.locals.viewer)}
+        />
+      ) : (
+        <p class="empty">There are no courses yet.</p>
+      )
+    }
+  </main>
+  <Fragment slot="credit">
+    <span class="credit">
+      · Shelf design inspired by
+      <a href="https://x.com/sahil0x01/status/2124697500229759375" rel="noopener noreferrer"
+        >@sahil0x01</a
+      >
+      and
+      <a href="https://x.com/vineerpasam/status/2124902293254594759" rel="noopener noreferrer"
+        >@vineerpasam</a
+      >.
+    </span>
+  </Fragment>
+  <script>
+    import "../../scripts/learn-bookshelf/index.js";
+  </script>
+</Learn>

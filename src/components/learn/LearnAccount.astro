@@ -1,0 +1,30 @@
+---
+// Sign in, or the signed-in name with sign out: Learn's part of the shared top bar.
+import type { Principal } from "../../lib/sessions.ts";
+
+interface Props {
+  /** Who is signed in, if anyone. */
+  viewer?: Principal;
+  /** Where to come back to after signing in. */
+  next: string;
+}
+
+const { viewer, next } = Astro.props;
+---
+
+{
+  viewer ? (
+    <form class="who" method="post" action="/signout">
+      <span class="who-name" title={`Signed in as ${viewer.username}`}>
+        {viewer.username}
+      </span>
+      <button class="signin" type="submit">
+        Sign out
+      </button>
+    </form>
+  ) : (
+    <a class="signin" href={`/signin?next=${encodeURIComponent(next)}`}>
+      Sign in
+    </a>
+  )
+}

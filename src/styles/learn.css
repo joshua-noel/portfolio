@@ -1,0 +1,1377 @@
+/* ============================================================
+   Learn: the lecture site.
+   A bare documentation look: near-black and soft off-white in the dark
+   theme, the inverse in the light one, two or three greys, ONE muted link
+   colour (--accent), hairline dividers. Colour appears only inside
+   diagrams, code, book covers and videos. System fonts only; no downloads.
+   The rules this follows are in docs/learn-style.md. test/learn-contrast.test.ts
+   holds the text colours to WCAG AA (4.5:1) in both themes.
+   ============================================================ */
+
+/* Colours, fonts, radius, the bar height and the prose measure are the site's:
+   src/styles/tokens.css. Only the rail widths are particular to Learn. */
+:root {
+  --rail-l: clamp(14rem, 14vw, 19rem);
+  --rail-r: clamp(13rem, 12vw, 17rem);
+  /* A critically damped spring as `linear()` points of 1 - (1 + wt) e^-wt (w = 8.8), one point
+     for every hundredth of the move: the speed changes by a hair from one point to the next, so
+     at 240 Hz (about 170 frames in a move) it is a curve, not steps. A move starts softly, is
+     quick through the middle and settles without overshoot; it is within a hair of rest after
+     about two thirds of the time given beside it. */
+  --spring: linear(
+    0, 0.0037, 0.0138, 0.0293, 0.0492, 0.0726, 0.0988, 0.1272, 0.1572, 0.1883,
+    0.2202, 0.2525, 0.2848, 0.317, 0.3489, 0.3802, 0.4109, 0.4408, 0.4699, 0.498,
+    0.5252, 0.5513, 0.5764, 0.6005, 0.6235, 0.6454, 0.6664, 0.6863, 0.7052, 0.7232,
+    0.7402, 0.7564, 0.7716, 0.786, 0.7997, 0.8125, 0.8246, 0.836, 0.8467, 0.8567,
+    0.8662, 0.8751, 0.8834, 0.8913, 0.8986, 0.9054, 0.9119, 0.9179, 0.9235, 0.9288,
+    0.9337, 0.9383, 0.9426, 0.9466, 0.9503, 0.9538, 0.9571, 0.9601, 0.9629, 0.9656,
+    0.968, 0.9703, 0.9724, 0.9744, 0.9762, 0.978, 0.9796, 0.981, 0.9824, 0.9837,
+    0.9849, 0.986, 0.987, 0.988, 0.9888, 0.9897, 0.9904, 0.9911, 0.9918, 0.9924,
+    0.993, 0.9935, 0.994, 0.9944, 0.9948, 0.9952, 0.9956, 0.9959, 0.9962, 0.9965,
+    0.9968, 0.997, 0.9972, 0.9974, 0.9976, 0.9978, 0.998, 0.9981, 0.9983, 0.9984,
+    1
+  );
+}
+
+/* How long a move between pages takes: the spring above, the one easing of the site's motion
+   (the shelf's moves, the panel, and the pages below), is shared by all of them. */
+:root {
+  --vt-fast: 0.3s;
+  --vt: 0.55s;
+}
+
+/* ---------- Moving between pages: view transitions ---------- */
+
+/* A navigation inside Learn is a cross-document view transition: the browser keeps the old
+   page on screen as a picture, loads the new one, and animates between them. CSS only; the
+   one script (learn-transitions.js, a file in <head>, so the policy is untouched) names the
+   direction. A browser without support ignores all of this and navigates as before, and a
+   reader who asks for less motion gets no transition at all. */
+@view-transition {
+  navigation: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+}
+
+/* The bar and the rails are named, so they are their own pictures and stay where they are
+   while the page under them moves. (The left rail is a drawer on a narrow window and is not
+   named there.) */
+.topbar {
+  view-transition-name: topbar;
+}
+@media (min-width: 50.01rem) {
+  .sidenav {
+    view-transition-name: sidenav;
+  }
+}
+.toc {
+  view-transition-name: toc;
+}
+::view-transition-group(topbar),
+::view-transition-group(sidenav),
+::view-transition-group(toc) {
+  animation-duration: 0s;
+}
+
+/* The rest of the page: a quiet cross-fade (a lecture to the next one, a search, a sign-in). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  mix-blend-mode: normal;
+  animation-duration: var(--vt-fast);
+  animation-timing-function: ease;
+}
+
+/* From the shelf or a course to a lecture: the lecture rises from the bottom and fades in
+   while the page it leaves fades out. */
+:root:active-view-transition-type(rise)::view-transition-old(root) {
+  animation: vt-fade-out var(--vt-fast) ease both;
+}
+:root:active-view-transition-type(rise)::view-transition-new(root) {
+  animation: vt-rise var(--vt) var(--spring) both;
+}
+
+/* And back: the lecture sinks and fades out over the page that is already there. */
+:root:active-view-transition-type(descend)::view-transition-old(root) {
+  z-index: 2;
+  animation: vt-sink var(--vt) var(--spring) both;
+}
+:root:active-view-transition-type(descend)::view-transition-new(root) {
+  animation: vt-fade-in var(--vt) ease both;
+}
+
+@keyframes vt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(30vh);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes vt-sink {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(30vh);
+  }
+}
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* For the admin only: lecture files that could not be loaded and were left out. */
+.load-notice {
+  /* A badge over the corner of the window, not a bar: it takes no height from the page. */
+  position: fixed;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 60;
+  max-width: min(46rem, calc(100vw - 1.5rem));
+  max-height: 40vh;
+  overflow: auto;
+  margin: 0;
+  padding: 0.3rem 0.8rem;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--fg);
+  font-size: 0.75rem;
+}
+details.load-notice {
+  right: auto;
+  left: 0.75rem;
+}
+.load-notice pre {
+  margin: 0.5rem 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+
+.search {
+  position: relative;
+  width: min(18rem, 30vw);
+}
+.search input {
+  width: 100%;
+  height: 2.25rem;
+  padding: 0 2rem 0 2.1rem;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--fg);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.search input::placeholder {
+  color: var(--text-3);
+}
+.search .icon {
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  translate: 0 -50%;
+  width: 1rem;
+  height: 1rem;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.search kbd {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  translate: 0 -50%;
+  font: 0.75rem var(--font-mono);
+  color: var(--text-3);
+  pointer-events: none;
+}
+.search input:focus ~ kbd,
+.search input:not(:placeholder-shown) ~ kbd {
+  display: none;
+}
+.search-results {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  width: min(28rem, calc(100vw - 1.5rem));
+  max-height: 70vh;
+  overflow: auto;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.search-results[hidden] {
+  display: none;
+}
+.search-results a {
+  display: block;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius);
+  color: var(--fg);
+  text-decoration: none;
+}
+.search-results a:hover,
+.search-results a[aria-selected="true"] {
+  background: var(--surface);
+}
+.search-results .hit-title {
+  display: block;
+  font-size: 0.9rem;
+}
+.search-results .hit-snippet {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+.search-results .none {
+  padding: 0.65rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.signin {
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+  padding: 0.4rem 0.2rem;
+  white-space: nowrap;
+}
+button.signin {
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 0.875rem;
+}
+.who {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: 0;
+}
+.who-name {
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.signin:hover {
+  color: var(--fg);
+}
+
+/* ---------- Shell: left rail, centre, right rail ---------- */
+
+.shell {
+  flex: 1 0 auto;
+  display: grid;
+  grid-template-columns: var(--rail-l) minmax(0, 1fr) var(--rail-r);
+  grid-template-areas: "nav main toc";
+  align-items: start;
+}
+.shell.plain {
+  display: block;
+}
+/* A page with no "On this page" rail gives its width to the centre. */
+@media (min-width: 68.8rem) {
+  .shell:not(.plain):not(:has(.toc)) {
+    grid-template-columns: var(--rail-l) minmax(0, 1fr);
+    grid-template-areas: "nav main";
+  }
+}
+
+.sidenav {
+  grid-area: nav;
+  position: sticky;
+  top: var(--topbar);
+  height: calc(100vh - var(--topbar));
+  height: calc(100dvh - var(--topbar));
+  overflow-y: auto;
+  padding: 1.25rem 1rem 3rem 1.5rem;
+  background: var(--bg-sunken);
+  border-right: 1px solid var(--line);
+  font-size: 0.875rem;
+}
+.sidenav .part + .part {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+.part-title {
+  margin: 0 0 0.4rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+.course-title {
+  margin: 0;
+}
+.course-title a,
+.sidenav li a {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  color: var(--muted);
+  text-decoration: none;
+  line-height: 1.4;
+}
+.course-title a:hover,
+.sidenav li a:hover {
+  color: var(--fg);
+}
+.course-title a[aria-current="page"],
+.sidenav li a[aria-current="page"] {
+  color: var(--accent);
+}
+.sidenav ol {
+  margin: 0 0 0.4rem 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+.sidenav li a.is-locked,
+.lecture-list a.is-locked {
+  color: var(--text-3);
+}
+
+/* ---------- Progress marks (filled in from localStorage), in grey ---------- */
+
+.mark {
+  flex: none;
+  width: 0.55rem;
+  height: 0.55rem;
+  align-self: center;
+  border: 1px solid var(--text-3);
+  border-radius: 50%;
+}
+.mark[data-state="started"] {
+  background: color-mix(in srgb, var(--text-3) 45%, transparent);
+}
+.mark[data-state="done"] {
+  border-color: var(--muted);
+  background: var(--muted);
+}
+.lock {
+  display: inline-block;
+  flex: none;
+  width: 0.8rem;
+  height: 0.8rem;
+  align-self: center;
+  color: var(--text-3);
+}
+
+/* ---------- Lecture header ---------- */
+
+.lecture {
+  grid-area: main;
+  min-width: 0;
+  padding: 2.5rem clamp(1.25rem, 3vw, 3rem) 4rem;
+}
+.lecture > header,
+.lecture > .lecture-end {
+  max-width: var(--measure);
+  margin-inline: auto;
+}
+.crumb {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.crumb a {
+  color: inherit;
+  text-decoration: none;
+}
+.crumb a:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
+.lecture h1,
+.page h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 1.4rem + 1vw, 2.25rem);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.promise,
+.lede {
+  margin: 1rem 0 0;
+  font-size: 1.0625rem;
+  line-height: 1.7;
+}
+.lede {
+  color: var(--muted);
+}
+.meta {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.banner {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+.banner strong {
+  color: var(--fg);
+}
+.objectives-title {
+  margin: 2rem 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.objectives {
+  margin: 0;
+  padding-left: 1.25rem;
+  line-height: 1.65;
+}
+.objectives li + li {
+  margin-top: 0.3rem;
+}
+.objectives li::marker {
+  color: var(--text-3);
+}
+.prereq {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.locked-note {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.locked-note h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.4rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+.locked-note p {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+}
+
+/* ---------- Video ---------- */
+
+.video {
+  width: min(100%, 60rem);
+  margin: 2rem auto 0;
+}
+.video video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+.video figcaption {
+  margin-top: 0.5rem;
+  color: var(--text-3);
+  font-size: 0.8125rem;
+}
+
+/* ---------- Prose ---------- */
+
+.prose {
+  counter-reset: q;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) min(var(--measure), 100%) minmax(0, 1fr);
+  margin-top: 1rem;
+  font-size: 1rem;
+  line-height: 1.75;
+  overflow-wrap: break-word;
+}
+.prose > * {
+  grid-column: 2;
+  min-width: 0;
+  margin-block: 0;
+}
+.prose > * + * {
+  margin-top: 1.25em;
+}
+.prose p,
+.prose li {
+  text-wrap: pretty;
+}
+/* Code, tables, formulas and diagrams may be wider than the text, up to the centre. */
+.prose > :is(pre, .table-wrap, .math-block, figure.diagram) {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: max-content;
+  min-width: min(100%, var(--measure));
+  max-width: 100%;
+}
+.prose > .table-wrap {
+  max-width: min(100%, 64rem);
+}
+.prose h2,
+.prose h3,
+.prose h4 {
+  position: relative;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+}
+.prose h2 {
+  counter-reset: q;
+  margin-top: 3rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--line);
+  font-size: 1.5rem;
+}
+.prose h3 {
+  margin-top: 2rem;
+  font-size: 1.1875rem;
+}
+.prose h4 {
+  margin-top: 1.5rem;
+  font-size: 1rem;
+}
+.prose h2 + *,
+.prose h3 + *,
+.prose h4 + * {
+  margin-top: 0.9rem;
+}
+.prose .sec-no {
+  margin-right: 0.5em;
+  font-variant-numeric: tabular-nums;
+}
+.prose .anchor {
+  position: absolute;
+  left: -1.25em;
+  padding-right: 0.3em;
+  color: var(--text-3);
+  text-decoration: none;
+  font-weight: 400;
+  opacity: 0;
+}
+.prose :is(h2, h3, h4):hover .anchor,
+.prose .anchor:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .prose .anchor {
+    display: none;
+  }
+}
+.prose a {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+.prose strong {
+  font-weight: 600;
+}
+.prose ul,
+.prose ol {
+  padding-left: 1.5em;
+}
+.prose li + li {
+  margin-top: 0.35em;
+}
+.prose li::marker {
+  color: var(--text-3);
+}
+.prose blockquote,
+.prose .callout {
+  margin-inline: 0;
+  padding-left: 1.25rem;
+}
+.prose blockquote {
+  color: var(--muted);
+}
+.prose .callout {
+  color: var(--fg);
+}
+.prose blockquote > * + * {
+  margin-top: 0.6em;
+}
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin-block: 2rem;
+}
+.prose a.cite {
+  font-size: 0.8em;
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: 0.05em;
+}
+.prose a.cite:hover {
+  text-decoration: underline;
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  padding: 0.1em 0.35em;
+  background: var(--bg-sunken);
+  border-radius: 3px;
+}
+.prose pre {
+  margin-inline: 0;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  tab-size: 4;
+}
+.prose pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+/* Shiki writes both themes as variables; the theme token picks one. */
+.prose .shiki,
+.prose .shiki span {
+  color: var(--shiki-dark);
+}
+:root[data-theme="light"] .prose .shiki,
+:root[data-theme="light"] .prose .shiki span {
+  color: var(--shiki-light);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+.prose th,
+.prose td {
+  padding: 0.55rem 0.9rem 0.55rem 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+.prose th {
+  font-weight: 600;
+  border-bottom-color: var(--border);
+  white-space: nowrap;
+}
+.prose td .katex,
+.prose th .katex {
+  white-space: nowrap;
+}
+
+/* Maths. KaTeX brings its own stylesheet; this fits it to the page. */
+.prose .nobr {
+  white-space: nowrap;
+}
+.prose .katex {
+  font-size: 1.06em;
+}
+/* An inline formula wider than its line scrolls inside its own box. learn.js sets
+   the class on those, and only those: a box with an overflow has its baseline at
+   its bottom edge, which would lift the ordinary formulas off the line of text. */
+.prose .wide-math {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  vertical-align: bottom;
+  scrollbar-width: thin;
+}
+.math-block {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.4rem;
+}
+.math-block .katex-display {
+  margin: 0;
+}
+.math-block .katex-display > .katex {
+  font-size: 1.15em;
+}
+
+/* ---------- Questions: plain disclosure rows ---------- */
+
+.question {
+  counter-increment: q;
+  border-top: 1px solid var(--line);
+}
+.prose > .question:last-of-type {
+  border-bottom: 1px solid var(--line);
+}
+.question summary {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.7rem 0;
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.5;
+  list-style: none;
+}
+.question summary::-webkit-details-marker {
+  display: none;
+}
+.question summary::before {
+  content: counter(q) ".";
+  flex: none;
+  min-width: 1.4em;
+  color: var(--text-3);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.question summary::after {
+  content: "Show answer";
+  margin-left: auto;
+  flex: none;
+  color: var(--text-3);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.question[open] summary::after {
+  content: "Hide";
+}
+.question summary:hover::after {
+  color: var(--fg);
+}
+.question .q-text {
+  min-width: 0;
+}
+.question .answer {
+  padding: 0 0 1rem 2.15rem;
+}
+.question .answer > * + * {
+  margin-top: 0.8em;
+}
+
+.prose h2.frame-references ~ .references,
+.prose .references {
+  padding-left: 1.5em;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.prose .references li {
+  scroll-margin-top: calc(var(--topbar) + 1rem);
+}
+.prose .references li:target {
+  outline: 1px solid var(--accent);
+  outline-offset: 3px;
+}
+.prose .ref-id {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+.prose .checked {
+  color: var(--text-3);
+  font-size: 0.8125rem;
+}
+
+/* ---------- Diagrams and their controls ---------- */
+
+.diagram {
+  margin: 0;
+  width: min(100%, calc(var(--w, 600) * 1.15px));
+}
+.diagram-body {
+  overflow-x: auto;
+}
+.diagram svg {
+  display: block;
+  /* Diagrams have a viewBox and no size. --w is its width, from the file: they
+     grow to a little over that and no further, so a diagram drawn 400 wide does
+     not blow its labels up to the width of the column. */
+  width: 100%;
+  max-width: calc(var(--w, 600) * 1.15px);
+  height: auto;
+  margin-inline: auto;
+  /* Below this a diagram scrolls sideways rather than shrinking its labels. */
+  min-width: min(calc(var(--w, 600) * 0.8px), 30rem);
+  overflow: visible;
+  /* Colours reach a diagram only through these. */
+  color: var(--fg);
+  fill: currentColor;
+  font-family: var(--font-ui);
+}
+.diagram figcaption {
+  margin-top: 0.6rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  max-width: var(--measure);
+}
+.diagram figcaption strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+.dg-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  align-items: end;
+  gap: 0.6rem 1.5rem;
+  padding: 0 0 0.75rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+/* A slider: its name and value on one line, the track under them. */
+.dg-controls label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.15rem 0.6rem;
+}
+.dg-controls label > input[type="range"] {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: 100%;
+  accent-color: var(--muted);
+}
+.dg-controls label > output {
+  grid-row: 1;
+  grid-column: 2;
+}
+.dg-buttons {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.dg-controls output {
+  min-width: 3ch;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.dg-controls button,
+.dg-controls select {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+}
+.dg-controls button:hover,
+.dg-controls select:hover {
+  border-color: var(--muted);
+}
+.dg-controls input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--muted);
+}
+/* The result of a diagram: one or two sentences in the body font. */
+.dg-readout {
+  margin: 0;
+  padding: 0.6rem 0 0;
+  max-width: var(--measure);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--fg);
+}
+/* Everything else the reader may want to check, closed until asked for. */
+.dg-more {
+  max-width: var(--measure);
+  padding-top: 0.35rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.dg-more summary {
+  width: fit-content;
+  cursor: pointer;
+}
+.dg-more summary:hover {
+  color: var(--fg);
+}
+.dg-more[open] summary {
+  margin-bottom: 0.4rem;
+}
+.dg-more p {
+  margin: 0 0 0.6em;
+}
+.dg-more p:last-child {
+  margin-bottom: 0;
+}
+/* An arrowhead takes the color of the line it ends, whatever the file says. */
+@supports (fill: context-stroke) {
+  .diagram marker :is(path, polygon, polyline) {
+    fill: context-stroke !important;
+  }
+}
+.dg-token {
+  cursor: pointer;
+  outline: none;
+}
+/* The inline style of a diagram's own shapes is theme variables; hover wins by !important. */
+.dg-token:hover rect,
+.dg-token:focus-visible rect,
+.dg-token.is-selected rect {
+  stroke: var(--accent) !important;
+  stroke-width: 2.5 !important;
+}
+.dg-link {
+  transition:
+    stroke-width 0.15s,
+    opacity 0.15s;
+}
+
+/* ---------- End of a lecture: mark as read, previous, next ---------- */
+
+.lecture-end {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+.mark-read {
+  display: none;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.9rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+}
+.js .mark-read {
+  display: inline-flex;
+}
+.mark-read:hover {
+  border-color: var(--muted);
+}
+.pager {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.pager a {
+  display: block;
+  padding: 0.75rem 0;
+  color: var(--fg);
+  text-decoration: none;
+}
+.pager a:hover .title {
+  color: var(--accent);
+}
+.pager .dir {
+  display: block;
+  color: var(--text-3);
+  font-size: 0.8125rem;
+}
+.pager .title {
+  display: block;
+  margin-top: 0.1rem;
+  line-height: 1.35;
+}
+.pager .next {
+  grid-column: 2;
+  text-align: right;
+}
+.pager .prev {
+  grid-column: 1;
+}
+
+/* ---------- On this page: the right rail ---------- */
+
+.toc {
+  grid-area: toc;
+  position: sticky;
+  top: var(--topbar);
+  height: calc(100vh - var(--topbar));
+  height: calc(100dvh - var(--topbar));
+  overflow-y: auto;
+  padding: 2.5rem 1.5rem 3rem 0.5rem;
+  font-size: 0.8125rem;
+}
+.toc-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+.toc ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-left: 1px solid var(--line);
+}
+.toc li a {
+  display: block;
+  padding: 0.25rem 0 0.25rem 0.9rem;
+  color: var(--muted);
+  text-decoration: none;
+  line-height: 1.4;
+}
+.toc li.d3 a {
+  padding-left: 1.7rem;
+}
+.toc li a:hover {
+  color: var(--fg);
+}
+.toc li a[aria-current="location"] {
+  color: var(--accent);
+}
+.toc .toc-no {
+  margin-right: 0.4em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Course page, landing and plain pages ---------- */
+
+.plain .page {
+  max-width: 54rem;
+  margin-inline: auto;
+  padding: 3rem 1.5rem 5rem;
+}
+.course-intro {
+  margin-top: 1rem;
+}
+.course-intro.prose {
+  display: block;
+  max-width: var(--measure);
+  margin-inline: auto;
+}
+.lecture > .lecture-list {
+  max-width: var(--measure);
+  margin: 2rem auto 0;
+}
+.lecture-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lecture-list a {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr auto;
+  gap: 0.1rem 0.75rem;
+  align-items: baseline;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--fg);
+  text-decoration: none;
+}
+.lecture-list a:hover .t {
+  color: var(--accent);
+}
+.lecture-list li:first-child a {
+  border-top: 1px solid var(--line);
+}
+.lecture-list .n {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.lecture-list .t {
+  font-size: 1.0625rem;
+}
+.lecture-list .t .tag {
+  margin-left: 0.5rem;
+}
+.tag {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.lecture-list .p {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.lecture-list .r {
+  grid-column: 3;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-3);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.results {
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.results li {
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.results a {
+  font-size: 1.0625rem;
+  text-decoration: none;
+}
+.results a:hover {
+  text-decoration: underline;
+}
+.results p {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.page .search-form {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+}
+.page .search-form input,
+.signin-form input {
+  min-width: 0;
+  height: 2.5rem;
+  padding: 0 0.8rem;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.page .search-form input {
+  flex: 1;
+}
+.page .search-form button,
+.signin-form button {
+  height: 2.5rem;
+  padding: 0 1.1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.page .search-form button:hover,
+.signin-form button:hover {
+  border-color: var(--muted);
+}
+.signin-form {
+  display: grid;
+  gap: 1rem;
+  max-width: 22rem;
+  margin-top: 1.5rem;
+}
+.signin-form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.signin-form button {
+  justify-self: start;
+}
+.form-error {
+  margin: 1rem 0 0;
+  color: var(--fg);
+  font-weight: 600;
+}
+.empty {
+  color: var(--muted);
+}
+
+/* ---------- Narrower windows ---------- */
+
+/* The right rail goes. */
+@media (max-width: 68.75rem) {
+  .shell {
+    grid-template-columns: var(--rail-l) minmax(0, 1fr);
+    grid-template-areas: "nav main";
+  }
+  .toc {
+    display: none;
+  }
+}
+
+/* The left rail becomes a drawer. Without JavaScript it stays in the page, above the text. */
+@media (max-width: 50rem) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "nav"
+      "main";
+  }
+  .topbar .spacer,
+  .search kbd,
+  .who-name {
+    display: none;
+  }
+  .search {
+    width: auto;
+    flex: 1;
+  }
+  .sidenav {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 1rem 1.25rem;
+  }
+  .js .sidenav {
+    position: fixed;
+    z-index: 40;
+    inset: var(--topbar) auto 0 0;
+    width: min(20rem, 86vw);
+    height: auto;
+    padding: 1.25rem 1rem 3rem 1.25rem;
+    border-right: 1px solid var(--border);
+    translate: -100% 0;
+    visibility: hidden;
+    transition:
+      translate 0.2s,
+      visibility 0s 0.2s;
+  }
+  .js .sidenav.is-open {
+    translate: 0 0;
+    visibility: visible;
+    transition: translate 0.2s;
+  }
+  .js .shell {
+    grid-template-areas: "main";
+  }
+  .scrim {
+    position: fixed;
+    z-index: 35;
+    inset: var(--topbar) 0 0 0;
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .scrim[hidden] {
+    display: none;
+  }
+  .search-results {
+    position: fixed;
+    top: calc(var(--topbar) - 0.2rem);
+    left: 0.75rem;
+    right: 0.75rem;
+    width: auto;
+  }
+  .lecture {
+    padding-top: 1.75rem;
+  }
+  .prose h2 {
+    font-size: 1.35rem;
+  }
+  .prose .anchor {
+    display: none;
+  }
+  .lecture-list a {
+    grid-template-columns: 1.4rem 1fr;
+  }
+  .lecture-list .r {
+    grid-column: 2;
+    grid-row: auto;
+  }
+  .question .answer {
+    padding-left: 0;
+  }
+  .pager {
+    grid-template-columns: 1fr;
+  }
+  .pager .next,
+  .pager .prev {
+    grid-column: 1;
+    text-align: left;
+  }
+}
+
+/* A lecture prints on white in the light colors, whatever theme is on screen,
+   without the navigation or the controls, and with its links written out. */
+@media print {
+  :root,
+  :root[data-theme] {
+    color-scheme: light;
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --bg-sunken: #f1f1f4;
+    --line: rgba(27, 26, 31, 0.1);
+    --border: rgba(27, 26, 31, 0.3);
+    --fg: #1b1a1f;
+    --muted: #55545c;
+    --text-3: #66656e;
+    --accent: #4547c7;
+    --code-bg: #ffffff;
+    --c1: #b0431f;
+    --c2: #0b6f64;
+    --c3: #6a2fc0;
+    --c4: #1c63b8;
+    --c5: #85500a;
+    --c6: #33751b;
+    --alert: #b4235a;
+  }
+  :root[data-alert="c1"] {
+    --c1: var(--alert);
+  }
+  :root[data-alert="c2"] {
+    --c2: var(--alert);
+  }
+  :root[data-alert="c3"] {
+    --c3: var(--alert);
+  }
+  :root[data-alert="c4"] {
+    --c4: var(--alert);
+  }
+  :root[data-alert="c5"] {
+    --c5: var(--alert);
+  }
+  :root[data-alert="c6"] {
+    --c6: var(--alert);
+  }
+  body {
+    display: block;
+    background: #fff;
+  }
+  .prose .shiki,
+  .prose .shiki span {
+    color: var(--shiki-light);
+  }
+  .topbar,
+  .sidenav,
+  .toc,
+  .pager,
+  .lecture-end,
+  .scrim,
+  .skip,
+  .dg-controls,
+  .dg-more {
+    display: none !important;
+  }
+  .shell {
+    display: block;
+  }
+  .prose {
+    display: block;
+  }
+  .prose > :is(pre, .table-wrap, .math-block, figure.diagram) {
+    width: auto;
+    max-width: 100%;
+  }
+  .prose a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+  .prose pre,
+  .prose figure,
+  .prose .table-wrap,
+  .prose details {
+    break-inside: avoid;
+  }
+}

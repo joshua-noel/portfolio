@@ -1,0 +1,46 @@
+<svg viewBox="0 0 400 436" role="img" aria-labelledby="dg-block-title">
+  <title id="dg-block-title">One transformer block: a residual stream with an attention step and an MLP step added to it</title>
+  <desc>One transformer block: a residual stream with an attention step and an MLP step added to it.</desc>
+  <defs>
+    <marker id="ah-block" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" style="fill:var(--muted)"/>
+    </marker>
+  </defs>
+
+  <!-- The residual stream: everything else reads from it and adds back to it. -->
+  <path stroke-width="4" d="M50 410 V22" marker-end="url(#ah-block)" style="fill:none;stroke:var(--c5)"/>
+  <text x="50" y="428" style="fill:var(--muted);font-size:12px;font-weight:500;text-anchor:middle">x in</text>
+  <text x="50" y="12" style="fill:var(--muted);font-size:12px;font-weight:500;text-anchor:middle">x out</text>
+  <text transform="translate(30 200) rotate(-90)" text-anchor="middle" style="fill:var(--c5);font-size:12px;font-weight:500">residual stream</text>
+
+  <!-- Step 1: attention -->
+  <path d="M50 360 H170 V346" marker-end="url(#ah-block)" style="fill:none;stroke:var(--muted);stroke-width:1.5"/>
+  <rect x="110" y="312" width="120" height="32" rx="6" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+  <text x="170" y="333" style="fill:var(--fg);font-size:14px;font-weight:500;text-anchor:middle">Norm</text>
+  <path d="M170 312 V300" marker-end="url(#ah-block)" style="fill:none;stroke:var(--muted);stroke-width:1.5"/>
+  <rect x="110" y="244" width="120" height="54" rx="6" style="fill:var(--c1);stroke:var(--c1);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="170" y="267" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">Attention</text>
+  <text x="170" y="285" style="fill:var(--fg);font-size:12px;font-weight:500;text-anchor:middle">h heads, causal</text>
+  <path d="M170 244 V226 H64" marker-end="url(#ah-block)" style="fill:none;stroke:var(--muted);stroke-width:1.5"/>
+  <circle cx="50" cy="226" r="12" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+  <path d="M44 226 H56 M50 220 V232" style="fill:none;stroke:var(--muted);stroke-width:1.5"/>
+
+  <!-- Step 2: MLP -->
+  <path d="M50 190 H170 V176" marker-end="url(#ah-block)" style="fill:none;stroke:var(--muted);stroke-width:1.5"/>
+  <rect x="110" y="142" width="120" height="32" rx="6" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+  <text x="170" y="163" style="fill:var(--fg);font-size:14px;font-weight:500;text-anchor:middle">Norm</text>
+  <path d="M170 142 V130" marker-end="url(#ah-block)" style="fill:none;stroke:var(--muted);stroke-width:1.5"/>
+  <rect x="110" y="74" width="120" height="54" rx="6" style="fill:var(--c3);stroke:var(--c3);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="170" y="97" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">MLP</text>
+  <text x="170" y="115" style="fill:var(--fg);font-size:12px;font-weight:500;text-anchor:middle">d → 4d → d</text>
+  <path d="M170 74 V56 H64" marker-end="url(#ah-block)" style="fill:none;stroke:var(--muted);stroke-width:1.5"/>
+  <circle cx="50" cy="56" r="12" style="fill:var(--surface);stroke:var(--border);stroke-width:1.5"/>
+  <path d="M44 56 H56 M50 50 V62" style="fill:none;stroke:var(--muted);stroke-width:1.5"/>
+
+  <text x="248" y="262" style="fill:var(--muted);font-size:12px;font-weight:500">Mixes information</text>
+  <text x="248" y="278" style="fill:var(--muted);font-size:12px;font-weight:500">across tokens.</text>
+  <text x="248" y="92" style="fill:var(--muted);font-size:12px;font-weight:500">Transforms each token</text>
+  <text x="248" y="108" style="fill:var(--muted);font-size:12px;font-weight:500">on its own.</text>
+  <text x="248" y="326" style="fill:var(--muted);font-size:12px;font-weight:500">Rescales a token's</text>
+  <text x="248" y="342" style="fill:var(--muted);font-size:12px;font-weight:500">vector before use.</text>
+</svg>

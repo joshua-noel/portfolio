@@ -1,0 +1,49 @@
+<svg viewBox="0 0 540 250" role="img" aria-labelledby="dg-heads-title">
+  <title id="dg-heads-title">Multi-head attention: several attentions run side by side, then are joined</title>
+  <desc>Multi-head attention: several attentions run side by side, then are joined.</desc>
+  <defs>
+    <marker id="ah-heads" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" style="fill:var(--muted)"/>
+    </marker>
+  </defs>
+
+  <rect x="8" y="94" width="66" height="62" rx="6" style="fill:var(--c4);stroke:var(--c4);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="41" y="120" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">X</text>
+  <text x="41" y="139" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">n × d</text>
+
+  <g style="fill:none;stroke:var(--muted);stroke-width:1.5">
+    <path d="M74 125 H92 V50 H110" marker-end="url(#ah-heads)"/>
+    <path d="M74 125 H110" marker-end="url(#ah-heads)"/>
+    <path d="M74 125 H92 V200 H110" marker-end="url(#ah-heads)"/>
+  </g>
+
+  <rect x="112" y="22" width="172" height="56" rx="6" style="fill:var(--c1);stroke:var(--c1);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="124" y="44" style="fill:var(--fg);font-size:16px;font-weight:650">head 1</text>
+  <text x="124" y="62" style="fill:var(--muted);font-size:12px;font-weight:500">its own W_Q, W_K, W_V</text>
+  <rect x="112" y="97" width="172" height="56" rx="6" style="fill:var(--c2);stroke:var(--c2);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="124" y="119" style="fill:var(--fg);font-size:16px;font-weight:650">head 2</text>
+  <text x="124" y="137" style="fill:var(--muted);font-size:12px;font-weight:500">its own W_Q, W_K, W_V</text>
+  <rect x="112" y="172" width="172" height="56" rx="6" style="fill:var(--c3);stroke:var(--c3);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="124" y="194" style="fill:var(--fg);font-size:16px;font-weight:650">head h</text>
+  <text x="124" y="212" style="fill:var(--muted);font-size:12px;font-weight:500">its own W_Q, W_K, W_V</text>
+  <text x="198" y="166" style="fill:var(--muted);font-size:14px;font-weight:500;text-anchor:middle">⋮</text>
+
+  <g style="fill:none;stroke:var(--muted);stroke-width:1.5">
+    <path d="M284 50 H304 V120 H322" marker-end="url(#ah-heads)"/>
+    <path d="M284 125 H322" marker-end="url(#ah-heads)"/>
+    <path d="M284 200 H304 V130 H322" marker-end="url(#ah-heads)"/>
+  </g>
+  <text x="292" y="36" style="fill:var(--muted);font-size:12px;font-weight:500">each: n × d_k</text>
+
+  <rect x="324" y="92" width="96" height="66" rx="6" style="fill:var(--c5);stroke:var(--c5);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="372" y="116" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">concat</text>
+  <text x="372" y="134" style="fill:var(--fg);font-size:12px;font-weight:500;text-anchor:middle">then × W_O</text>
+  <text x="372" y="150" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">n × d</text>
+
+  <path d="M420 125 H440" marker-end="url(#ah-heads)" style="fill:none;stroke:var(--muted);stroke-width:1.5"/>
+  <rect x="442" y="94" width="90" height="62" rx="6" style="fill:var(--c4);stroke:var(--c4);stroke-width:1.5;fill-opacity:0.2"/>
+  <text x="487" y="120" style="fill:var(--fg);font-size:16px;font-weight:650;text-anchor:middle">output</text>
+  <text x="487" y="139" style="fill:var(--fg);font-size:12px;font-weight:500;font-family:ui-monospace,Consolas,monospace;text-anchor:middle">n × d</text>
+
+  <text x="8" y="244" style="fill:var(--muted);font-size:12px;font-weight:500">d_k = d / h, so h heads together cost about the same as one wide head</text>
+</svg>

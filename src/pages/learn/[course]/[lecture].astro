@@ -1,0 +1,176 @@
+---
+import Lock from "../../../components/learn/Lock.astro";
+import Video from "../../../components/learn/Video.astro";
+import Learn from "../../../layouts/Learn.astro";
+import { getConfig } from "../../../lib/config.ts";
+import {
+  findCourse,
+  findLecture,
+  lectureUrl,
+  neighbours,
+} from "../../../lib/learn/catalog.ts";
+import { getCatalogFor } from "../../../lib/learn/content.ts";
+import { whyLocked } from "../../../lib/access.ts";
+
+const { learnUrl } = getConfig();
+const catalog = await getCatalogFor(Astro.locals.viewer?.role, Astro.locals.allowLocal);
+const course = findCourse(catalog, Astro.params.course);
+const lecture = course && findLecture(course, Astro.params.lecture);
+
+if (!lecture) Astro.response.status = 404;
+else if (lecture.locked) Astro.response.status = 403;
+
+const { previous, next } = course && lecture ? neighbours(course, lecture.slug) : {};
+const prerequisites = lecture
+  ? lecture.front.prerequisites
+      .map(
+        (wanted) =>
+          course!.lectures.find((l) => l.slug === wanted) ??
+          catalog.lectures.find((l) => l.slug === wanted),
+      )
+      .filter((l) => l !== undefined)
+  : [];
+---
+
+{
+  course && lecture && !lecture.locked ? (
+    <Learn
+      title={`${lecture.front.title} · Learn · Joshua Noel`}
+      description={lecture.front.promise}
+      canonical={`${learnUrl}${lectureUrl(lecture)}`}
+      alert={course.front.alert}
+      current={{ course: course.front.slug, lecture: lecture.slug }}
+    >
+      <main
+        class="lecture"
+        id="main"
+        data-lecture={`${course.front.slug}/${lecture.slug}`}
+      >
+        <header>
+          <p class="crumb">
+            <a href={`/${course.front.slug}`}>{course.front.title}</a> · Lecture{" "}
+            {lecture.front.order}
+          </p>
+          <h1>{lecture.front.title}</h1>
+          <p class="promise">{lecture.front.promise}</p>
+          <p class="meta">{lecture.front.minutes} min read</p>
+          {lecture.front.placeholder && (
+            <p class="banner">
+              <strong>Placeholder.</strong> This lecture is here only so the navigation
+              has something to show. Its content is not real.
+            </p>
+          )}
+          <h2 class="objectives-title">Objectives</h2>
+          <ul class="objectives">
+            {lecture.objectivesHtml.map((objective) => (
+              <li set:html={objective} />
+            ))}
+          </ul>
+          {prerequisites.length > 0 && (
+            <p class="prereq">
+              Read first:{" "}
+              {prerequisites.map((p, i) => (
+                <>
+                  {i > 0 && ", "}
+                  <a href={lectureUrl(p!)}>{p!.front.title}</a>
+                </>
+              ))}
+            </p>
+          )}
+        </header>
+
+        {lecture.front.video && lecture.media.video && lecture.media.captions && (
+          <Video lecture={lecture} />
+        )}
+
+        <article class="prose" aria-label={lecture.front.title} set:html={lecture.html} />
+
+        <footer class="lecture-end">
+          <button
+            class="mark-read"
+            type="button"
+            aria-pressed="false"
+            data-mark-toggle={`${course.front.slug}/${lecture.slug}`}
+          >
+            <span class="mark" data-mark={`${course.front.slug}/${lecture.slug}`} />
+            <span data-mark-label>Mark as read</span>
+          </button>
+          <nav class="pager" aria-label="Previous and next lecture">
+            {previous && (
+              <a class="prev" href={lectureUrl(previous)} rel="prev">
+                <span class="dir">Previous</span>
+                <span class="title">{previous.front.title}</span>
+              </a>
+            )}
+            {next && (
+              <a class="next" href={lectureUrl(next)} rel="next">
+                <span class="dir">Next</span>
+                <span class="title">{next.front.title}</span>
+              </a>
+            )}
+          </nav>
+        </footer>
+      </main>
+
+      <aside class="toc" aria-label="On this page" data-toc>
+        <p class="toc-title">On this page</p>
+        <ol>
+          {lecture.toc.map((heading) => (
+            <li class={`d${heading.depth}`}>
+              <a href={`#${heading.id}`}>
+                {heading.shown !== undefined && (
+                  <span class="toc-no">{heading.shown}</span>
+                )}
+                {heading.text}
+              </a>
+            </li>
+          ))}
+        </ol>
+      </aside>
+    </Learn>
+  ) : course && lecture ? (
+    <Learn
+      title={`${lecture.front.title} · Locked · Learn`}
+      alert={course.front.alert}
+      current={{ course: course.front.slug, lecture: lecture.slug }}
+      noindex
+    >
+      <main class="lecture" id="main">
+        <header>
+          <p class="crumb">
+            <a href={`/${course.front.slug}`}>{course.front.title}</a> · Lecture{" "}
+            {lecture.front.order}
+          </p>
+          <h1>{lecture.front.title}</h1>
+          <p class="promise">{lecture.front.promise}</p>
+          <div class="locked-note">
+            <h2>
+              <Lock /> Locked
+            </h2>
+            <p>{whyLocked(lecture.front.visibility)}</p>
+            <p>
+              {Astro.locals.viewer ? (
+                "Your account cannot read this."
+              ) : (
+                <a
+                  href={`/signin?next=${encodeURIComponent(Astro.locals.here?.pathname ?? Astro.url.pathname)}`}
+                >
+                  Sign in to read
+                </a>
+              )}
+            </p>
+          </div>
+        </header>
+      </main>
+    </Learn>
+  ) : (
+    <Learn title="Not found · Learn" layout="plain" noindex>
+      <main class="page" id="main">
+        <h1>No such lecture</h1>
+        <p class="lede">
+          There is nothing at this address. <a href="/">See every course.</a>
+        </p>
+      </main>
+    </Learn>
+  )
+}

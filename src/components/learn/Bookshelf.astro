@@ -1,0 +1,179 @@
+---
+// The landing page's shelf. One markup does two jobs: without JavaScript it
+// is a grid of course cards (cover, title, promise, lecture links); with it,
+// src/scripts/learn-bookshelf/index.js stands the books on a tape that wraps
+// around, the selected one turned to show its cover, and moves a card's text
+// into a panel when it is opened. Everything a card says is in the HTML either
+// way, and only what the reader's catalog gave.
+import BookFaces from "./BookFaces.astro";
+import Lock from "./Lock.astro";
+import { filterPills, litPill } from "../../lib/learn/bookshelf-filter.ts";
+import type { Book, ShelfView } from "../../lib/learn/bookshelf.ts";
+import { bookStyle } from "../../lib/learn/book-style.ts";
+import "../../styles/learn-bookshelf.css";
+
+interface Props {
+  shelves: ShelfView[];
+  /** Where the sign-in link leads from, as `/signin?next=…`. */
+  signin: string;
+  /** Whether anyone is signed in: a locked book then says the account cannot read it. */
+  signedIn: boolean;
+}
+
+const { shelves, signin, signedIn } = Astro.props;
+const pills = filterPills(shelves);
+// The option lit when the page arrives is the group of the first book, as the script will light it:
+// "All" is not lit for a moment and then dropped.
+const lit = litPill(pills, 0);
+const books: Book[] = shelves.flatMap((shelf) => shelf.books);
+const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
+---
+
+<div class="bookshelf" data-bookshelf>
+  <div class="filters" role="group" aria-label="Go to a group of courses" data-filters>
+    {
+      pills.map((pill) => (
+        <button
+          type="button"
+          class="pill"
+          aria-current={pill.key === lit ? "true" : undefined}
+          data-filter={pill.key}
+          data-first={pill.first}
+        >
+          {pill.label}
+        </button>
+      ))
+    }
+  </div>
+  <p class="visually-hidden" role="status" data-status></p>
+
+  <div class="stage" data-stage>
+    <ul class="row" role="list" aria-label="Courses" data-row>
+      {
+        books.map((book) => (
+          <li
+            class="book"
+            data-book
+            data-index={book.index}
+            data-slug={book.slug}
+            data-shelf={book.shelf}
+            data-videos={book.videos}
+            data-minutes={book.minutes}
+            data-locked={book.locked ? "" : undefined}
+            style={bookStyle(book)}
+          >
+            <span
+              class="vol"
+              aria-hidden="true"
+              data-label={`${book.number}. ${book.title}. ${plural(book.lectures.length, "lecture")}`}
+            >
+              <BookFaces book={book} />
+            </span>
+
+            <div class="detail" data-detail>
+              <p class="d-eyebrow">
+                {book.shelfTitle} · {plural(book.lectures.length, "lecture")}
+                {book.minutes && ` · ${book.minutes} min`}
+                {book.videos > 0 && <span> · {book.videos} with video</span>}
+              </p>
+              <h3 class="d-title">{book.title}</h3>
+              <p class="d-promise">{book.promise}</p>
+              {book.locked ? (
+                <div class="d-locked">
+                  <p>
+                    <Lock /> {book.why}
+                  </p>
+                  {signedIn ? (
+                    <p>Your account cannot read this.</p>
+                  ) : (
+                    <a class="d-open" href={signin}>
+                      Sign in to read
+                    </a>
+                  )}
+                </div>
+              ) : (
+                <a class="d-open" href={book.href}>
+                  Open
+                  <span class="visually-hidden">: {book.title}</span>
+                </a>
+              )}
+              <ol class="d-list">
+                {book.lectures.map((lecture) => (
+                  <li>
+                    <a
+                      href={lecture.href}
+                      class:list={[lecture.locked && "is-locked"]}
+                      data-lecture-key={
+                        lecture.locked ? undefined : `${book.slug}/${lecture.slug}`
+                      }
+                    >
+                      <span class="n">{lecture.order}</span>
+                      <span class="t">
+                        {lecture.title}
+                        {lecture.placeholder && <span class="tag">Placeholder</span>}
+                      </span>
+                      <span class="r">
+                        {lecture.locked ? (
+                          <Lock />
+                        ) : (
+                          <>
+                            {lecture.video && (
+                              <svg
+                                class="vmark"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                role="img"
+                                aria-label="Has video"
+                              >
+                                <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />
+                              </svg>
+                            )}
+                            <span class="rt">{lecture.minutes} min</span>
+                            <span class="mark" data-mark={`${book.slug}/${lecture.slug}`} />
+                          </>
+                        )}
+                      </span>
+                      <span class="p">{lecture.promise}</span>
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+
+  <p class="resume" data-resume hidden></p>
+
+  <div class="arrows" data-arrows hidden>
+    <button type="button" class="round" data-step="-1" aria-label="Previous book">
+      <svg viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <path d="M5 1 1 5l4 4M1 5h16"></path>
+      </svg>
+    </button>
+    <button type="button" class="round" data-step="1" aria-label="Next book">
+      <svg viewBox="0 0 18 10" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <path d="M13 1l4 4-4 4M17 5H1"></path>
+      </svg>
+    </button>
+  </div>
+
+  <div class="panel" id="bookshelf-panel" role="region" tabindex="-1" hidden data-panel>
+    <div class="panel-inner">
+      <div class="panel-body" data-panel-body></div>
+      <button type="button" class="panel-close" data-panel-close>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg
+        >
+        <span class="visually-hidden">Close</span>
+      </button>
+    </div>
+  </div>
+</div>
