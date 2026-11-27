@@ -1,24 +1,24 @@
 /* ============================================================
-   Blog surfaces. Everything here inherits the tokens defined at
-   the top of global.css -- no second palette, no webfonts.
+   Blog surfaces. The look is Learn's (docs/learn-style.md): everything here
+   uses the shared tokens (tokens.css), the same prose type and rhythm as a
+   lecture, no second palette, no webfonts.
    ============================================================ */
 
 .card-date {
   display: block;
-  font-size: 0.8rem;
-  color: var(--text-faint);
-  letter-spacing: 0.02em;
+  font-size: 0.8125rem;
+  color: var(--text-3);
   margin-bottom: 0.5rem;
 }
 
 /* --- Blog chrome -------------------------------------------- */
 
-/* The header and footer are the site's own (global.css), so the blog reads
-   as part of the same place. */
-
-/* Reading pages share the site's single column (global.css). */
+/* The bar and the footer are the site's own (chrome.css), so the blog reads as
+   part of the same place. Reading pages share the site's single column
+   (global.css). */
 .blog-main {
   padding-top: clamp(2.5rem, 8vh, 4rem);
+  padding-bottom: 3rem;
   /* Long URLs, slugs and inline code wrap rather than widen the page. */
   overflow-wrap: anywhere;
 }
@@ -26,33 +26,33 @@
 /* One link style for everything inside the blog that isn't a post row:
    prose, the not-found page and the way back to the index. */
 .blog-main a:not(.row) {
-  color: var(--link);
   text-decoration: underline;
-  text-decoration-color: currentColor;
   text-decoration-thickness: 1px;
-  text-underline-offset: 0.15em;
+  text-underline-offset: 0.18em;
 }
 .blog-main a:not(.row):hover {
-  color: var(--link-hover);
+  color: var(--fg);
 }
-.blog-main a:not(.row):focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
-  border-radius: 0;
+
+.blog-main > h1,
+.post-header h1 {
+  font-size: clamp(1.75rem, 1.4rem + 1vw, 2.25rem);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
 }
 
 .blog-main > h1 {
-  font-size: clamp(1.9rem, 5vw, 2.6rem);
-  letter-spacing: -0.02em;
   margin-bottom: 2rem;
 }
 
 .blog-main > h1 + .row {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--line);
 }
 
 .post-empty {
-  color: var(--text-muted);
+  color: var(--muted);
 }
 
 /* --- Article ------------------------------------------------ */
@@ -62,9 +62,6 @@
 }
 
 .post-header h1 {
-  font-size: clamp(2rem, 5vw, 2.8rem);
-  letter-spacing: -0.025em;
-  line-height: 1.15;
   margin: 0.5rem 0 0.75rem;
 }
 
@@ -75,54 +72,68 @@
   aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   margin-bottom: 2rem;
 }
 
-/* Long-form gets the serif already defined in global.css: it reads better
-   and separates writing from site chrome without another font request. */
+/* Prose is a lecture's: the sans stack, 1rem on a 1.75 line, the same measure. */
 .prose,
 .post-header {
-  /* The column is wide enough for the homepage grid; reading text is kept narrower. */
-  max-width: 68ch;
+  max-width: var(--measure);
 }
 
 .prose {
-  font-family: var(--font-serif);
-  font-size: 1.1rem;
+  font-size: 1rem;
   line-height: 1.75;
-  color: var(--text);
+  color: var(--fg);
 }
 
 .prose > * + * {
-  margin-top: 1.25rem;
+  margin-top: 1.25em;
+}
+
+.prose p,
+.prose li {
+  text-wrap: pretty;
 }
 
 .prose h2,
 .prose h3,
 .prose h4 {
-  font-family: var(--font);
-  letter-spacing: -0.02em;
-  margin-top: 2.5rem;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
 }
 
 .prose h2 {
+  margin-top: 3rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--line);
   font-size: 1.5rem;
-  margin-bottom: 0;
 }
 .prose h3 {
-  font-size: 1.2rem;
-  margin-bottom: 0;
+  margin-top: 2rem;
+  font-size: 1.1875rem;
 }
 .prose h4 {
-  font-size: 1.05rem;
-  margin-bottom: 0;
+  margin-top: 1.5rem;
+  font-size: 1rem;
+}
+.prose h2 + *,
+.prose h3 + *,
+.prose h4 + * {
+  margin-top: 0.9rem;
+}
+
+.prose strong {
+  font-weight: 600;
 }
 
 .prose hr {
   border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
-  margin: 2.5rem 0;
+  border-top: 1px solid var(--line);
+  margin-block: 2rem;
 }
 
 .prose img {
@@ -131,48 +142,53 @@
   max-height: 80vh;
   object-fit: contain;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
 }
 
 .prose blockquote {
-  border-left: 3px solid var(--border-strong);
-  padding-left: 1.1rem;
-  color: var(--text-muted);
+  padding-left: 1.25rem;
+  color: var(--muted);
 }
 
 .prose ul,
 .prose ol {
-  padding-left: 1.4rem;
+  padding-left: 1.5em;
 }
 .prose li + li {
-  margin-top: 0.4rem;
+  margin-top: 0.35em;
+}
+.prose li::marker {
+  color: var(--text-3);
 }
 
 .prose code {
-  font-size: 0.9em;
-  background: color-mix(in srgb, var(--text) 6%, transparent);
-  border: 1px solid var(--border);
-  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
   padding: 0.1em 0.35em;
+  background: var(--bg-sunken);
+  border-radius: 3px;
   overflow-wrap: anywhere;
 }
 
 /* Plain fences (no language) have no .shiki class, so the block itself
    carries the surface and text colour. */
 .prose pre {
-  background: var(--bg-surface);
-  color: var(--text);
-  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  background: var(--code-bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 1rem 1.1rem;
+  padding: 1rem 1.25rem;
   overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  tab-size: 4;
 }
 
 .prose pre code {
   background: none;
   border: none;
   padding: 0;
-  font-size: 0.875rem;
+  font-size: inherit;
 }
 
 /* display:block turns the table into its own scroll container, so a wide
@@ -185,31 +201,34 @@
   max-width: 100%;
   overflow-x: auto;
   border-collapse: collapse;
-  font-family: var(--font);
-  font-size: 0.95rem;
-  background: var(--bg-elevated);
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .prose th,
 .prose td {
-  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
-  padding: 0.5rem 0.7rem;
+  padding: 0.55rem 0.9rem 0.55rem 0;
   text-align: left;
   vertical-align: top;
+  border-bottom: 1px solid var(--line);
   overflow-wrap: normal;
 }
 
 .prose th {
-  background: color-mix(in srgb, var(--text) 6%, transparent);
+  font-weight: 600;
+  border-bottom-color: var(--border);
 }
 
 /* Shiki runs with defaultColor:false, so each token carries both palettes
-   as custom properties. The site has one dark theme, so the dark palette is
-   used. Only the token colours are taken from it; the block keeps the page
-   surface from .prose pre. */
+   as custom properties; the theme picks one. Only the token colours are
+   taken from it; the block keeps the code surface from .prose pre. */
 .prose .shiki,
 .prose .shiki span {
   color: var(--shiki-dark);
+}
+:root[data-theme="light"] .prose .shiki,
+:root[data-theme="light"] .prose .shiki span {
+  color: var(--shiki-light);
 }
 
 /* --- Post footer -------------------------------------------- */
@@ -217,5 +236,5 @@
 .post-footer {
   margin-top: 3.5rem;
   padding-top: 1.5rem;
-  border-top: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  border-top: 1px solid var(--line);
 }

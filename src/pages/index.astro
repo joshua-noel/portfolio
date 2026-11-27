@@ -1,5 +1,5 @@
 ---
-import SiteFooter from "../components/SiteFooter.astro";
+import PublicFooter from "../components/PublicFooter.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import Base from "../layouts/Base.astro";
 import { getConfig } from "../lib/config.ts";
@@ -11,24 +11,23 @@ const posts = listPublished(3);
 
 // The work, most recent first. `href` only where there is something public
 // to open; private work says so instead of linking nowhere. `icon` is the
-// inside of a 24x24 stroked SVG; `hue` names one of the --c-* colours.
+// inside of a 24x24 stroked SVG, drawn in the text colour (currentColor).
 const work: {
   name: string;
   what: string;
   stack: string;
   status: string;
-  hue: string;
   icon: string;
   href?: string;
   /** Shown first, across the full width. */
   featured?: boolean;
 }[] = [
   {
-    name: "Access broker for coding agents",
-    what: "Coding agents never hold credentials. They ask; the broker checks policy, gets a passkey approval for anything risky, acts with its own keys, and logs every step.",
-    stack: "Go · SQLite · WebAuthn · MCP",
-    status: "Private",
-    hue: "violet",
+    name: "Chaperone",
+    what: "Coding agents hold no credentials. They ask Chaperone; it checks the rules, asks a person to approve risky actions with a passkey, acts with its own credentials, and writes every step to a ledger that shows tampering. Version 0.1, Windows-first today.",
+    stack: "Go · SQLite · WebAuthn · MCP · Apache-2.0",
+    href: "https://github.com/joshua-noel/chaperone",
+    status: "GitHub · v0.1",
     icon: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9"/><path d="M17 6l3 3"/><path d="M14 9l2 2"/>',
     featured: true,
   },
@@ -37,7 +36,6 @@ const work: {
     what: "A marketplace for small shops.",
     stack: "TypeScript · Next.js · PostgreSQL",
     status: "Private pilot",
-    hue: "coral",
     icon: '<path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12.5V20h14v-7.5"/><path d="M10 20v-4h4v4"/>',
   },
   {
@@ -45,7 +43,6 @@ const work: {
     what: "Each agent run gets its own locked-down virtual machine and a token that dies with the run.",
     stack: "Hyper-V · Linux",
     status: "Private",
-    hue: "teal",
     icon: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5"/><path d="M12 12v9"/>',
   },
   {
@@ -53,7 +50,6 @@ const work: {
     what: "Thirteen planning and workflow skills for coding agents.",
     stack: "Open source · MIT",
     status: "GitHub",
-    hue: "amber",
     icon: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 12.5l9 5 9-5"/><path d="M3 17l9 5 9-5"/>',
     href: "https://github.com/joshua-noel/skills",
   },
@@ -62,7 +58,6 @@ const work: {
     what: "Site and blog in one small server, with posts in SQLite.",
     stack: "Astro · SQLite · Node.js",
     status: "GitHub",
-    hue: "blue",
     icon: '<path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/><path d="M13.5 5l-3 14"/>',
     href: "https://github.com/joshua-noel/portfolio",
   },
@@ -70,8 +65,8 @@ const work: {
 ---
 
 <Base title="Joshua Noel · Software Engineer" canonical={`${siteUrl}/`}>
-  <SiteHeader current="home" />
-  <main class="site" id="top">
+  <SiteHeader site="main" />
+  <main class="site" id="main">
     <section class="hero">
       <h1>I build software</h1>
       <div class="hero-actions">
@@ -85,11 +80,8 @@ const work: {
       <ul class="work-list">
         {
           work.map((item) => (
-            <li
-              class:list={["work-item", { featured: item.featured }]}
-              style={`--hue: var(--c-${item.hue})`}
-            >
-              <span class="tile" aria-hidden="true">
+            <li class:list={["work-item", { featured: item.featured }]}>
+              <span class="work-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
                   <Fragment set:html={item.icon} />
                 </svg>
@@ -228,7 +220,7 @@ const work: {
       </div>
     </section>
   </main>
-  <SiteFooter />
+  <PublicFooter />
   <script>
     import "../scripts/panels.js";
   </script>

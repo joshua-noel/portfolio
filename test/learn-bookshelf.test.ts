@@ -437,7 +437,9 @@ test("every cover the generator draws passes the loader's checks, in one hand: n
 test("the turn's curve has a point for every hundredth of the move, and the shade turns with the book", async () => {
   const { readFileSync } = await import("node:fs");
   const css = readFileSync(new URL("../src/styles/learn-bookshelf.css", import.meta.url), "utf8");
-  const points = /--spring:\s*linear\(([^)]*)\)/.exec(css)?.[1]?.split(",") ?? [];
+  // The curve is shared with the page transitions, so it lives with Learn's page styles.
+  const shared = readFileSync(new URL("../src/styles/learn.css", import.meta.url), "utf8");
+  const points = /--spring:\s*linear\(([^)]*)\)/.exec(shared)?.[1]?.split(",") ?? [];
   assert.ok(points.length >= 100, `the spring has ${points.length} points; at 240 Hz fewer shows as steps`);
   const values = points.map((p) => Number.parseFloat(p));
   assert.ok(values.every((v, i) => i === 0 || v >= values[i - 1]!), "it never goes back");

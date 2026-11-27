@@ -28,24 +28,6 @@
      shadow on the floor under the whole row. */
   --edge: rgba(255, 255, 255, 0.3);
   --pool: rgba(0, 0, 0, 0.7);
-  /* A critically damped spring as `linear()` points of 1 - (1 + wt) e^-wt (w = 8.8), one point
-     for every hundredth of the move: the speed changes by a hair from one point to the next, so
-     at 240 Hz (about 170 frames in a move) it is a curve, not steps. A move starts softly, is
-     quick through the middle and settles without overshoot; it is within a hair of rest after
-     about two thirds of the time given beside it. */
-  --spring: linear(
-    0, 0.0037, 0.0138, 0.0293, 0.0492, 0.0726, 0.0988, 0.1272, 0.1572, 0.1883,
-    0.2202, 0.2525, 0.2848, 0.317, 0.3489, 0.3802, 0.4109, 0.4408, 0.4699, 0.498,
-    0.5252, 0.5513, 0.5764, 0.6005, 0.6235, 0.6454, 0.6664, 0.6863, 0.7052, 0.7232,
-    0.7402, 0.7564, 0.7716, 0.786, 0.7997, 0.8125, 0.8246, 0.836, 0.8467, 0.8567,
-    0.8662, 0.8751, 0.8834, 0.8913, 0.8986, 0.9054, 0.9119, 0.9179, 0.9235, 0.9288,
-    0.9337, 0.9383, 0.9426, 0.9466, 0.9503, 0.9538, 0.9571, 0.9601, 0.9629, 0.9656,
-    0.968, 0.9703, 0.9724, 0.9744, 0.9762, 0.978, 0.9796, 0.981, 0.9824, 0.9837,
-    0.9849, 0.986, 0.987, 0.988, 0.9888, 0.9897, 0.9904, 0.9911, 0.9918, 0.9924,
-    0.993, 0.9935, 0.994, 0.9944, 0.9948, 0.9952, 0.9956, 0.9959, 0.9962, 0.9965,
-    0.9968, 0.997, 0.9972, 0.9974, 0.9976, 0.9978, 0.998, 0.9981, 0.9983, 0.9984,
-    1
-  );
 }
 :root[data-theme="light"] .bookshelf,
 .theme-scope[data-theme="light"] .bookshelf {
@@ -415,16 +397,29 @@
   perspective: calc(var(--H) * 2.77);
 }
 
-/* The floor: one soft pool of shadow under the whole row, drawn once. */
+/* The floor: one soft pool of shadow under the whole row, drawn once. It is an ellipse that
+   is darkest at its middle and fades to nothing on EVERY side of its box, so there is no edge
+   anywhere: an earlier pool began at the top of its box with its full strength, and showed as a
+   lighter band under the books and then a darker strip with a hard top edge. The upper half
+   hides behind the books (they stand in front of it); the lower half is the shadow on the
+   floor. The stops are a bell, not a straight ramp, so no line shows where it ends. */
 .floor {
   position: absolute;
   left: 4%;
   right: 4%;
-  /* Below the bottoms of the books, which the eye's perspective draws about 16% further down
-     than their height: a pool that began higher showed as a grey strip behind them. */
-  top: calc(var(--H) * 1.19);
-  height: calc(var(--H) * 0.1);
-  background: radial-gradient(ellipse 50% 100% at 50% 0, var(--pool), rgba(0, 0, 0, 0) 100%);
+  /* Centred just below the bottoms of the books, which the eye's perspective draws about 16%
+     further down than their height. */
+  top: calc(var(--H) * 1.07);
+  height: calc(var(--H) * 0.28);
+  background: radial-gradient(
+    ellipse closest-side at 50% 50%,
+    var(--pool) 0%,
+    color-mix(in srgb, var(--pool) 72%, transparent) 22%,
+    color-mix(in srgb, var(--pool) 40%, transparent) 45%,
+    color-mix(in srgb, var(--pool) 14%, transparent) 70%,
+    color-mix(in srgb, var(--pool) 3%, transparent) 90%,
+    transparent 100%
+  );
   pointer-events: none;
 }
 

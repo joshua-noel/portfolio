@@ -57,7 +57,7 @@ Each lecture is four `#` sections, Tip, Waterline, Deep and Abyss, and the site 
 
 A course may name one hue as its alert hue, `alert: c1` to `alert: c6` in `course.md` (optional; the loader and `bin/check-learn.mjs` refuse any other value). The lecture and course pages carry it as `data-alert` on `<html>`, and `learn.css` then draws that hue as the alert rose (`--alert`) on that course's pages only, interactive diagrams included. By default `--c6` is a green, so a hue never means "bad" unless its course says so (`agent-systems` and `inference-and-serving` use `c6`).
 
-A diagram uses colours only through `currentColor`, `var(--fg)`, `--muted`, `--border`, `--surface`, `--accent` and `--c1` to `--c6`, which `learn.css` defines in both themes (and `test/learn-contrast.test.ts` holds to WCAG AA). It may carry `data-interactive="<name>"` on its `<svg>`; the site then loads `src/scripts/learn-diagrams/<name>.js`, which builds the controls and updates the drawing. The file itself stays plain SVG.
+A diagram uses colours only through `currentColor`, `var(--fg)`, `--muted`, `--border`, `--surface`, `--accent` and `--c1` to `--c6`, which `src/styles/tokens.css` defines in both themes (and `test/learn-contrast.test.ts` holds to WCAG AA). It may carry `data-interactive="<name>"` on its `<svg>`; the site then loads `src/scripts/learn-diagrams/<name>.js`, which builds the controls and updates the drawing. The file itself stays plain SVG.
 
 An interactive module exports its model as a plain function (the lecture's own formula, no page code) and a default `init(figure)`. It builds its controls with `panel()` from `controls.js` (labelled sliders, toggles, selects, a Reset button and an `aria-live` sentence that states the result in words), then redraws the SVG from the model on every change. At the default settings it draws what the static file shows, and the static SVG stays the no-JavaScript and print fallback. Each model has a unit test, `test/learn-diagram-<name>.test.ts`, that checks it against the numbers printed in the lecture and against the lecture's own code at other settings. A module is loaded only on a page whose figure names it.
 
@@ -212,6 +212,15 @@ with:
 ```sh
 just hash-password
 ```
+
+### Stealth release (`PORTFOLIO_LEARN_STEALTH`)
+
+One switch, read once at start (`bin/serve.mjs` checks it before the socket opens, and a mistyped value refuses to start); put it in the `environmentFile` of the NixOS module. Unset, `0` or `off` is the default: nothing below applies. To put Learn on a real server without announcing it, then flip it public on launch day with no code change, set it, restart, and later unset it and restart.
+
+- `1` (or `on`): every response on the Learn host has `X-Robots-Tag: noindex, nofollow, noarchive`, its pages have the matching `<meta name="robots">` and no Open Graph or Twitter card tag (a pasted link shows no preview), its `robots.txt` is `Disallow: /` and its `sitemap.xml` and `rss.xml` are 404; the sitemap of the other hosts leaves Learn out; the main site and the blog show no link, card, nav item or metadata that names or points to Learn.
+- `private`: all of the above, and every Learn page except sign-in (`/signin`, `/signout`, `/robots.txt`, `/healthz`) needs a signed-in account, by the existing session check, so the visibility rules (public, members, friends) still decide what an account may read. A visitor without one gets the bare `404 Not found` this host already gives for a cover, a medium or an API path that is not there: it leaks the least (no Learn page, no brand, no redirect that says a door exists). Covers, media, search and the search index follow the same rule.
+
+`1` is discoverability control, NOT access control: anyone who has the address can read what the visibility rules let a visitor read. Only `private` is access control. Posts of the blog that link to Learn in their own text are the writer's, and are not rewritten.
 
 ## Deploying
 

@@ -1,5 +1,5 @@
 ---
-import SiteFooter from "../../components/SiteFooter.astro";
+import PublicFooter from "../../components/PublicFooter.astro";
 import SiteHeader from "../../components/SiteHeader.astro";
 import Base from "../../layouts/Base.astro";
 import { getConfig } from "../../lib/config.ts";
@@ -15,9 +15,9 @@ const posts = listPublished();
   description="Notes on the things I build, and the problems that made me build them."
   canonical={blogUrl}
 >
-  <SiteHeader current="writing" />
+  <SiteHeader site="blog" current="writing" />
 
-  <main class="blog-main">
+  <main class="blog-main" id="main">
     <h1>Writing</h1>
 
     {
@@ -36,5 +36,5 @@ const posts = listPublished();
       )
     }
   </main>
-  <SiteFooter />
+  <PublicFooter />
 </Base>

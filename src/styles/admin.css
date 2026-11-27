@@ -1,4 +1,21 @@
-/* Admin surfaces. Loaded only on /admin, so none of this reaches a reader. */
+/* Admin surfaces. Loaded only on /admin, so none of this reaches a reader.
+   Colours, fonts and radius are the site's tokens (tokens.css); the admin has
+   no theme switch, so it is always the dark theme. The status colours below
+   are the admin's own: nothing public uses them. */
+
+:root {
+  --danger: #ffb4ab;
+  --success-text: #77dddd;
+  --success-bg: rgba(119, 221, 221, 0.12);
+  --warn-text: #ffd27a;
+  --warn-bg: rgba(255, 210, 122, 0.12);
+}
+
+/* The page is one centred column, not the site's full-height flex column. */
+body {
+  display: block;
+  min-height: 0;
+}
 
 .admin {
   max-width: 900px;
@@ -36,9 +53,9 @@ button,
   font-size: 0.92rem;
   padding: 0.5rem 0.95rem;
   border-radius: 10px;
-  border: 1px solid var(--control-border);
-  background: var(--bg-elevated);
-  color: var(--text);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
   cursor: pointer;
   text-decoration: none;
   display: inline-block;
@@ -46,13 +63,13 @@ button,
 
 button:hover,
 .button:hover {
-  border-color: var(--text-muted);
+  border-color: var(--muted);
 }
 
 .button-primary {
-  border-color: var(--border-strong);
+  border-color: var(--border);
   background: var(--accent);
-  color: var(--bg);
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -79,9 +96,9 @@ button[hidden],
   align-items: center;
   gap: 1rem;
   padding: 0.9rem 1.1rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--bg-elevated);
+  background: var(--surface);
 }
 
 .admin-row-title {
@@ -95,12 +112,12 @@ button[hidden],
   font-weight: 600;
 }
 .admin-row-title a:hover {
-  color: var(--link-hover);
+  color: var(--fg);
   text-decoration: underline;
 }
 .admin-row-meta {
   font-size: 0.82rem;
-  color: var(--text-muted);
+  color: var(--muted);
   margin-top: 0.15rem;
 }
 
@@ -132,12 +149,12 @@ button[hidden],
   letter-spacing: 0.06em;
   padding: 0.18rem 0.5rem;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
+  border: 1px solid var(--line);
+  color: var(--muted);
 }
 
 .badge-draft {
-  border-color: var(--control-border);
+  border-color: var(--border);
 }
 
 .badge-published {
@@ -173,7 +190,7 @@ button[hidden],
 .field > span {
   display: block;
   font-size: 0.82rem;
-  color: var(--text-muted);
+  color: var(--muted);
   margin-bottom: 0.35rem;
 }
 
@@ -187,9 +204,9 @@ select {
   width: 100%;
   padding: 0.55rem 0.75rem;
   border-radius: 10px;
-  border: 1px solid var(--control-border);
-  background: var(--bg-surface);
-  color: var(--text);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
 }
 
 /* One height for single-line controls so a .field-row lines up. */
@@ -202,8 +219,8 @@ select {
 
 /* Opaque, so a popup drawn by the page never shows light text on white. */
 option {
-  background-color: var(--bg-surface);
-  color: var(--text);
+  background-color: var(--surface);
+  color: var(--fg);
 }
 
 input:focus,
@@ -241,7 +258,7 @@ select:focus {
 
 .hint {
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: var(--muted);
   margin-top: 0.35rem;
   overflow-wrap: anywhere;
 }
@@ -249,9 +266,9 @@ select:focus {
 /* --- Editor -------------------------------------------------- */
 
 .editor-shell {
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--bg-elevated);
+  background: var(--surface);
   overflow: hidden;
   min-height: 60vh;
 }
@@ -260,23 +277,23 @@ select:focus {
    tokens (0,2,0 beats the theme's .milkdown) so it follows light and dark;
    the in-between shades are mixed from the same tokens. */
 .editor-shell .milkdown {
-  --crepe-color-background: var(--bg-elevated);
-  --crepe-color-on-background: var(--text);
-  --crepe-color-surface: color-mix(in srgb, var(--text) 5%, var(--bg-elevated));
-  --crepe-color-surface-low: color-mix(in srgb, var(--text) 9%, var(--bg-elevated));
-  --crepe-color-on-surface: var(--text);
-  --crepe-color-on-surface-variant: var(--text-muted);
-  --crepe-color-outline: var(--control-border);
-  --crepe-color-primary: var(--link);
-  --crepe-color-secondary: color-mix(in srgb, var(--text) 18%, var(--bg-elevated));
-  --crepe-color-on-secondary: var(--text);
-  --crepe-color-inverse: var(--text);
-  --crepe-color-on-inverse: var(--bg-elevated);
-  --crepe-color-inline-code: var(--hl-text);
+  --crepe-color-background: var(--surface);
+  --crepe-color-on-background: var(--fg);
+  --crepe-color-surface: color-mix(in srgb, var(--fg) 5%, var(--surface));
+  --crepe-color-surface-low: color-mix(in srgb, var(--fg) 9%, var(--surface));
+  --crepe-color-on-surface: var(--fg);
+  --crepe-color-on-surface-variant: var(--muted);
+  --crepe-color-outline: var(--border);
+  --crepe-color-primary: var(--accent);
+  --crepe-color-secondary: color-mix(in srgb, var(--fg) 18%, var(--surface));
+  --crepe-color-on-secondary: var(--fg);
+  --crepe-color-inverse: var(--fg);
+  --crepe-color-on-inverse: var(--surface);
+  --crepe-color-inline-code: var(--accent);
   --crepe-color-error: var(--danger);
-  --crepe-color-hover: color-mix(in srgb, var(--text) 10%, var(--bg-elevated));
-  --crepe-color-selected: color-mix(in srgb, var(--text) 15%, var(--bg-elevated));
-  --crepe-color-inline-area: color-mix(in srgb, var(--text) 18%, var(--bg-elevated));
+  --crepe-color-hover: color-mix(in srgb, var(--fg) 10%, var(--surface));
+  --crepe-color-selected: color-mix(in srgb, var(--fg) 15%, var(--surface));
+  --crepe-color-inline-area: color-mix(in srgb, var(--fg) 18%, var(--surface));
   --crepe-font-title: var(--font);
   --crepe-font-default: var(--font);
   --crepe-font-code: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -287,21 +304,21 @@ select:focus {
    near-black active line) miss 4.5:1 on the tinted code surface; the buttons
    also sit on a fading opacity, so they take full text colour. */
 .editor-shell .milkdown .milkdown-code-block .cm-editor {
-  color: var(--text);
+  color: var(--fg);
 }
 .editor-shell .milkdown .milkdown-code-block .cm-gutters {
-  color: var(--text-muted);
+  color: var(--muted);
 }
 .editor-shell .milkdown .milkdown-code-block .cm-activeLineGutter {
   background: var(--crepe-color-hover);
-  color: var(--text);
+  color: var(--fg);
 }
 .editor-shell .milkdown .milkdown-code-block .tools .language-button,
 .editor-shell .milkdown .milkdown-code-block .tools .tools-button-group button {
-  color: var(--text);
+  color: var(--fg);
 }
 .editor-shell .milkdown .milkdown-code-block .tools .tools-button-group button svg {
-  fill: var(--text);
+  fill: var(--fg);
 }
 
 /* Crepe pads the document 60px 120px, leaving a 100px column on a phone. The
@@ -337,14 +354,14 @@ select:focus {
 .cover-preview {
   max-width: min(240px, 100%);
   border-radius: 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   display: block;
   margin-top: 0.5rem;
 }
 
 .status-line {
   font-size: 0.82rem;
-  color: var(--text-muted);
+  color: var(--muted);
   min-height: 1.2em;
 }
 /* Empty, it would still take a gap and indent the wrapped action row. */

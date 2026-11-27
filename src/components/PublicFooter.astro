@@ -1,0 +1,15 @@
+---
+// The footer text of the main site and the blog (Learn writes its own), in the
+// footer every hostname shares.
+import { getConfig } from "../lib/config.ts";
+import SiteFooter from "./SiteFooter.astro";
+
+const { siteUrl, blogUrl } = getConfig();
+---
+
+<SiteFooter>
+  Joshua Noel · Trinidad and Tobago · <a href={`${siteUrl}/#contact`}>Contact</a> ·
+  <a href="https://github.com/joshua-noel">GitHub</a> ·
+  <a href="https://www.linkedin.com/in/noelejoshua/">LinkedIn</a> ·
+  <a href={`${blogUrl}/rss.xml`}>RSS</a>
+</SiteFooter>

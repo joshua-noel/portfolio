@@ -8,164 +8,129 @@
    holds the text colours to WCAG AA (4.5:1) in both themes.
    ============================================================ */
 
-:root,
-.theme-scope[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #1b1a1f;
-  --surface: #222127;
-  --bg-sunken: #161618;
-  --line: rgba(255, 255, 255, 0.09);
-  --border: rgba(255, 255, 255, 0.24);
-  --fg: #f0efed;
-  --muted: #a9a8ae;
-  --text-3: #8c8b93;
-  --accent: #a5a8f6;
-  --on-accent: #14131a;
-  --focus: #a5a8f6;
-  --code-bg: #151418;
-
-  /* Diagram hues. Each course gives them a meaning in its course.md. The sixth
-     is a green; a course that uses one hue for failing, hostile or wasted
-     things says so with `alert: cN` in its course.md, and on that course's
-     pages that hue is the alert rose (see `data-alert` below). */
-  --c1: #e08a6c;
-  --c2: #6fd0c4;
-  --c3: #c39bff;
-  --c4: #74b4ff;
-  --c5: #f0b45f;
-  --c6: #8fdc7a;
-  --alert: #ff7096;
-
-  --topbar: 3.5rem;
+/* Colours, fonts, radius, the bar height and the prose measure are the site's:
+   src/styles/tokens.css. Only the rail widths are particular to Learn. */
+:root {
   --rail-l: clamp(14rem, 14vw, 19rem);
   --rail-r: clamp(13rem, 12vw, 17rem);
-  --measure: 36rem;
-  --radius: 4px;
-  --font-ui:
-    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  /* The serif is for the book covers on the landing page and nothing else. */
-  --font-text:
-    "Iowan Old Style", "Charter", "Sitka Text", "Palatino Linotype", Cambria, Georgia,
-    "Times New Roman", serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  /* A critically damped spring as `linear()` points of 1 - (1 + wt) e^-wt (w = 8.8), one point
+     for every hundredth of the move: the speed changes by a hair from one point to the next, so
+     at 240 Hz (about 170 frames in a move) it is a curve, not steps. A move starts softly, is
+     quick through the middle and settles without overshoot; it is within a hair of rest after
+     about two thirds of the time given beside it. */
+  --spring: linear(
+    0, 0.0037, 0.0138, 0.0293, 0.0492, 0.0726, 0.0988, 0.1272, 0.1572, 0.1883,
+    0.2202, 0.2525, 0.2848, 0.317, 0.3489, 0.3802, 0.4109, 0.4408, 0.4699, 0.498,
+    0.5252, 0.5513, 0.5764, 0.6005, 0.6235, 0.6454, 0.6664, 0.6863, 0.7052, 0.7232,
+    0.7402, 0.7564, 0.7716, 0.786, 0.7997, 0.8125, 0.8246, 0.836, 0.8467, 0.8567,
+    0.8662, 0.8751, 0.8834, 0.8913, 0.8986, 0.9054, 0.9119, 0.9179, 0.9235, 0.9288,
+    0.9337, 0.9383, 0.9426, 0.9466, 0.9503, 0.9538, 0.9571, 0.9601, 0.9629, 0.9656,
+    0.968, 0.9703, 0.9724, 0.9744, 0.9762, 0.978, 0.9796, 0.981, 0.9824, 0.9837,
+    0.9849, 0.986, 0.987, 0.988, 0.9888, 0.9897, 0.9904, 0.9911, 0.9918, 0.9924,
+    0.993, 0.9935, 0.994, 0.9944, 0.9948, 0.9952, 0.9956, 0.9959, 0.9962, 0.9965,
+    0.9968, 0.997, 0.9972, 0.9974, 0.9976, 0.9978, 0.998, 0.9981, 0.9983, 0.9984,
+    1
+  );
 }
 
-:root[data-theme="light"],
-.theme-scope[data-theme="light"] {
-  color-scheme: light;
-  --bg: #ffffff;
-  --surface: #f5f5f7;
-  --bg-sunken: #f1f1f4;
-  --line: rgba(27, 26, 31, 0.1);
-  --border: rgba(27, 26, 31, 0.3);
-  --fg: #1b1a1f;
-  --muted: #55545c;
-  --text-3: #66656e;
-  --accent: #4547c7;
-  --on-accent: #ffffff;
-  --focus: #4547c7;
-  --code-bg: #f6f6f8;
-
-  --c1: #b0431f;
-  --c2: #0b6f64;
-  --c3: #6a2fc0;
-  --c4: #1c63b8;
-  --c5: #85500a;
-  --c6: #33751b;
-  --alert: #b4235a;
-}
-:root[data-alert="c1"] {
-  --c1: var(--alert);
-}
-:root[data-alert="c2"] {
-  --c2: var(--alert);
-}
-:root[data-alert="c3"] {
-  --c3: var(--alert);
-}
-:root[data-alert="c4"] {
-  --c4: var(--alert);
-}
-:root[data-alert="c5"] {
-  --c5: var(--alert);
-}
-:root[data-alert="c6"] {
-  --c6: var(--alert);
+/* How long a move between pages takes: the spring above, the one easing of the site's motion
+   (the shelf's moves, the panel, and the pages below), is shared by all of them. */
+:root {
+  --vt-fast: 0.22s;
+  --vt: 0.38s;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+/* ---------- Moving between pages: view transitions ---------- */
 
-html {
-  /* 16px on a small screen and a tablet (readable at arm's length). From 1100 wide, where the
-     rails appear, 15px growing to 18.5px at 2560: about 11% smaller on a big screen than the
-     16 to 21px this was, so the page is not zoomed in, and the measure in characters is the
-     same because it is in rem. */
-  font-size: 1rem;
-  scroll-padding-top: calc(var(--topbar) + 1rem);
-  scrollbar-gutter: stable;
-  -webkit-text-size-adjust: 100%;
-}
-@media (min-width: 1100px) {
-  html {
-    font-size: clamp(0.875rem, 0.7573rem + 0.1712vw, 1.03125rem);
-  }
-}
-html.js {
-  scroll-behavior: smooth;
+/* A navigation inside Learn is a cross-document view transition: the browser keeps the old
+   page on screen as a picture, loads the new one, and animates between them. CSS only; the
+   one script (learn-transitions.js, a file in <head>, so the policy is untouched) names the
+   direction. A browser without support ignores all of this and navigates as before, and a
+   reader who asks for less motion gets no transition at all. */
+@view-transition {
+  navigation: auto;
 }
 @media (prefers-reduced-motion: reduce) {
-  html.js {
-    scroll-behavior: auto;
-  }
-  * {
-    transition: none !important;
+  @view-transition {
+    navigation: none;
   }
 }
 
-body {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-ui);
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+/* The bar and the rails are named, so they are their own pictures and stay where they are
+   while the page under them moves. (The left rail is a drawer on a narrow window and is not
+   named there.) */
+.topbar {
+  view-transition-name: topbar;
+}
+@media (min-width: 50.01rem) {
+  .sidenav {
+    view-transition-name: sidenav;
+  }
+}
+.toc {
+  view-transition-name: toc;
+}
+::view-transition-group(topbar),
+::view-transition-group(sidenav),
+::view-transition-group(toc) {
+  animation-duration: 0s;
 }
 
-a {
-  color: var(--accent);
-}
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-button {
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
+/* The rest of the page: a quiet cross-fade (a lecture to the next one, a search, a sign-in). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  mix-blend-mode: normal;
+  animation-duration: var(--vt-fast);
+  animation-timing-function: ease;
 }
 
-.skip {
-  position: absolute;
-  left: 0.5rem;
-  top: -4rem;
-  z-index: 50;
-  padding: 0.5rem 0.9rem;
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+/* From the shelf or a course to a lecture: the lecture rises from the bottom and fades in
+   while the page it leaves fades out. */
+:root:active-view-transition-type(rise)::view-transition-old(root) {
+  animation: vt-fade-out var(--vt-fast) ease both;
 }
-.skip:focus {
-  top: 0.5rem;
+:root:active-view-transition-type(rise)::view-transition-new(root) {
+  animation: vt-rise var(--vt) var(--spring) both;
+}
+
+/* And back: the lecture sinks and fades out over the page that is already there. */
+:root:active-view-transition-type(descend)::view-transition-old(root) {
+  z-index: 2;
+  animation: vt-sink var(--vt) var(--spring) both;
+}
+:root:active-view-transition-type(descend)::view-transition-new(root) {
+  animation: vt-fade-in var(--vt) ease both;
+}
+
+@keyframes vt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(30vh);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes vt-sink {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(30vh);
+  }
+}
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
 }
 
 /* For the admin only: lecture files that could not be loaded and were left out. */
@@ -197,54 +162,6 @@ details.load-notice {
   font-size: 0.8rem;
 }
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-/* ---------- Top bar: across the whole window ---------- */
-
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  height: var(--topbar);
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  padding-inline: 1.5rem;
-  background: var(--bg);
-  border-bottom: 1px solid var(--line);
-}
-.brand {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  white-space: nowrap;
-  font-weight: 600;
-}
-.brand a {
-  color: var(--fg);
-  text-decoration: none;
-}
-.brand .site {
-  color: var(--muted);
-  font-weight: 400;
-}
-.brand .site:hover {
-  color: var(--fg);
-}
-.brand .slash {
-  color: var(--text-3);
-}
-.topbar .spacer {
-  flex: 1;
-}
 .search {
   position: relative;
   width: min(18rem, 30vw);
@@ -329,38 +246,6 @@ details.load-notice {
   padding: 0.65rem;
   color: var(--muted);
   font-size: 0.875rem;
-}
-
-.icon-button {
-  display: inline-grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  padding: 0;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  color: var(--muted);
-}
-.icon-button:hover {
-  color: var(--fg);
-}
-.icon-button svg {
-  width: 1.15rem;
-  height: 1.15rem;
-}
-.nav-toggle {
-  display: none;
-}
-/* The toggle shows the theme it would switch to. */
-.theme-toggle .sun {
-  display: none;
-}
-:root[data-theme="light"] .theme-toggle .sun {
-  display: block;
-}
-:root[data-theme="light"] .theme-toggle .moon {
-  display: none;
 }
 
 .signin {
@@ -1303,18 +1188,6 @@ button.signin {
   color: var(--muted);
 }
 
-.footer {
-  flex: none;
-  margin-top: auto;
-  padding: 0.6rem 1.5rem 0.7rem;
-  border-top: 1px solid var(--line);
-  color: var(--text-3);
-  font-size: 0.8125rem;
-}
-.footer a {
-  color: var(--muted);
-}
-
 /* ---------- Narrower windows ---------- */
 
 /* The right rail goes. */
@@ -1335,17 +1208,6 @@ button.signin {
     grid-template-areas:
       "nav"
       "main";
-  }
-  .nav-toggle {
-    display: inline-grid;
-  }
-  .brand .site,
-  .brand .slash {
-    display: none;
-  }
-  .topbar {
-    gap: 0.5rem;
-    padding-inline: 0.75rem;
   }
   .topbar .spacer,
   .search kbd,

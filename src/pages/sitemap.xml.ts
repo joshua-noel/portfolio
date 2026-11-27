@@ -17,14 +17,15 @@ const xml = (text: string): string => text.replace(/[&<>"']/g, (c) => XML_ENTITI
 // Hand-rolled rather than @astrojs/sitemap: the URL set lives in SQLite and
 // is only known at request time, which a build-time integration cannot see.
 export const GET: APIRoute = async () => {
-  const { blogUrl, siteUrl, learnUrl } = getConfig();
+  const { blogUrl, siteUrl, learnUrl, learnStealth } = getConfig();
+  // A stealth release leaves the lecture host out of every sitemap.
+  const showLearn = learnStealth === "off";
   // Crawlers are visitors: only what anyone may read goes in.
-  const { lectures } = await getCatalogFor(undefined);
   const entries = [
     `<url><loc>${xml(siteUrl)}/</loc></url>`,
     `<url><loc>${xml(blogUrl)}/</loc></url>`,
-    `<url><loc>${xml(learnUrl)}/</loc></url>`,
-    ...lectures
+    ...(showLearn ? [`<url><loc>${xml(learnUrl)}/</loc></url>`] : []),
+    ...(showLearn ? (await getCatalogFor(undefined)).lectures : [])
       .filter((lecture) => !lecture.locked && !lecture.front.placeholder)
       .map(
         (lecture) =>

@@ -1,6 +1,12 @@
 # Learn: the style rules
 
-The learn site looks like a plain documentation page: `style-bible-reference.png` in `learn-plan`. This file is the short rule set `src/styles/learn.css` follows. Keep to it. `test/learn-contrast.test.ts` checks the palette and bans the worst slips.
+The learn site looks like a plain documentation page: `style-bible-reference.png` in `learn-plan`. This file is the short rule set `src/styles/tokens.css`, `chrome.css` and `learn.css` follow, and the main site and the blog follow it too (below). Keep to it. `test/learn-contrast.test.ts` checks the palette and bans the worst slips.
+
+## One language for three hostnames
+
+The main site, the blog and Learn are one place and look like it. They share ONE token source, `src/styles/tokens.css` (colours in both themes, fonts, radius, the bar height, the prose measure; nothing else defines one, a stylesheet uses `var(--…)`), and one chrome, `src/styles/chrome.css` (reset, the type scale, the top bar and the footer, whose markup is `SiteHeader.astro` and `SiteFooter.astro`). `learn.css` is Learn's own layout, `global.css` the main site's, `blog.css` the blog's; they add layout only. The theme switch is the same on all three (`theme-init.js` before first paint, `theme.js` for the button): dark by default, the choice kept per host in `localStorage` (hosts do not share storage, so a choice made on one host does not follow the reader to another; sharing it would need a cookie on the parent domain, which is a security change nobody has made). `test/site-unify.test.ts` loads all three hostnames in a browser and compares the computed colours in both themes. The admin (the blog host's) uses the dark tokens and is not part of the look.
+
+Each site keeps its own bar items: Learn the search and sign in; the main site and the blog Work, Writing, Learn, Contact and Resume. Icons are `currentColor` strokes of 2 at the text colour of where they stand; there are no coloured chips or badges in the chrome.
 
 ## Colour
 
@@ -37,6 +43,10 @@ One sans family (the system UI stack) for chrome and prose; one mono family for 
 - Below 1100 px the right rail goes; below 800 px the left rail is a drawer.
 - The footer is at the bottom of the window on a short page and after the content on a long one (a min-height column).
 - Spacing: multiples of 0.25rem; 1.25em between blocks of prose; 3rem above an h2.
+
+## Moving between pages
+
+A navigation inside Learn is a cross-document view transition (`@view-transition { navigation: auto; }` in `learn.css`: CSS only, no router, no client-side page swap, so every page's scripts start once, as before). From the shelf or a course page to a lecture the lecture rises from the bottom and fades in while the old page fades out; Back (or a link to the shelf or a course) reverses it; from one lecture to the next, or to search and sign in, the page cross-fades quietly. The top bar and the two rails have their own `view-transition-name`s (`topbar`, `sidenav`, `toc`) and stay where they are. It takes about 0.38 s (0.22 s for the cross-fade) with the shelf's spring as the easing. The one script, `src/scripts/learn-transitions.js`, is a file in `<head>` that only names the direction (`rise`, `descend`, `fade`) from the two URLs; the Content-Security-Policy is not touched. A reader who asks for reduced motion gets no transition at all (`navigation: none`), and a browser without the feature navigates as it always did. I chose this over Astro's `<ClientRouter />` because that swaps pages with a client-side script and would have to be audited against the strict policy and against every page script that starts on load.
 
 ## Forbidden
 

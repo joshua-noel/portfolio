@@ -35,6 +35,15 @@ if (missing.length > 0) {
   process.exit(78); // EX_CONFIG
 }
 
+// PORTFOLIO_LEARN_STEALTH (see src/lib/config.ts): unset, 0/off, 1/on or private. A typo
+// refuses to start rather than leave the lecture host more public than meant.
+const stealth = (cfg("PORTFOLIO_LEARN_STEALTH") ?? "off").toLowerCase();
+if (!["0", "off", "1", "on", "private"].includes(stealth)) {
+  process.stderr.write("PORTFOLIO_LEARN_STEALTH must be unset, 0, 1 or private\n");
+  process.exit(78); // EX_CONFIG
+}
+const stealthOn = stealth !== "0" && stealth !== "off";
+
 // This is the production server, and it never serves `local` lectures: they are
 // for the owner's own machine under `pnpm learn:dev`. A switch that only
 // looked at where the server listens could be fooled by a proxy on the same
@@ -78,6 +87,7 @@ const FLOOR = {
   "Cache-Control": "private, no-store",
   Vary: "Cookie",
 };
+if (stealthOn) FLOOR["X-Robots-Tag"] = "noindex, nofollow, noarchive";
 const createServer = http.createServer;
 http.createServer = (...args) => {
   const at = args.findIndex((arg) => typeof arg === "function");

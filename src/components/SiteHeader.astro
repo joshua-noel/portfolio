@@ -1,28 +1,130 @@
 ---
-// One header for both hostnames, so the site and the blog read as one place.
-// Links are absolute because the same markup is served from either host.
+// The one top bar of all three hostnames (the main site, the blog and Learn):
+// the same height, spacing, type and theme switch, styled by src/styles/chrome.css
+// from the shared tokens. Each site keeps its own items: Learn passes its search
+// box in the default slot and its sign-in in `end`; the main site and the blog
+// show the sections and the way into the other sites. Links to other hosts are
+// absolute because the same markup is served from whichever host asked for it.
 import { getConfig } from "../lib/config.ts";
 
 interface Props {
-  current?: "home" | "writing";
+  site: "main" | "blog" | "learn";
+  /** The nav item that is this page. */
+  current?: "writing";
+  /** Whether there is a sidebar for the menu button to open (Learn lectures). */
+  showNav?: boolean;
 }
 
-const { current } = Astro.props;
-const { siteUrl, blogUrl } = getConfig();
+const { site, current, showNav = false } = Astro.props;
+const { siteUrl, blogUrl, learnUrl, learnStealth } = getConfig();
+const items =
+  site === "learn"
+    ? []
+    : [
+        { label: "Work", href: `${siteUrl}/#work` },
+        { label: "Writing", href: `${blogUrl}/`, current: current === "writing" },
+        // A stealth release shows nothing of Learn on this site.
+        ...(learnStealth === "off" ? [{ label: "Learn", href: `${learnUrl}/` }] : []),
+        { label: "Contact", href: `${siteUrl}/#contact`, wide: true },
+        { label: "Resume", href: `${siteUrl}/resume.pdf`, wide: true },
+      ];
 ---
 
-<header class="site-header">
-  <a
-    class="site-name"
-    href={`${siteUrl}/`}
-    aria-current={current === "home" ? "page" : undefined}>Joshua Noel</a
+<header class="topbar">
+  {
+    showNav && (
+      <button
+        class="icon-button nav-toggle"
+        type="button"
+        aria-label="Contents"
+        aria-controls="sidenav"
+        aria-expanded="false"
+        data-nav-toggle
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
+          <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+    )
+  }
+  {
+    site === "learn" ? (
+      <span class="brand has-section">
+        <a class="site" href={`${siteUrl}/`}>
+          Joshua Noel
+        </a>
+        <span class="slash" aria-hidden="true">
+          /
+        </span>
+        <a class="home" href="/">
+          Learn
+        </a>
+      </span>
+    ) : (
+      <span class="brand">
+        <a class="site" href={`${siteUrl}/`}>
+          Joshua Noel
+        </a>
+      </span>
+    )
+  }
+  <slot />
+
+  <span class="spacer"></span>
+
+  {
+    items.length > 0 && (
+      <nav aria-label="Site">
+        {items.map((item) => (
+          <a
+            href={item.href}
+            class={item.wide ? "wide-only" : undefined}
+            aria-current={item.current ? "page" : undefined}
+          >
+            {item.label}
+          </a>
+        ))}
+      </nav>
+    )
+  }
+  <button
+    class="icon-button theme-toggle"
+    type="button"
+    aria-label="Switch theme"
+    data-theme-toggle
   >
-  <nav aria-label="Site">
-    <a href={`${siteUrl}/#work`}>Work</a>
-    <a href={`${blogUrl}/`} aria-current={current === "writing" ? "page" : undefined}
-      >Writing</a
+    <svg
+      class="moon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
     >
-    <a href={`${siteUrl}/#contact`}>Contact</a>
-    <a href={`${siteUrl}/resume.pdf`}>Resume</a>
-  </nav>
+      <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+    </svg>
+    <svg
+      class="sun"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="4"></circle>
+      <path
+        d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+      ></path>
+    </svg>
+  </button>
+  <slot name="end" />
 </header>

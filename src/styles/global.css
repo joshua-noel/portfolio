@@ -1,98 +1,27 @@
 /* ============================================================
-   Joshua Noel — personal site
-   One dark theme, one column, square corners. The only colour is
-   in the icons and one highlighted phrase. Plain HTML and CSS.
-   Edit the design tokens below and everything follows.
+   Joshua Noel: the main site (and what the blog and the admin share with it).
+   The look is Learn's (docs/learn-style.md): every colour, font, radius and
+   the bar height comes from tokens.css; the reset, the type scale, the top
+   bar and the footer are chrome.css. Only what is particular to these pages
+   is here. Plain HTML and CSS.
    ============================================================ */
-
-:root {
-  color-scheme: dark;
-  --bg: #0c0d10;
-  --bg-elevated: #14151a;
-  --bg-surface: #14151a;
-  --border: rgba(236, 235, 232, 0.13);
-  --border-strong: rgba(236, 235, 232, 0.34);
-  --text: #ecebe8;
-  --text-muted: #adacb5;
-  --text-faint: #8a8994;
-
-  --link: #e08a6c;
-  --link-hover: #efa58c;
-  --focus: #e08a6c;
-  --hl-text: #e08a6c;
-
-  --danger: #ffb4ab;
-  --control-border: #7c7b87; /* 3:1 boundary for inputs and buttons */
-  --success-text: #77dddd;
-  --success-bg: rgba(119, 221, 221, 0.12);
-  --warn-text: #ffd27a;
-  --warn-bg: rgba(255, 210, 122, 0.12);
-
-  --accent: #c9623f;
-
-  /* The colour on the page: one deep hue per icon. */
-  --c-coral: #c9623f;
-  --c-teal: #2f8f83;
-  --c-violet: #7667c9;
-  --c-amber: #b8862b;
-  --c-blue: #4673c4;
-  /* Icons are their hue pulled toward this, so they clear 3:1 on their tile. */
-  --ink: #ffffff;
-
-  --radius: 0;
-  --font:
-    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-serif:
-    "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
-}
 
 * {
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
 html {
-  scroll-behavior: smooth;
-  /* Text and spacing grow with the window: 16px on a phone, about 17px on a
-     laptop, 20px on a 1440p monitor. Everything else is sized in rem. */
-  font-size: clamp(100%, 0.6rem + 0.55vw, 125%);
-}
-
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-body {
-  font-family: var(--font);
-  background-color: var(--bg);
-  color: var(--text);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  scroll-padding-top: var(--topbar);
 }
 
 /* Public pages fill the window, so the footer sits at the bottom of a short page. */
-body.public {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
 body.public > * {
   width: 100%;
 }
 
 body.public > main {
   flex: 1 0 auto;
-}
-
-main {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 0 clamp(1.25rem, 5vw, 3rem);
 }
 
 /* ---------- One column, shared by every public page ---------- */
@@ -102,7 +31,6 @@ main {
   --gutter: clamp(1.25rem, 5vw, 2.5rem);
 }
 
-.site-footer,
 main.site,
 main.blog-main {
   max-width: var(--column);
@@ -110,87 +38,24 @@ main.blog-main {
   padding-inline: var(--gutter);
 }
 
-.site-header,
-.site-footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem 1.5rem;
-}
-
-/* Stays in view while you scroll, so every section is one click away. The bar
-   runs the full width of the window; its contents line up with the column. */
-.site-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  min-height: var(--header);
-  align-items: center;
-  padding-block: 0;
-  padding-inline: max(var(--gutter), calc((100% - var(--column)) / 2 + var(--gutter)));
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-}
-
-.site-header nav,
-.site-footer nav {
-  display: flex;
-  gap: 1.5rem;
-}
-
-.site-header a,
-.site-footer a {
-  color: var(--text-muted);
-  text-decoration: none;
-  /* Comfortable to tap without changing how the row looks. */
-  padding-block: 0.4rem;
-}
-
-.site-header a:hover,
-.site-footer a:hover,
-.site-header a[aria-current="page"] {
-  color: var(--text);
-}
-
-.site-name {
-  font-weight: 650;
-  letter-spacing: -0.01em;
-}
-
-.site-header .site-name {
-  color: var(--text);
-}
-
-.site-footer {
-  padding-block: 1.5rem 3rem;
-  border-top: 1px solid var(--border);
-  font-size: 0.9rem;
-  color: var(--text-faint);
-}
-
-/* Three panels: the opening, the work, then writing and contact together.
-   Each fills the window below the header, with its content centred. */
-:root {
-  --header: 4.25rem;
-}
-
+/* Panels: the opening, the work, then writing and contact together.
+   Each fills the window below the bar, with its content centred. */
 .site > section {
-  min-height: calc(100svh - var(--header));
+  min-height: calc(100svh - var(--topbar));
   padding-block: clamp(1.25rem, 5vh, 4rem);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  /* Anchor links and snapping stop below the sticky header. */
-  scroll-margin-top: var(--header);
+  /* Anchor links and snapping stop below the sticky bar. */
+  scroll-margin-top: var(--topbar);
 }
 
 .site > section + section {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--line);
 }
 
 #contact {
-  scroll-margin-top: calc(var(--header) + 2rem);
+  scroll-margin-top: calc(var(--topbar) + 2rem);
 }
 
 /* One panel per scroll. src/scripts/panels.js adds `snap` to <html> when every
@@ -199,16 +64,16 @@ main.blog-main {
    the script, or on a small window, the page scrolls normally. */
 html.snap {
   scroll-snap-type: y mandatory;
-  scroll-padding-top: var(--header);
+  scroll-padding-top: var(--topbar);
 }
 
 html.snap .site > section {
   scroll-snap-align: start;
-  /* scroll-padding-top above already keeps a panel clear of the header. */
+  /* scroll-padding-top above already keeps a panel clear of the bar. */
   scroll-margin-top: 0;
 }
 
-html.snap .site-footer {
+html.snap .footer {
   scroll-snap-align: end;
 }
 
@@ -222,17 +87,17 @@ html.snap .site-footer {
 }
 
 .site h2 {
-  font-size: clamp(1.5rem, 4vw, 2rem);
-  font-weight: 650;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.3;
   margin-bottom: clamp(0.9rem, 3vh, 2rem);
 }
 
 .site h3 {
-  font-size: 1.05rem;
+  font-size: 1.1875rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  line-height: 1.3;
 }
 
 /* ---------- Hero ---------- */
@@ -242,10 +107,10 @@ html.snap .site-footer {
 }
 
 .hero h1 {
-  font-size: clamp(2.25rem, 7vw, 4.5rem);
-  font-weight: 650;
-  letter-spacing: -0.035em;
-  line-height: 1.1;
+  font-size: clamp(2rem, 1.5rem + 2vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
   margin-bottom: 1.25rem;
 }
 
@@ -256,28 +121,30 @@ html.snap .site-footer {
   margin-top: 2rem;
 }
 
+/* A thin outline; the way to reach me is the one in the link colour. */
 .cta {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
-  padding: 0 1.25rem;
-  border: 1px solid var(--control-border);
-  border-radius: 0;
-  color: var(--text);
-  font-weight: 600;
+  min-height: 2.75rem;
+  padding: 0 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--fg);
   text-decoration: none;
-  transition: border-color 0.2s ease;
 }
 
 .cta:hover {
-  border-color: var(--text);
+  border-color: var(--muted);
 }
 
-/* The page's one filled control: the way to reach me. */
 .cta-primary {
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cta-primary:hover {
+  border-color: var(--fg);
+  color: var(--fg);
 }
 
 /* ---------- Work ---------- */
@@ -286,51 +153,49 @@ html.snap .site-footer {
   list-style: none;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
-  gap: 1rem;
+  column-gap: 2.5rem;
 }
 
 .work-item {
-  /* Icon beside the text, not above it: it keeps each box short, so the whole
+  /* Icon beside the text, not above it: it keeps each row short, so the whole
      panel fits in a laptop window. */
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: start;
   gap: 1rem;
-  padding: clamp(0.9rem, 2.2vh, 1.25rem);
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
+  padding-block: clamp(0.9rem, 2.2vh, 1.25rem);
+  border-top: 1px solid var(--line);
 }
 
-/* The main project: first, full width, with a line in its own colour. */
+/* The main project: first, full width. */
 .work-item.featured {
   grid-column: 1 / -1;
-  border-left: 3px solid var(--hue);
 }
 
 .work-item.featured h3 {
-  font-size: 1.25rem;
+  font-size: 1.375rem;
 }
 
 .work-item.featured p:not(.work-stack) {
   max-width: 68ch;
 }
 
-.tile {
-  width: 40px;
-  height: 40px;
+/* Icons are the text colour of where they stand, at Learn's stroke weight. */
+.work-icon {
   display: grid;
   place-items: center;
-  border-radius: 0;
-  background: color-mix(in srgb, var(--hue) 22%, transparent);
-  color: color-mix(in srgb, var(--hue) 55%, var(--ink));
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.1rem;
+  color: var(--fg);
 }
 
-.tile svg {
-  width: 20px;
-  height: 20px;
+.work-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.75;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -346,30 +211,31 @@ html.snap .site-footer {
 .work-head a {
   color: inherit;
   text-decoration: underline;
-  text-decoration-color: var(--border-strong);
+  text-decoration-color: var(--border);
   text-underline-offset: 0.2em;
 }
 
 .work-head a:hover {
+  color: var(--accent);
   text-decoration-color: currentColor;
 }
 
 .work-status {
-  font-size: 0.8rem;
-  color: var(--text-faint);
+  font-size: 0.8125rem;
+  color: var(--text-3);
   white-space: nowrap;
 }
 
 .work-item p {
-  color: var(--text-muted);
+  color: var(--muted);
   margin-top: 0.2rem;
 }
 
 .work-item p.work-stack {
   margin-top: 0.5rem;
   font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--text-faint);
+  font-size: 0.8125rem;
+  color: var(--text-3);
 }
 
 /* ---------- Rows of posts (homepage and blog index) ---------- */
@@ -380,30 +246,29 @@ html.snap .site-footer {
   align-items: baseline;
   gap: 0.15rem 1.5rem;
   padding-block: 1rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--line);
   color: inherit;
   text-decoration: none;
 }
 
 .row-title {
   font-weight: 600;
-  letter-spacing: -0.01em;
 }
 
 .row:hover .row-title {
-  color: var(--hl-text);
+  color: var(--accent);
 }
 
 .row-date {
-  font-size: 0.85rem;
-  color: var(--text-faint);
+  font-size: 0.8125rem;
+  color: var(--text-3);
   white-space: nowrap;
 }
 
 .row-sum {
   grid-column: 1 / -1;
-  color: var(--text-muted);
-  font-size: 0.95rem;
+  color: var(--muted);
+  font-size: 0.9375rem;
 }
 
 .more {
@@ -411,8 +276,6 @@ html.snap .site-footer {
 }
 
 .more a {
-  color: var(--link);
-  font-weight: 600;
   text-decoration: none;
 }
 
@@ -421,33 +284,33 @@ html.snap .site-footer {
 }
 
 .empty {
-  color: var(--text-muted);
+  color: var(--muted);
   padding-block: 1rem;
 }
 
 /* ---------- Contact ---------- */
 
 .contact-title {
-  font-size: clamp(1.7rem, 5vw, 2.3rem);
-  font-weight: 650;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.3;
   margin-bottom: 0.5rem;
 }
 
 .contact p {
-  color: var(--text-muted);
+  color: var(--muted);
   max-width: 52ch;
 }
 
 .contact p.contact-title {
-  color: var(--text);
+  color: var(--fg);
 }
 
 .contact-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  column-gap: 2.5rem;
   margin-top: 1.5rem;
 }
 
@@ -457,47 +320,31 @@ html.snap .site-footer {
   }
 }
 
+/* Plain rows with a hairline, as a list in the lectures; the icon takes the text colour. */
 .contact-card {
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-elevated);
+  padding-block: 0.8rem;
+  border-top: 1px solid var(--line);
   text-decoration: none;
-  transition: border-color 0.2s ease;
 }
 
-.contact-card:hover {
-  border-color: var(--border-strong);
+.contact-card:hover .contact-card-label {
+  color: var(--accent);
 }
 
 .contact-card-logo {
   flex: none;
-  width: 24px;
-  height: 24px;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--fg);
 }
 
 .contact-card-logo svg {
-  width: 24px;
-  height: 24px;
+  width: 1.25rem;
+  height: 1.25rem;
   display: block;
-}
-
-/* Brand colours, adjusted until each icon clears 3:1 on its card. */
-.contact-card-logo.email {
-  color: var(--link);
-}
-.contact-card-logo.whatsapp {
-  color: #25d366;
-}
-.contact-card-logo.linkedin {
-  color: #70b5f9;
-}
-.contact-card-logo.github,
-.contact-card-logo.resume {
-  color: var(--text);
 }
 
 .contact-card-text {
@@ -508,14 +355,14 @@ html.snap .site-footer {
 }
 
 .contact-card-label {
-  color: var(--text);
+  color: var(--fg);
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9375rem;
 }
 
 .contact-card-value {
-  color: var(--text-muted);
-  font-size: 0.82rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -523,19 +370,15 @@ html.snap .site-footer {
 
 /* ---------- Entrance animations ---------- */
 
-/* Hidden only once the inline script in Base.astro has tagged <html>
-   with .js: without JavaScript nothing would ever reveal it. The slide
-   uses `translate`, not `transform`, so it never fights a card's hover
-   lift, and the stagger delay is per-property so hover stays instant. */
+/* Hidden only once theme-init.js has tagged <html> with .js: without
+   JavaScript nothing would ever reveal it. The slide uses `translate`, not
+   `transform`, and the stagger delay is per-property. */
 .js .reveal {
   opacity: 0;
   translate: 0 18px;
   transition:
     opacity 0.7s ease var(--reveal-delay, 0s),
-    translate 0.7s ease var(--reveal-delay, 0s),
-    transform 0.3s ease,
-    border-color 0.3s ease,
-    box-shadow 0.3s ease;
+    translate 0.7s ease var(--reveal-delay, 0s);
 }
 
 .js .reveal.visible {
@@ -561,16 +404,9 @@ html.snap .site-footer {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
   .js .reveal {
     opacity: 1;
     translate: none;
-    transition: none;
-  }
-  .card,
-  .contact-card {
     transition: none;
   }
 }

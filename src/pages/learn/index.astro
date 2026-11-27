@@ -32,6 +32,18 @@ const signin = `/signin?next=${encodeURIComponent(here.pathname + here.search)}`
       )
     }
   </main>
+  <Fragment slot="credit">
+    <span class="credit">
+      · Shelf design inspired by
+      <a href="https://x.com/sahil0x01/status/2124697500229759375" rel="noopener noreferrer"
+        >@sahil0x01</a
+      >
+      and
+      <a href="https://x.com/vineerpasam/status/2124902293254594759" rel="noopener noreferrer"
+        >@vineerpasam</a
+      >.
+    </span>
+  </Fragment>
   <script>
     import "../../scripts/learn-bookshelf/index.js";
   </script>

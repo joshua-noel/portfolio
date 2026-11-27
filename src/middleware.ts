@@ -5,7 +5,7 @@ import {
   learnViewer,
   validateSession,
 } from "./lib/auth.ts";
-import { getConfig } from "./lib/config.ts";
+import { getConfig, type Stealth } from "./lib/config.ts";
 import {
   applyRequestOrigin,
   isForbiddenCrossOriginRequest,
@@ -117,11 +117,20 @@ export const onRequest = defineMiddleware(async (context, next) => {
     isLearn,
     isAdmin: isAdminPath(context.url.pathname),
     https: context.url.protocol === "https:",
+    stealth: config.learnStealth,
   });
 });
 
 const isAdminPath = (pathname: string): boolean =>
   pathname === "/admin" || pathname.startsWith("/admin/");
+
+/** What a visitor with no account may still reach on the lecture host when it is `private`. */
+const OPEN_WHEN_PRIVATE: Record<string, true> = {
+  "/signin": true,
+  "/signout": true,
+  "/robots.txt": true,
+  "/healthz": true,
+};
 
 type Context = Parameters<Parameters<typeof defineMiddleware>[0]>[0];
 type Next = Parameters<Parameters<typeof defineMiddleware>[0]>[1];
@@ -192,6 +201,27 @@ async function handle(
     context.locals.viewer = learnViewer(
       context.cookies.get(learnCookieName(context.url))?.value,
     );
+    if (config.learnStealth !== "off") {
+      // No sitemap or feed on this host in a stealth release: the same bare 404
+      // as any other path that is not here.
+      if (pathname === "/sitemap.xml" || pathname === "/rss.xml") {
+        return new Response("Not found", { status: 404 });
+      }
+      // `private`: every page but sign-in needs an account, by the same check
+      // every lecture page already makes (`viewer`, from the signed session
+      // cookie). The answer to a visitor with none is the bare 404 this host
+      // gives for a cover, a medium or an API path that is not there, not the
+      // lecture site's own not-found page (which would name the site) and not
+      // a redirect to sign-in (which would tell a stranger there is a door).
+      // Sign-in itself, its sign-out, `robots.txt` and `healthz` stay open.
+      if (
+        config.learnStealth === "private" &&
+        !context.locals.viewer &&
+        OPEN_WHEN_PRIVATE[pathname] !== true
+      ) {
+        return new Response("Not found", { status: 404 });
+      }
+    }
     context.locals.allowLocal = config.learnAllowLocal && isOwnMachine(context);
   }
 
@@ -243,7 +273,12 @@ function isOwnMachine(context: Context): boolean {
 /** Headers on every response; more on the lecture host's and the admin's. */
 function seal(
   response: Response,
-  { isLearn, isAdmin, https }: { isLearn: boolean; isAdmin: boolean; https: boolean },
+  {
+    isLearn,
+    isAdmin,
+    https,
+    stealth,
+  }: { isLearn: boolean; isAdmin: boolean; https: boolean; stealth: Stealth },
 ): Response {
   let sealed = response;
   try {
@@ -262,6 +297,9 @@ function seal(
   if (isLearn) {
     headers.set("Content-Security-Policy", LEARN_CSP);
     headers.set("X-Frame-Options", "DENY");
+    // A stealth release (PORTFOLIO_LEARN_STEALTH) is not announced and not
+    // discoverable: nothing from this host is indexed, followed or archived.
+    if (stealth !== "off") headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
     // What a page shows depends on who is signed in, so no shared cache may
     // keep one reader's copy for another. A route that knows better (public
     // media) says so itself.
