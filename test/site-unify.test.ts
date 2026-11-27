@@ -491,5 +491,9 @@ test("the stealth switch: off is today's behaviour, on hides Learn from search a
 });
 
 test("a mistyped stealth value refuses to start", async () => {
-  await assert.rejects(start({ out, contentDirs: [library], env: { PORTFOLIO_LEARN_STEALTH: "maybe" }, anyAnswer: false }));
+  // Through the production launcher, which checks it before the socket opens.
+  await assert.rejects(
+    start({ out, contentDirs: [library], env: { PORTFOLIO_LEARN_STEALTH: "maybe" }, viaLauncher: true }),
+    /PORTFOLIO_LEARN_STEALTH must be/,
+  );
 });
