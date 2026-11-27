@@ -1,0 +1,97 @@
+/* ============================================================
+   The design tokens of the whole site: ONE source, imported by the main
+   site, the blog and Learn (and the admin, which is the blog host's).
+   Nothing else defines a colour, a font stack, a radius or the bar height:
+   a stylesheet that needs a value uses `var(--…)`, it never copies one.
+   Near-black and soft off-white in the dark theme (the default), the inverse
+   in the light one, two or three greys, ONE muted link colour (--accent),
+   hairline dividers. Colour appears only inside diagrams, code, book covers
+   and videos. System fonts only; no downloads.
+   The rules this follows are in docs/learn-style.md.
+   test/learn-contrast.test.ts holds the text colours to WCAG AA (4.5:1) in
+   both themes, and test/site-unify.test.ts holds the three hostnames to this
+   one file.
+   ============================================================ */
+
+:root,
+.theme-scope[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1b1a1f;
+  --surface: #222127;
+  --bg-sunken: #161618;
+  --line: rgba(255, 255, 255, 0.09);
+  --border: rgba(255, 255, 255, 0.24);
+  --fg: #f0efed;
+  --muted: #a9a8ae;
+  --text-3: #8c8b93;
+  --accent: #a5a8f6;
+  --on-accent: #14131a;
+  --focus: #a5a8f6;
+  --code-bg: #151418;
+
+  /* Diagram hues. Each course gives them a meaning in its course.md. The sixth
+     is a green; a course that uses one hue for failing, hostile or wasted
+     things says so with `alert: cN` in its course.md, and on that course's
+     pages that hue is the alert rose (see `data-alert` below). */
+  --c1: #e08a6c;
+  --c2: #6fd0c4;
+  --c3: #c39bff;
+  --c4: #74b4ff;
+  --c5: #f0b45f;
+  --c6: #8fdc7a;
+  --alert: #ff7096;
+
+  --topbar: 3.5rem;
+  --measure: 36rem;
+  --radius: 4px;
+  --font-ui:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* The serif is for the book covers on the landing page and nothing else. */
+  --font-text:
+    "Iowan Old Style", "Charter", "Sitka Text", "Palatino Linotype", Cambria, Georgia,
+    "Times New Roman", serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+}
+
+:root[data-theme="light"],
+.theme-scope[data-theme="light"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --surface: #f5f5f7;
+  --bg-sunken: #f1f1f4;
+  --line: rgba(27, 26, 31, 0.1);
+  --border: rgba(27, 26, 31, 0.3);
+  --fg: #1b1a1f;
+  --muted: #55545c;
+  --text-3: #66656e;
+  --accent: #4547c7;
+  --on-accent: #ffffff;
+  --focus: #4547c7;
+  --code-bg: #f6f6f8;
+
+  --c1: #b0431f;
+  --c2: #0b6f64;
+  --c3: #6a2fc0;
+  --c4: #1c63b8;
+  --c5: #85500a;
+  --c6: #33751b;
+  --alert: #b4235a;
+}
+:root[data-alert="c1"] {
+  --c1: var(--alert);
+}
+:root[data-alert="c2"] {
+  --c2: var(--alert);
+}
+:root[data-alert="c3"] {
+  --c3: var(--alert);
+}
+:root[data-alert="c4"] {
+  --c4: var(--alert);
+}
+:root[data-alert="c5"] {
+  --c5: var(--alert);
+}
+:root[data-alert="c6"] {
+  --c6: var(--alert);
+}

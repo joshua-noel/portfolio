@@ -20,14 +20,6 @@ const store = {
   },
 };
 
-// ---------------------------------------------------------------- theme
-
-document.querySelector("[data-theme-toggle]")?.addEventListener("click", () => {
-  const next = root.dataset.theme === "light" ? "dark" : "light";
-  root.dataset.theme = next;
-  store.set("learn-theme", next);
-});
-
 // ---------------------------------------------------------------- drawer
 
 const nav = document.querySelector("[data-sidenav]");

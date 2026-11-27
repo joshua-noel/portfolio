@@ -5,14 +5,15 @@ import { fileURLToPath } from "node:url";
 
 /**
  * The variables learn-content/CONTRACT.md promises to diagrams are --fg,
- * --muted, --border, --surface, --accent and --c1 to --c6. Both themes of src/styles/learn.css are held to WCAG AA. The tokens are
+ * --muted, --border, --surface, --accent and --c1 to --c6. Both themes of src/styles/tokens.css (the one token source of all three hostnames) are held to WCAG AA. The tokens are
  * read from the stylesheet itself, so a palette edit that breaks contrast
  * fails here instead of in a reader's eyes.
  */
-const css = readFileSync(
-  fileURLToPath(new URL("../src/styles/learn.css", import.meta.url)),
-  "utf8",
-);
+const read = (name: string): string =>
+  readFileSync(fileURLToPath(new URL("../src/styles/" + name, import.meta.url)), "utf8");
+const css = read("tokens.css");
+// The stylesheets that draw the chrome and the lectures: the main site and the blog follow the same rules.
+const sheets = ["tokens.css", "chrome.css", "learn.css", "global.css", "blog.css"].map(read).join("\n");
 
 function tokens(selector: string): Record<string, string> {
   // A block, or a list of selectors that starts with this one (the design page scopes a theme to a section too).
@@ -90,7 +91,7 @@ test("the chrome stays plain: no gradients, shadows, pills or small caps (docs/l
     /border-radius:\s*999/,
     /backdrop-filter/,
   ]) {
-    assert.doesNotMatch(css, banned);
+    assert.doesNotMatch(sheets, banned);
   }
 });
 

@@ -8,164 +8,11 @@
    holds the text colours to WCAG AA (4.5:1) in both themes.
    ============================================================ */
 
-:root,
-.theme-scope[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #1b1a1f;
-  --surface: #222127;
-  --bg-sunken: #161618;
-  --line: rgba(255, 255, 255, 0.09);
-  --border: rgba(255, 255, 255, 0.24);
-  --fg: #f0efed;
-  --muted: #a9a8ae;
-  --text-3: #8c8b93;
-  --accent: #a5a8f6;
-  --on-accent: #14131a;
-  --focus: #a5a8f6;
-  --code-bg: #151418;
-
-  /* Diagram hues. Each course gives them a meaning in its course.md. The sixth
-     is a green; a course that uses one hue for failing, hostile or wasted
-     things says so with `alert: cN` in its course.md, and on that course's
-     pages that hue is the alert rose (see `data-alert` below). */
-  --c1: #e08a6c;
-  --c2: #6fd0c4;
-  --c3: #c39bff;
-  --c4: #74b4ff;
-  --c5: #f0b45f;
-  --c6: #8fdc7a;
-  --alert: #ff7096;
-
-  --topbar: 3.5rem;
+/* Colours, fonts, radius, the bar height and the prose measure are the site's:
+   src/styles/tokens.css. Only the rail widths are particular to Learn. */
+:root {
   --rail-l: clamp(14rem, 14vw, 19rem);
   --rail-r: clamp(13rem, 12vw, 17rem);
-  --measure: 36rem;
-  --radius: 4px;
-  --font-ui:
-    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  /* The serif is for the book covers on the landing page and nothing else. */
-  --font-text:
-    "Iowan Old Style", "Charter", "Sitka Text", "Palatino Linotype", Cambria, Georgia,
-    "Times New Roman", serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
-}
-
-:root[data-theme="light"],
-.theme-scope[data-theme="light"] {
-  color-scheme: light;
-  --bg: #ffffff;
-  --surface: #f5f5f7;
-  --bg-sunken: #f1f1f4;
-  --line: rgba(27, 26, 31, 0.1);
-  --border: rgba(27, 26, 31, 0.3);
-  --fg: #1b1a1f;
-  --muted: #55545c;
-  --text-3: #66656e;
-  --accent: #4547c7;
-  --on-accent: #ffffff;
-  --focus: #4547c7;
-  --code-bg: #f6f6f8;
-
-  --c1: #b0431f;
-  --c2: #0b6f64;
-  --c3: #6a2fc0;
-  --c4: #1c63b8;
-  --c5: #85500a;
-  --c6: #33751b;
-  --alert: #b4235a;
-}
-:root[data-alert="c1"] {
-  --c1: var(--alert);
-}
-:root[data-alert="c2"] {
-  --c2: var(--alert);
-}
-:root[data-alert="c3"] {
-  --c3: var(--alert);
-}
-:root[data-alert="c4"] {
-  --c4: var(--alert);
-}
-:root[data-alert="c5"] {
-  --c5: var(--alert);
-}
-:root[data-alert="c6"] {
-  --c6: var(--alert);
-}
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html {
-  /* 16px on a small screen and a tablet (readable at arm's length). From 1100 wide, where the
-     rails appear, 15px growing to 18.5px at 2560: about 11% smaller on a big screen than the
-     16 to 21px this was, so the page is not zoomed in, and the measure in characters is the
-     same because it is in rem. */
-  font-size: 1rem;
-  scroll-padding-top: calc(var(--topbar) + 1rem);
-  scrollbar-gutter: stable;
-  -webkit-text-size-adjust: 100%;
-}
-@media (min-width: 1100px) {
-  html {
-    font-size: clamp(0.875rem, 0.7573rem + 0.1712vw, 1.03125rem);
-  }
-}
-html.js {
-  scroll-behavior: smooth;
-}
-@media (prefers-reduced-motion: reduce) {
-  html.js {
-    scroll-behavior: auto;
-  }
-  * {
-    transition: none !important;
-  }
-}
-
-body {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-ui);
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-a {
-  color: var(--accent);
-}
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-button {
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-
-.skip {
-  position: absolute;
-  left: 0.5rem;
-  top: -4rem;
-  z-index: 50;
-  padding: 0.5rem 0.9rem;
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-.skip:focus {
-  top: 0.5rem;
 }
 
 /* For the admin only: lecture files that could not be loaded and were left out. */
@@ -197,54 +44,6 @@ details.load-notice {
   font-size: 0.8rem;
 }
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-/* ---------- Top bar: across the whole window ---------- */
-
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  height: var(--topbar);
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  padding-inline: 1.5rem;
-  background: var(--bg);
-  border-bottom: 1px solid var(--line);
-}
-.brand {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  white-space: nowrap;
-  font-weight: 600;
-}
-.brand a {
-  color: var(--fg);
-  text-decoration: none;
-}
-.brand .site {
-  color: var(--muted);
-  font-weight: 400;
-}
-.brand .site:hover {
-  color: var(--fg);
-}
-.brand .slash {
-  color: var(--text-3);
-}
-.topbar .spacer {
-  flex: 1;
-}
 .search {
   position: relative;
   width: min(18rem, 30vw);
@@ -329,38 +128,6 @@ details.load-notice {
   padding: 0.65rem;
   color: var(--muted);
   font-size: 0.875rem;
-}
-
-.icon-button {
-  display: inline-grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  padding: 0;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius);
-  color: var(--muted);
-}
-.icon-button:hover {
-  color: var(--fg);
-}
-.icon-button svg {
-  width: 1.15rem;
-  height: 1.15rem;
-}
-.nav-toggle {
-  display: none;
-}
-/* The toggle shows the theme it would switch to. */
-.theme-toggle .sun {
-  display: none;
-}
-:root[data-theme="light"] .theme-toggle .sun {
-  display: block;
-}
-:root[data-theme="light"] .theme-toggle .moon {
-  display: none;
 }
 
 .signin {
@@ -1303,18 +1070,6 @@ button.signin {
   color: var(--muted);
 }
 
-.footer {
-  flex: none;
-  margin-top: auto;
-  padding: 0.6rem 1.5rem 0.7rem;
-  border-top: 1px solid var(--line);
-  color: var(--text-3);
-  font-size: 0.8125rem;
-}
-.footer a {
-  color: var(--muted);
-}
-
 /* ---------- Narrower windows ---------- */
 
 /* The right rail goes. */
@@ -1335,17 +1090,6 @@ button.signin {
     grid-template-areas:
       "nav"
       "main";
-  }
-  .nav-toggle {
-    display: inline-grid;
-  }
-  .brand .site,
-  .brand .slash {
-    display: none;
-  }
-  .topbar {
-    gap: 0.5rem;
-    padding-inline: 0.75rem;
   }
   .topbar .spacer,
   .search kbd,

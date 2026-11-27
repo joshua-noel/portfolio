@@ -1,0 +1,29 @@
+---
+// Learn's search box, in the shared top bar's default slot.
+---
+
+<form class="search" action="/search" method="get" role="search">
+  <svg
+    class="icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    aria-hidden="true"
+  >
+    <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path>
+  </svg>
+  <input
+    type="search"
+    name="q"
+    placeholder="Search"
+    autocomplete="off"
+    aria-label="Search lectures"
+    aria-controls="search-results"
+    data-search
+  />
+  <kbd aria-hidden="true">/</kbd>
+  <ul class="search-results" id="search-results" role="listbox" aria-label="Search results" hidden>
+  </ul>
+</form>

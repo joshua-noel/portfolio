@@ -1,9 +1,14 @@
 ---
 import "katex/dist/katex.min.css";
-import initScript from "../scripts/learn-init.js?url";
+import initScript from "../scripts/theme-init.js?url";
+import "../styles/tokens.css";
+import "../styles/chrome.css";
 import "../styles/learn.css";
 import LearnNav from "../components/learn/LearnNav.astro";
-import LearnTopbar from "../components/learn/LearnTopbar.astro";
+import LearnSearch from "../components/learn/LearnSearch.astro";
+import LearnAccount from "../components/learn/LearnAccount.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteFooter from "../components/SiteFooter.astro";
 import { getConfig } from "../lib/config.ts";
 import { getCatalogFor } from "../lib/learn/content.ts";
 
@@ -30,7 +35,7 @@ const {
   alert,
 } = Astro.props;
 
-const { siteUrl } = getConfig();
+const { siteUrl, blogUrl } = getConfig();
 // The address the reader typed, not the route it was rewritten to (/learn/…).
 const here = Astro.locals.here ?? {
   pathname: Astro.url.pathname,
@@ -62,11 +67,10 @@ const catalog = await getCatalogFor(viewer?.role, Astro.locals.allowLocal);
   </head>
   <body>
     <a class="skip" href="#main">Skip to the content</a>
-    <LearnTopbar
-      showNav={layout === "reading"}
-      viewer={viewer}
-      next={here.pathname + here.search}
-    />
+    <SiteHeader site="learn" showNav={layout === "reading"}>
+      <LearnSearch />
+      <LearnAccount slot="end" viewer={viewer} next={here.pathname + here.search} />
+    </SiteHeader>
     {
       /* For an admin: a number and nothing else. What went wrong is in the
          server log, because it quotes files that may be `local` and gives
@@ -95,11 +99,13 @@ const catalog = await getCatalogFor(viewer?.role, Astro.locals.allowLocal);
       <slot />
     </div>
     <div class="scrim" data-scrim hidden></div>
-    <footer class="footer">
-      <a href={`${siteUrl}/`}>Joshua Noel</a> · Lectures are free to read. Found a mistake?{" "}
-      <a href={`${siteUrl}/#contact`}>Tell me.</a>
-    </footer>
+    <SiteFooter>
+      <a href={`${siteUrl}/`}>Joshua Noel</a> · <a href={`${blogUrl}/`}>Writing</a> · Lectures are free
+      to read. Found a mistake? <a href={`${siteUrl}/#contact`}>Tell me.</a>
+      <slot name="credit" />
+    </SiteFooter>
     <script>
+      import "../scripts/theme.js";
       import "../scripts/learn.js";
     </script>
   </body>

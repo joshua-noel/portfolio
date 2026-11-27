@@ -51,6 +51,11 @@ export default defineConfig({
   // Both hostnames are served by this one process; canonical URLs are built
   // from PORTFOLIO_SITE_URL / PORTFOLIO_BLOG_URL at runtime instead.
   trailingSlash: "never",
+  // Astro inlines a stylesheet smaller than 4 kB into the page as a <style>
+  // element, which the lecture host's policy (`style-src 'self'`) refuses. The
+  // shared token file is that small, so none is ever inlined: every stylesheet
+  // is a file, as the policy says. (The policy itself is unchanged.)
+  build: { inlineStylesheets: "never" },
   // No sharp (see pnpm.ignoredOptionalDependencies in package.json).
   // Nothing here uses astro:assets: uploads are resized in the browser. Astro's
   // /_image endpoint would still answer on every host and serve files from the
