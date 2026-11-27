@@ -13,6 +13,124 @@
 :root {
   --rail-l: clamp(14rem, 14vw, 19rem);
   --rail-r: clamp(13rem, 12vw, 17rem);
+  /* A critically damped spring as `linear()` points of 1 - (1 + wt) e^-wt (w = 8.8), one point
+     for every hundredth of the move: the speed changes by a hair from one point to the next, so
+     at 240 Hz (about 170 frames in a move) it is a curve, not steps. A move starts softly, is
+     quick through the middle and settles without overshoot; it is within a hair of rest after
+     about two thirds of the time given beside it. */
+  --spring: linear(
+    0, 0.0037, 0.0138, 0.0293, 0.0492, 0.0726, 0.0988, 0.1272, 0.1572, 0.1883,
+    0.2202, 0.2525, 0.2848, 0.317, 0.3489, 0.3802, 0.4109, 0.4408, 0.4699, 0.498,
+    0.5252, 0.5513, 0.5764, 0.6005, 0.6235, 0.6454, 0.6664, 0.6863, 0.7052, 0.7232,
+    0.7402, 0.7564, 0.7716, 0.786, 0.7997, 0.8125, 0.8246, 0.836, 0.8467, 0.8567,
+    0.8662, 0.8751, 0.8834, 0.8913, 0.8986, 0.9054, 0.9119, 0.9179, 0.9235, 0.9288,
+    0.9337, 0.9383, 0.9426, 0.9466, 0.9503, 0.9538, 0.9571, 0.9601, 0.9629, 0.9656,
+    0.968, 0.9703, 0.9724, 0.9744, 0.9762, 0.978, 0.9796, 0.981, 0.9824, 0.9837,
+    0.9849, 0.986, 0.987, 0.988, 0.9888, 0.9897, 0.9904, 0.9911, 0.9918, 0.9924,
+    0.993, 0.9935, 0.994, 0.9944, 0.9948, 0.9952, 0.9956, 0.9959, 0.9962, 0.9965,
+    0.9968, 0.997, 0.9972, 0.9974, 0.9976, 0.9978, 0.998, 0.9981, 0.9983, 0.9984,
+    1
+  );
+}
+
+/* How long a move between pages takes: the spring above, the one easing of the site's motion
+   (the shelf's moves, the panel, and the pages below), is shared by all of them. */
+:root {
+  --vt-fast: 0.22s;
+  --vt: 0.38s;
+}
+
+/* ---------- Moving between pages: view transitions ---------- */
+
+/* A navigation inside Learn is a cross-document view transition: the browser keeps the old
+   page on screen as a picture, loads the new one, and animates between them. CSS only; the
+   one script (learn-transitions.js, a file in <head>, so the policy is untouched) names the
+   direction. A browser without support ignores all of this and navigates as before, and a
+   reader who asks for less motion gets no transition at all. */
+@view-transition {
+  navigation: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+}
+
+/* The bar and the rails are named, so they are their own pictures and stay where they are
+   while the page under them moves. (The left rail is a drawer on a narrow window and is not
+   named there.) */
+.topbar {
+  view-transition-name: topbar;
+}
+@media (min-width: 50.01rem) {
+  .sidenav {
+    view-transition-name: sidenav;
+  }
+}
+.toc {
+  view-transition-name: toc;
+}
+::view-transition-group(topbar),
+::view-transition-group(sidenav),
+::view-transition-group(toc) {
+  animation-duration: 0s;
+}
+
+/* The rest of the page: a quiet cross-fade (a lecture to the next one, a search, a sign-in). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  mix-blend-mode: normal;
+  animation-duration: var(--vt-fast);
+  animation-timing-function: ease;
+}
+
+/* From the shelf or a course to a lecture: the lecture rises from the bottom and fades in
+   while the page it leaves fades out. */
+:root:active-view-transition-type(rise)::view-transition-old(root) {
+  animation: vt-fade-out var(--vt-fast) ease both;
+}
+:root:active-view-transition-type(rise)::view-transition-new(root) {
+  animation: vt-rise var(--vt) var(--spring) both;
+}
+
+/* And back: the lecture sinks and fades out over the page that is already there. */
+:root:active-view-transition-type(descend)::view-transition-old(root) {
+  z-index: 2;
+  animation: vt-sink var(--vt) var(--spring) both;
+}
+:root:active-view-transition-type(descend)::view-transition-new(root) {
+  animation: vt-fade-in var(--vt) ease both;
+}
+
+@keyframes vt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(30vh);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes vt-sink {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(30vh);
+  }
+}
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
 }
 
 /* For the admin only: lecture files that could not be loaded and were left out. */

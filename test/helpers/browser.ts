@@ -333,6 +333,11 @@ export class Page {
     await this.send("Input.dispatchKeyEvent", { type: "keyUp", ...base });
   }
 
+  /** Runs `source` in every document this page loads from now on, before any of its own scripts. */
+  async onNewDocument(source: string): Promise<void> {
+    await this.send("Page.addScriptToEvaluateOnNewDocument", { source });
+  }
+
   async screenshot(path: string): Promise<void> {
     const shot = (await this.send("Page.captureScreenshot", { format: "png" })) as {
       data: string;

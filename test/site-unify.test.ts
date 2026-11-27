@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { build, start, type Server } from "./helpers/server.ts";
 import { Browser, findBrowser, type Page } from "./helpers/browser.ts";
-import { visibilityLibrary, writeLibrary } from "./helpers/fixtures.ts";
+import { SECRET, visibilityLibrary, writeLibrary } from "./helpers/fixtures.ts";
 
 /**
  * The main site, the blog and Learn are one place: one token source, one top
@@ -15,7 +15,10 @@ import { visibilityLibrary, writeLibrary } from "./helpers/fixtures.ts";
 if (process.env.PORTFOLIO_SKIP_E2E) process.exit(0);
 
 const library = mkdtempSync(join(tmpdir(), "portfolio-unify-library-"));
-writeLibrary(library, visibilityLibrary());
+// The public course has a second lecture, to move from one lecture to the next.
+const courses = visibilityLibrary();
+courses[0]!.lectures.push({ order: 2, slug: "l-public-2", title: "Lecture public two", visibility: "public", secret: SECRET.public });
+writeLibrary(library, courses);
 
 let out: string;
 let server: Server;
@@ -46,17 +49,18 @@ const PAGES = [
 async function pageAt(
   url: string,
   theme: "dark" | "light" | null,
-  options: { width?: number; height?: number; reducedMotion?: boolean } = {},
+  options: { width?: number; height?: number; reducedMotion?: boolean; recordReveals?: boolean } = {},
 ): Promise<Page> {
   if (!browser) {
     const executable = findBrowser();
     assert.ok(executable, "no browser");
     browser = await Browser.launch(executable, { host: "*", port: server.port });
   }
+  const { recordReveals, ...pageOptions } = options;
   const page = await browser.newPage({
     width: 1440,
     height: 900,
-    ...options,
+    ...pageOptions,
     headers: { "x-forwarded-proto": "https" },
   });
   // Stored the way the switch stores it, on this host, before the page is read.
@@ -64,6 +68,8 @@ async function pageAt(
   await page.evaluate(
     theme ? `localStorage.setItem("learn-theme", "${theme}")` : `localStorage.removeItem("learn-theme")`,
   );
+  // Before the page itself loads, so the first document is one of those that report.
+  if (recordReveals) await page.onNewDocument(RECORD);
   await page.goto(url);
   await page.settle();
   return page;
@@ -309,4 +315,114 @@ test("the footer of the shelf page credits the two posts it was inspired by, as 
   const policy = (await server.request("learn", "GET", "/")).headers["content-security-policy"] as string;
   assert.match(policy, /default-src 'self'/);
   assert.doesNotMatch(policy, /x\.com|twitter/);
+});
+
+// ---------------------------------------------------------------- page transitions
+
+test("the page transitions are CSS in Learn's stylesheet, honour reduced motion, and the script that names the direction is a file", async () => {
+  const learn = read("learn.css");
+  assert.match(learn, /@view-transition\s*\{\s*navigation:\s*auto;\s*\}/);
+  assert.match(
+    learn,
+    /@media \(prefers-reduced-motion: reduce\)\s*\{\s*@view-transition\s*\{\s*navigation:\s*none;\s*\}\s*\}/,
+    "no transition at all for a reader who asks for less motion",
+  );
+  for (const name of ["topbar", "sidenav", "toc"]) assert.match(learn, new RegExp(`view-transition-name:\\s*${name};`));
+  for (const type of ["rise", "descend"]) assert.match(learn, new RegExp(`:active-view-transition-type\\(${type}\\)`));
+  // About 250 to 400 ms, and the shelf's own spring as the easing of the move.
+  const seconds = (name: string): number => Number(new RegExp(`--${name}:\\s*([\\d.]+)s`).exec(learn)?.[1]);
+  assert.ok(seconds("vt") >= 0.25 && seconds("vt") <= 0.4, `--vt ${seconds("vt")}s`);
+  assert.ok(seconds("vt-fast") >= 0.15 && seconds("vt-fast") <= 0.3, `--vt-fast ${seconds("vt-fast")}s`);
+  assert.match(learn, /animation:\s*vt-rise var\(--vt\) var\(--spring\)/);
+  assert.match(learn, /:root \{[^}]*--spring: linear\(/s);
+  assert.doesNotMatch(read("learn-bookshelf.css"), /--spring: linear\(/, "one definition of the spring");
+  // The other two hostnames have none of it.
+  for (const name of ["chrome.css", "global.css", "blog.css", "tokens.css"]) assert.doesNotMatch(read(name), /view-transition/);
+
+  // On every Learn page the script is a file in <head>, and no script is inline: the policy needs nothing new.
+  for (const path of ["/", "/c-public", "/c-public/l-public", "/signin"]) {
+    const res = await server.request("learn", "GET", path);
+    const head = /<head>[\s\S]*?<\/head>/.exec(res.text)?.[0] ?? "";
+    assert.match(head, /<script src="\/_astro\/learn-transitions\.[\w-]+\.js"><\/script>/, path);
+    assert.doesNotMatch(res.text, /<script(?![^>]*\bsrc=)[^>]*>\s*\S/, `${path}: an inline script`);
+    assert.match(String(res.headers["content-security-policy"]), /script-src 'self'(;|$)/);
+  }
+  // The main site and the blog do not load it.
+  for (const host of ["site", "blog"] as const) assert.doesNotMatch((await server.request(host, "GET", "/")).text, /learn-transitions/);
+});
+
+const RECORD = `window.addEventListener("pagereveal", (e) => {
+  const note = (what) => { try { sessionStorage.setItem("vt", JSON.stringify({ what, path: location.pathname })); } catch {} };
+  if (!e.viewTransition) return note({ transition: false });
+  e.viewTransition.ready.then(() => note({ transition: true, types: [...e.viewTransition.types] }), () => note({ transition: "skipped" }));
+});`;
+
+/** Navigates the way a link does, and waits for the new document. */
+async function go(page: Page, path: string): Promise<void> {
+  await page.evaluate(`sessionStorage.removeItem("vt"); setTimeout(() => location.assign(${JSON.stringify(path)}), 0); 1`);
+  await page.waitFor(`document.readyState === "complete" && location.pathname === ${JSON.stringify(path)}`, `arrive at ${path}`);
+}
+
+async function seen(page: Page): Promise<{ what: { transition: boolean | string; types?: string[] }; path: string }> {
+  await page.waitFor(`sessionStorage.getItem("vt")`, "the page reveal", 5000, `location.href + " " + JSON.stringify(Object.entries(sessionStorage)) + " " + document.readyState`);
+  return JSON.parse(await page.evaluate<string>(`sessionStorage.getItem("vt")`));
+}
+
+test(
+  "in a browser: up into a lecture, down on the way back, a cross-fade from one lecture to the next, and every script starts once",
+  { skip: NO_BROWSER },
+  async () => {
+    const page = await pageAt("http://learn.test/", "dark", { recordReveals: true });
+    try {
+      const front = (): Promise<string> =>
+        page.evaluate<string>(`document.querySelector('.names button[aria-current="true"]')?.getAttribute('aria-label') ?? ''`);
+      const number = async (): Promise<number> => Number.parseInt((await front()).slice(0, 2), 10);
+
+      // The shelf to a lecture rises.
+      await go(page, "/c-public/l-public");
+      let reveal = await seen(page);
+      assert.deepEqual(reveal.what, { transition: true, types: ["rise"] }, "shelf to lecture");
+      // Scripts start once: one press of the theme switch is one change, not two.
+      const before = await page.evaluate<string>("document.documentElement.dataset.theme");
+      await page.click("[data-theme-toggle]");
+      assert.notEqual(await page.evaluate("document.documentElement.dataset.theme"), before, "the switch changed the theme once");
+      await page.click("[data-theme-toggle]");
+      assert.equal(await page.evaluate("document.documentElement.dataset.theme"), before);
+
+      // Back to the shelf descends; the shelf's own script has started once (one arrow, one book).
+      await page.evaluate(`sessionStorage.removeItem("vt"); history.back(); 1`);
+      await page.waitFor(`location.pathname === "/" && document.readyState === "complete"`, "back at the shelf");
+      reveal = await seen(page);
+      assert.deepEqual(reveal.what, { transition: true, types: ["descend"] }, "lecture back to the shelf");
+      await page.waitFor("document.querySelectorAll('.names button').length >= 3", "the books");
+      await page.settle();
+      const at = await number();
+      await page.press("ArrowRight");
+      await page.waitFor(`Number.parseInt((${"document.querySelector('.names button[aria-current=\"true\"]')?.getAttribute('aria-label') ?? ''"}).slice(0, 2), 10) !== ${at}`, "the next book");
+      await page.settle();
+      assert.equal(await number(), at + 1, "one arrow moves one book");
+
+      // A course page to a lecture rises; one lecture to the next is the quiet cross-fade.
+      await go(page, "/c-public");
+      await go(page, "/c-public/l-public");
+      assert.deepEqual((await seen(page)).what, { transition: true, types: ["rise"] }, "course to lecture");
+      await go(page, "/c-public/l-public-2");
+      assert.deepEqual((await seen(page)).what, { transition: true, types: ["fade"] }, "lecture to lecture");
+      assert.deepEqual(page.errors, [], "console errors");
+      assert.deepEqual(await page.reportedViolations(), [], "policy violations");
+    } finally {
+      await page.close();
+    }
+  },
+);
+
+test("in a browser: a reader who asks for less motion gets no transition", { skip: NO_BROWSER }, async () => {
+  const page = await pageAt("http://learn.test/", "dark", { reducedMotion: true, recordReveals: true });
+  try {
+    await go(page, "/c-public/l-public");
+    assert.deepEqual((await seen(page)).what, { transition: false });
+    assert.deepEqual(page.errors, []);
+  } finally {
+    await page.close();
+  }
 });

@@ -1,6 +1,7 @@
 ---
 import "katex/dist/katex.min.css";
 import initScript from "../scripts/theme-init.js?url";
+import transitionsScript from "../scripts/learn-transitions.js?url";
 import "../styles/tokens.css";
 import "../styles/chrome.css";
 import "../styles/learn.css";
@@ -54,6 +55,8 @@ const catalog = await getCatalogFor(viewer?.role, Astro.locals.allowLocal);
     <!-- Before first paint, so there is no flash: the theme. A file, because the
          Content-Security-Policy allows no inline script. -->
     <script is:inline src={initScript}></script>
+    <!-- Names the direction of a page transition before first paint (see learn.css). -->
+    <script is:inline src={transitionsScript}></script>
     <title>{title}</title>
     <meta name="description" content={description} />
     {canonical && <link rel="canonical" href={canonical} />}
