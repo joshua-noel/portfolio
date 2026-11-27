@@ -332,8 +332,9 @@ test("the page transitions are CSS in Learn's stylesheet, honour reduced motion,
   for (const type of ["rise", "descend"]) assert.match(learn, new RegExp(`:active-view-transition-type\\(${type}\\)`));
   // About 250 to 400 ms, and the shelf's own spring as the easing of the move.
   const seconds = (name: string): number => Number(new RegExp(`--${name}:\\s*([\\d.]+)s`).exec(learn)?.[1]);
-  assert.ok(seconds("vt") >= 0.25 && seconds("vt") <= 0.4, `--vt ${seconds("vt")}s`);
-  assert.ok(seconds("vt-fast") >= 0.15 && seconds("vt-fast") <= 0.3, `--vt-fast ${seconds("vt-fast")}s`);
+  // The owner asked for a slower move (26 Nov): calm, but still under a second.
+  assert.ok(seconds("vt") >= 0.25 && seconds("vt") <= 0.7, `--vt ${seconds("vt")}s`);
+  assert.ok(seconds("vt-fast") >= 0.15 && seconds("vt-fast") <= 0.4, `--vt-fast ${seconds("vt-fast")}s`);
   assert.match(learn, /animation:\s*vt-rise var\(--vt\) var\(--spring\)/);
   assert.match(learn, /:root \{[^}]*--spring: linear\(/s);
   assert.doesNotMatch(read("learn-bookshelf.css"), /--spring: linear\(/, "one definition of the spring");
