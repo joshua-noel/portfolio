@@ -426,3 +426,70 @@ test("in a browser: a reader who asks for less motion gets no transition", { ski
     await page.close();
   }
 });
+
+// ---------------------------------------------------------------- stealth release
+
+test("the stealth switch: off is today's behaviour, on hides Learn from search and from the other two hosts, private needs an account", async () => {
+  const stop: Server[] = [];
+  try {
+    // OFF (the default): the lecture host is indexable, announced and linked.
+    const off = await server.request("learn", "GET", "/");
+    assert.equal(off.headers["x-robots-tag"], undefined);
+    assert.match(off.text, /<meta property="og:title"/);
+    assert.match((await server.request("site", "GET", "/")).text, /href="https:\/\/learn\.test\/"/);
+    assert.match((await server.request("site", "GET", "/sitemap.xml")).text, /learn\.test/);
+    assert.doesNotMatch((await server.request("learn", "GET", "/robots.txt")).text, /Disallow: \/\n/);
+
+    // ON.
+    const on = await start({ out, contentDirs: [library], env: { PORTFOLIO_LEARN_STEALTH: "1" } });
+    stop.push(on);
+    for (const path of ["/", "/c-public", "/c-public/l-public", "/signin", "/nothing-here"]) {
+      const res = await on.request("learn", "GET", path);
+      assert.equal(res.headers["x-robots-tag"], "noindex, nofollow, noarchive", path);
+      if (res.headers["content-type"]?.toString().includes("html")) {
+        assert.match(res.text, /<meta name="robots" content="noindex, nofollow, noarchive"/, path);
+        assert.doesNotMatch(res.text, /og:|twitter:/, `${path}: no preview card`);
+      }
+    }
+    assert.equal((await on.request("learn", "GET", "/robots.txt")).text, "User-agent: *\nDisallow: /\n");
+    assert.equal((await on.request("learn", "GET", "/sitemap.xml")).status, 404);
+    assert.equal((await on.request("learn", "GET", "/rss.xml")).status, 404);
+    assert.equal((await on.request("learn", "GET", "/c-public/l-public")).status, 200, "on is not access control");
+    for (const [host, path] of [["site", "/"], ["site", "/sitemap.xml"], ["site", "/robots.txt"], ["blog", "/"], ["blog", "/rss.xml"], ["blog", "/sitemap.xml"]] as const) {
+      const res = await on.request(host, "GET", path);
+      assert.equal(res.status, 200, `${host}${path}`);
+      assert.doesNotMatch(res.text, /learn\.test/i, `${host}${path} names the Learn host`);
+      assert.doesNotMatch(res.text, />\s*Learn\s*</, `${host}${path} has a Learn link`);
+    }
+    // resume.pdf names no Learn host either.
+    assert.doesNotMatch((await on.request("site", "GET", "/resume.pdf")).text, /learn\.test/i);
+
+    // PRIVATE.
+    const priv = await start({ out, contentDirs: [library], env: { PORTFOLIO_LEARN_STEALTH: "private" } });
+    stop.push(priv);
+    assert.equal(priv.user(["add", "mia", "--role", "member"], { password: "correct horse battery" }).status, 0);
+    for (const path of ["/", "/c-public", "/c-public/l-public", "/search", "/search.json", "/covers/c-public.svg", "/media/c-public/x.mp4", "/zzz"]) {
+      const res = await priv.request("learn", "GET", path);
+      assert.equal(res.status, 404, path);
+      assert.equal(res.text, "Not found", `${path}: the bare 404, which does not name the site`);
+    }
+    assert.equal((await priv.request("learn", "GET", "/signin")).status, 200);
+    assert.equal((await priv.request("learn", "GET", "/robots.txt")).status, 200);
+    const login = await priv.request("learn", "POST", "/signin", {
+      form: { username: "mia", password: "correct horse battery", next: "/" },
+      origin: "https://learn.test",
+      headers: { "x-forwarded-for": "198.51.100.77" },
+    });
+    const cookie = login.cookies.find((c) => c.startsWith("__Host-learn_session="))?.split(";")[0] ?? "";
+    assert.ok(cookie, "signed in");
+    assert.equal((await priv.request("learn", "GET", "/c-public/l-public", { cookie })).status, 200);
+    assert.equal((await priv.request("learn", "GET", "/c-members/l-members", { cookie })).status, 200, "the existing visibility rules still decide");
+    assert.equal((await priv.request("learn", "GET", "/c-friends/l-friends", { cookie })).status, 403, "and a member still cannot read a friends lecture");
+  } finally {
+    for (const s of stop) await s.stop();
+  }
+});
+
+test("a mistyped stealth value refuses to start", async () => {
+  await assert.rejects(start({ out, contentDirs: [library], env: { PORTFOLIO_LEARN_STEALTH: "maybe" }, anyAnswer: false }));
+});

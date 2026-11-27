@@ -16,14 +16,15 @@ interface Props {
 }
 
 const { site, current, showNav = false } = Astro.props;
-const { siteUrl, blogUrl, learnUrl } = getConfig();
+const { siteUrl, blogUrl, learnUrl, learnStealth } = getConfig();
 const items =
   site === "learn"
     ? []
     : [
         { label: "Work", href: `${siteUrl}/#work` },
         { label: "Writing", href: `${blogUrl}/`, current: current === "writing" },
-        { label: "Learn", href: `${learnUrl}/` },
+        // A stealth release shows nothing of Learn on this site.
+        ...(learnStealth === "off" ? [{ label: "Learn", href: `${learnUrl}/` }] : []),
         { label: "Contact", href: `${siteUrl}/#contact`, wide: true },
         { label: "Resume", href: `${siteUrl}/resume.pdf`, wide: true },
       ];

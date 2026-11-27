@@ -36,7 +36,9 @@ const {
   alert,
 } = Astro.props;
 
-const { siteUrl, blogUrl } = getConfig();
+const { siteUrl, blogUrl, learnStealth } = getConfig();
+// A stealth release: not indexed, followed or archived, and no preview card for a pasted link.
+const stealth = learnStealth !== "off";
 // The address the reader typed, not the route it was rewritten to (/learn/…).
 const here = Astro.locals.here ?? {
   pathname: Astro.url.pathname,
@@ -60,13 +62,13 @@ const catalog = await getCatalogFor(viewer?.role, Astro.locals.allowLocal);
     <title>{title}</title>
     <meta name="description" content={description} />
     {canonical && <link rel="canonical" href={canonical} />}
-    {noindex && <meta name="robots" content="noindex" />}
-    <meta property="og:site_name" content="Joshua Noel · Learn" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:type" content={current?.lecture ? "article" : "website"} />
-    {canonical && <meta property="og:url" content={canonical} />}
-    <meta name="twitter:card" content="summary" />
+    {stealth ? <meta name="robots" content="noindex, nofollow, noarchive" /> : noindex && <meta name="robots" content="noindex" />}
+    {!stealth && <meta property="og:site_name" content="Joshua Noel · Learn" />}
+    {!stealth && <meta property="og:title" content={title} />}
+    {!stealth && <meta property="og:description" content={description} />}
+    {!stealth && <meta property="og:type" content={current?.lecture ? "article" : "website"} />}
+    {!stealth && canonical && <meta property="og:url" content={canonical} />}
+    {!stealth && <meta name="twitter:card" content="summary" />}
   </head>
   <body>
     <a class="skip" href="#main">Skip to the content</a>

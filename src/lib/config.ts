@@ -41,6 +41,8 @@ export interface Config {
   siteUrl: string;
   blogUrl: string;
   learnUrl: string;
+  /** The stealth release switch (PORTFOLIO_LEARN_STEALTH): see `parseStealth`. */
+  learnStealth: Stealth;
   siteHost: string;
   blogHost: string;
   learnHost: string;
@@ -84,6 +86,24 @@ function contentDirs(env: Env): string[] {
     ? list.split(delimiter).filter((dir) => dir.trim() !== "")
     : [one ?? "content/learn"];
   return dirs.map((dir) => resolve(dir.trim()));
+}
+
+/**
+ * PORTFOLIO_LEARN_STEALTH: the "stealth release" switch, read once at start.
+ * Unset, `0` or `off` is today's behaviour. `1` or `on` keeps the lecture host
+ * out of search engines and out of every sitemap and link of the other two
+ * (discoverability control, NOT access control). `private` is that plus a
+ * signed-in account for every lecture page. Anything else refuses to start, so
+ * a typo cannot leave the site more public than meant.
+ */
+export type Stealth = "off" | "on" | "private";
+
+export function parseStealth(value: string | undefined): Stealth {
+  const v = value?.trim().toLowerCase();
+  if (v === undefined || v === "" || v === "0" || v === "off") return "off";
+  if (v === "1" || v === "on") return "on";
+  if (v === "private") return "private";
+  throw new Error(`PORTFOLIO_LEARN_STEALTH must be unset, 0, 1 or private (got "${value}")`);
 }
 
 export function loadConfig(
@@ -139,6 +159,7 @@ export function loadConfig(
     stateDir,
     learnContentDirs: contentDirs(env),
     learnAllowLocal,
+    learnStealth: parseStealth(readEnv("PORTFOLIO_LEARN_STEALTH", env)),
     dbPath: readEnv("PORTFOLIO_DB_PATH", env) ?? join(stateDir, "portfolio.db"),
     uploadsDir: readEnv("PORTFOLIO_UPLOADS_DIR", env) ?? join(stateDir, "uploads"),
     siteUrl: siteUrl.replace(/\/+$/, ""),
