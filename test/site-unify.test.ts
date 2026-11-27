@@ -291,3 +291,22 @@ test("the shelf's floor shadow fades to nothing on every side of its box: no har
   const strengths = [...gradient.matchAll(/(?:var\(--pool\)|--pool\) (\d+)%)/g)].map((m) => Number(m[1] ?? 100));
   for (let i = 1; i < strengths.length; i++) assert.ok(strengths[i]! <= strengths[i - 1]!, "stops fade out");
 });
+
+test("the footer of the shelf page credits the two posts it was inspired by, as plain links", async () => {
+  const shelf = (await server.request("learn", "GET", "/")).text;
+  const footer = /<footer class="footer">[\s\S]*?<\/footer>/.exec(shelf)?.[0] ?? "";
+  assert.match(footer, /Shelf design inspired by/);
+  for (const [url, handle] of [
+    ["https://x.com/sahil0x01/status/2124697500229759375", "@sahil0x01"],
+    ["https://x.com/vineerpasam/status/2124902293254594759", "@vineerpasam"],
+  ] as const) {
+    assert.match(footer, new RegExp(`<a href="${url.replace(/[.]/g, "\\.")}" rel="noopener noreferrer">${handle}</a>`));
+  }
+  // Plain links: nothing from those sites is embedded, scripted or loaded as an image.
+  assert.doesNotMatch(shelf, /<(?:script|img|iframe|link)[^>]*(?:x\.com|twitter\.com)/i);
+  // Only the shelf page has the line.
+  assert.doesNotMatch((await server.request("learn", "GET", "/c-public/l-public")).text, /Shelf design inspired by/);
+  const policy = (await server.request("learn", "GET", "/")).headers["content-security-policy"] as string;
+  assert.match(policy, /default-src 'self'/);
+  assert.doesNotMatch(policy, /x\.com|twitter/);
+});
