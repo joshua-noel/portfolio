@@ -1,6 +1,6 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { build, start, type Server } from "./helpers/server.ts";
@@ -247,4 +247,33 @@ test("the icons of the main site are one colour, the text colour of where they s
       await page.close();
     }
   }
+});
+
+test("Chaperone is named, linked to its repository, and Access Broker is nowhere in the built site or its pages", async () => {
+  const gone = /access[\s-]+broker/i;
+  const files: string[] = [];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir)) {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) walk(path);
+      else if (/\.(?:m?js|css|html|json|xml|txt|svg|map)$/i.test(entry)) files.push(path);
+    }
+  };
+  walk(out);
+  assert.ok(files.length > 20, "the built files were found");
+  for (const file of files) assert.doesNotMatch(readFileSync(file, "utf8"), gone, file);
+
+  for (const [host, path] of [
+    ["site", "/"],
+    ["blog", "/"],
+    ["site", "/sitemap.xml"],
+    ["blog", "/rss.xml"],
+    ["learn", "/"],
+  ] as const) {
+    const res = await server.request(host, "GET", path);
+    assert.doesNotMatch(res.text, gone, `${host}${path}`);
+  }
+  const home = (await server.request("site", "GET", "/")).text;
+  assert.match(home, /<a href="https:\/\/github\.com\/joshua-noel\/chaperone">Chaperone<\/a>/);
+  assert.match(home, /Apache-2\.0/);
 });
