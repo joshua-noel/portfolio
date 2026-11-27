@@ -11,6 +11,7 @@ import LearnAccount from "../components/learn/LearnAccount.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import SiteFooter from "../components/SiteFooter.astro";
 import { getConfig } from "../lib/config.ts";
+import { configuredThemeCookieDomain } from "../lib/theme-cookie.ts";
 import { getCatalogFor } from "../lib/learn/content.ts";
 
 interface Props {
@@ -49,7 +50,7 @@ const catalog = await getCatalogFor(viewer?.role, Astro.locals.allowLocal);
 ---
 
 <!doctype html>
-<html lang="en" data-alert={alert} data-theme="dark">
+<html lang="en" data-alert={alert} data-theme="dark" data-theme-domain={configuredThemeCookieDomain()}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

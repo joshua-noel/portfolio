@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { build, start, type Server } from "./helpers/server.ts";
 import { Browser, findBrowser, type Page } from "./helpers/browser.ts";
 import { SECRET, visibilityLibrary, writeLibrary } from "./helpers/fixtures.ts";
+import { themeCookieDomain } from "../src/lib/theme-cookie.ts";
 
 /**
  * The main site, the blog and Learn are one place: one token source, one top
@@ -497,3 +498,118 @@ test("a mistyped stealth value refuses to start", async () => {
     /PORTFOLIO_LEARN_STEALTH must be/,
   );
 });
+
+// ---------------------------------------------------------------- the theme choice across hostnames
+
+test("the cookie domain is the parent the three hostnames share, and none when they share no parent", () => {
+  const domain = (...urls: string[]): string | undefined => themeCookieDomain(urls);
+  assert.equal(domain("https://example.com", "https://blog.example.com", "https://learn.example.com"), "example.com");
+  assert.equal(domain("https://www.example.com", "https://blog.example.com", "https://learn.example.com"), "example.com");
+  assert.equal(domain("https://a.b.example.org", "https://c.b.example.org", "https://d.b.example.org"), "b.example.org");
+  assert.equal(domain("https://a.example.com", "https://b.example.net", "https://c.example.com"), undefined, "no shared parent");
+  assert.equal(domain("http://localhost:4321", "http://blog.localhost:4321", "http://learn.localhost:4321"), undefined, "a single label");
+  assert.equal(domain("http://site.localhost", "http://blog.localhost", "http://learn.localhost"), undefined, "a single label");
+  assert.equal(domain("http://127.0.0.1:4321", "http://127.0.0.1:4322", "http://127.0.0.1:4323"), undefined, "an IP address");
+  assert.equal(domain("http://[::1]:4321", "http://[::1]:4322", "http://[::1]:4323"), undefined);
+  assert.equal(domain("https://site.test", "https://blog.test", "https://learn.test"), undefined, "a single label in common");
+});
+
+test("the server never reads the theme cookie and it changes nothing that is served or cached", async () => {
+  // No code reads a cookie but the two sessions'.
+  for (const file of ["../src/middleware.ts", "../src/pages/learn/signin.astro", "../src/pages/learn/signout.ts", "../src/pages/api/login.ts", "../src/pages/api/logout.ts"]) {
+    assert.doesNotMatch(readFileSync(new URL(file, import.meta.url), "utf8"), /["'`]theme["'`]/, file);
+  }
+  for (const path of ["/", "/c-public/l-public", "/signin"]) {
+    const plain = await server.request("learn", "GET", path);
+    const themed = await server.request("learn", "GET", path, { cookie: "theme=light" });
+    const hostile = await server.request("learn", "GET", path, { cookie: "theme=<script>alert(1)</script>" });
+    for (const other of [themed, hostile]) {
+      assert.equal(other.status, plain.status, path);
+      assert.equal(other.text, plain.text, `${path}: the same page`);
+      for (const name of ["cache-control", "vary", "content-security-policy"])
+        assert.equal(other.headers[name], plain.headers[name], `${path}: ${name}`);
+    }
+    assert.match(String(plain.headers.vary), /Cookie/);
+  }
+  const home = await server.request("site", "GET", "/", { cookie: "theme=light" });
+  assert.equal(home.text, (await server.request("site", "GET", "/")).text);
+});
+
+test(
+  "in a browser: the choice made on one hostname is the theme of the other two, and a hostile cookie is ignored",
+  { skip: NO_BROWSER },
+  async () => {
+    // Three hostnames under one parent (example.test), on loopback.
+    const shared = await start({
+      out,
+      contentDirs: [library],
+      env: {
+        PORTFOLIO_SITE_URL: "https://example.test",
+        PORTFOLIO_BLOG_URL: "https://blog.example.test",
+        PORTFOLIO_LEARN_URL: "https://learn.example.test",
+      },
+    });
+    const executable = findBrowser();
+    assert.ok(executable);
+    const own = await Browser.launch(executable, { host: "*", port: shared.port });
+    const hosts = ["example.test", "blog.example.test", "learn.example.test"] as const;
+    const open = async (host: string): Promise<Page> => {
+      const page = await own.newPage({ headers: { "x-forwarded-proto": "https" } });
+      // The theme as the first paint has it: read when the document has only been parsed.
+      await page.onNewDocument(`document.addEventListener("DOMContentLoaded", () => { window.__first = document.documentElement.dataset.theme; });`);
+      await page.goto(`http://${host}/`);
+      return page;
+    };
+    try {
+      assert.equal(await (await open(hosts[0])).evaluate("document.documentElement.dataset.themeDomain"), "example.test");
+      // Nothing chosen yet: dark everywhere.
+      for (const host of hosts) {
+        const page = await open(host);
+        assert.equal(await page.evaluate("document.documentElement.dataset.theme"), "dark", host);
+      }
+      // Switch on Learn: the other two follow, with no flash on first paint.
+      const learn = await open(hosts[2]);
+      await learn.click("[data-theme-toggle]");
+      assert.equal(await learn.evaluate("document.documentElement.dataset.theme"), "light");
+      const sent = (await (learn as unknown as { send(m: string, p: object): Promise<{ cookies: Record<string, unknown>[] }> }).send("Network.getCookies", {
+        urls: ["http://learn.example.test/"],
+      })).cookies.find((c) => c.name === "theme");
+      assert.ok(sent, "the cookie was set");
+      assert.equal(sent.value, "light");
+      assert.equal(sent.domain, ".example.test", "the shared parent");
+      assert.equal(sent.path, "/");
+      assert.equal(sent.sameSite, "Lax");
+      assert.equal(sent.httpOnly, false, "the page script reads it");
+      assert.equal(sent.secure, false, "not Secure on http");
+      assert.ok(Math.abs((sent.expires as number) - (Date.now() / 1000 + 31536000)) < 600, "a year");
+      for (const host of hosts) {
+        const page = await open(host);
+        assert.equal(await page.evaluate("window.__first"), "light", `${host}: light at first paint`);
+        assert.equal(await page.evaluate("document.documentElement.dataset.theme"), "light", host);
+        assert.deepEqual(page.errors, [], host);
+        assert.deepEqual(await page.reportedViolations(), [], host);
+      }
+      // And back, from the main site.
+      const main = await open(hosts[0]);
+      await main.click("[data-theme-toggle]");
+      assert.equal(await (await open(hosts[1])).evaluate("window.__first"), "dark");
+
+      // A hostile or odd value is ignored: the page falls back to this host's own choice, then the default.
+      const blog = await open(hosts[1]);
+      for (const value of ["<script>alert(1)<%2Fscript>", "evil", "LIGHT", "light%3B", "", "dark;light"]) {
+        await blog.evaluate(`document.cookie = "theme=${value}; Domain=example.test; Path=/"`);
+        await blog.evaluate(`localStorage.removeItem("learn-theme")`);
+        await blog.goto(`http://${hosts[1]}/`);
+        assert.equal(await blog.evaluate("document.documentElement.dataset.theme"), "dark", `ignored: ${value}`);
+      }
+      // No cookie at all: this host's own choice still works.
+      await blog.evaluate(`document.cookie = "theme=; Domain=example.test; Path=/; Max-Age=0"; localStorage.setItem("learn-theme", "light")`);
+      await blog.goto(`http://${hosts[1]}/`);
+      assert.equal(await blog.evaluate("document.documentElement.dataset.theme"), "light");
+      assert.deepEqual(blog.errors, []);
+    } finally {
+      await own.close();
+      await shared.stop();
+    }
+  },
+);
