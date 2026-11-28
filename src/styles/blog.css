@@ -80,6 +80,8 @@
 .prose,
 .post-header {
   max-width: var(--measure);
+  /* The reading column sits in the middle of the page, under the wider cover. */
+  margin-inline: auto;
 }
 
 .prose {
@@ -146,7 +148,9 @@
 }
 
 .prose blockquote {
+  margin-inline: 0;
   padding-left: 1.25rem;
+  border-left: 3px solid var(--border);
   color: var(--muted);
 }
 
