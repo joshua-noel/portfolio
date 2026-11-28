@@ -83,6 +83,9 @@
 }
 
 .prose {
+  /* The reading column sits in the middle of the page, under the wider cover;
+     the title stays on the page's left edge. */
+  margin-inline: auto;
   font-size: 1rem;
   line-height: 1.75;
   color: var(--fg);
@@ -146,7 +149,9 @@
 }
 
 .prose blockquote {
+  margin-inline: 0;
   padding-left: 1.25rem;
+  border-left: 3px solid var(--border);
   color: var(--muted);
 }
 
