@@ -80,11 +80,12 @@
 .prose,
 .post-header {
   max-width: var(--measure);
-  /* The reading column sits in the middle of the page, under the wider cover. */
-  margin-inline: auto;
 }
 
 .prose {
+  /* The reading column sits in the middle of the page, under the wider cover;
+     the title stays on the page's left edge. */
+  margin-inline: auto;
   font-size: 1rem;
   line-height: 1.75;
   color: var(--fg);
